@@ -28,6 +28,8 @@ cdef extern from "metadata.hpp":
         int64_t dictionary_page_offset
         
         # Statistics
+        bint has_min
+        bint has_max
         string min
         string max
         int64_t null_count

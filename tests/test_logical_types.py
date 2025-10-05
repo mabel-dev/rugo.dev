@@ -34,7 +34,15 @@ EQUIVALENT_TYPES = {
     "timestamp[ns]": ["timestamp[ns]"],
     "uint16": ["uint16"],
     "varchar": ["string"],
+    "json": ["struct"],  # handled specially
 }
+
+
+def _arrow_matches(logical: str, arrow_type: str) -> bool:
+    if logical == "json":
+        return arrow_type.startswith("struct<") or arrow_type == "struct"
+    matches = EQUIVALENT_TYPES.get(logical, [])
+    return arrow_type in matches
 
 
 def test_logical_types():
@@ -84,7 +92,9 @@ def test_comparison_with_pyarrow():
             if "." not in col["name"]:
                 logical = col.get('logical_type', '')
                 print(f"    {col['name']:25} | physical={col['type']:17} | logical={logical or '(none)':<17}  | arrow={arrow_types.get(col['name'], '(missing)')}")
-                assert arrow_types.get(col['name']) in EQUIVALENT_TYPES.get(logical, []), col['name']
+                arrow_type = arrow_types.get(col['name'])
+                assert arrow_type is not None, f"Missing arrow type for {col['name']}"
+                assert _arrow_matches(logical, arrow_type), col['name']
         print()
 
 if __name__ == "__main__":

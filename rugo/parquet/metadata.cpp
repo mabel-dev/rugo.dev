@@ -430,6 +430,10 @@ static SchemaElement ParseSchemaElement(TInput &in) {
 // 6: optional binary min_value
 static void ParseStatistics(TInput &in, ColumnStats &cs) {
   std::string legacy_min, legacy_max, v2_min, v2_max;
+  bool legacy_min_set = false;
+  bool legacy_max_set = false;
+  bool v2_min_set = false;
+  bool v2_max_set = false;
   int16_t last_id = 0;
   while (true) {
     auto fh = ReadFieldHeader(in, last_id);
@@ -438,9 +442,11 @@ static void ParseStatistics(TInput &in, ColumnStats &cs) {
     switch (fh.id) {
     case 1:
       legacy_max = ReadString(in);
+      legacy_max_set = true;
       break;
     case 2:
       legacy_min = ReadString(in);
+      legacy_min_set = true;
       break;
     case 3:
       cs.null_count = ReadI64(in);
@@ -450,17 +456,38 @@ static void ParseStatistics(TInput &in, ColumnStats &cs) {
       break;
     case 5:
       v2_max = ReadString(in);
+      v2_max_set = true;
       break;
     case 6:
       v2_min = ReadString(in);
+      v2_min_set = true;
       break;
     default:
       SkipField(in, fh.type);
       break;
     }
   }
-  cs.min = !v2_min.empty() ? v2_min : legacy_min;
-  cs.max = !v2_max.empty() ? v2_max : legacy_max;
+  if (v2_min_set) {
+    cs.min = v2_min;
+    cs.has_min = true;
+  } else if (legacy_min_set) {
+    cs.min = legacy_min;
+    cs.has_min = true;
+  } else {
+    cs.min.clear();
+    cs.has_min = false;
+  }
+
+  if (v2_max_set) {
+    cs.max = v2_max;
+    cs.has_max = true;
+  } else if (legacy_max_set) {
+    cs.max = legacy_max;
+    cs.has_max = true;
+  } else {
+    cs.max.clear();
+    cs.has_max = false;
+  }
 }
 
 // parquet.thrift ColumnMetaData

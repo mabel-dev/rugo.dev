@@ -31,6 +31,8 @@ struct ColumnStats {
   int64_t dictionary_page_offset = -1;
 
   // Statistics
+  bool has_min = false;
+  bool has_max = false;
   std::string min;
   std::string max;
   int64_t null_count = -1;

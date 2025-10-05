@@ -155,9 +155,7 @@ def rugo_to_orso_schema(
         raise ValueError("rugo_metadata must be a dictionary")
 
     if not rugo_metadata.get("schema_columns") and not rugo_metadata.get("row_groups"):
-        raise ValueError(
-            "rugo_metadata must contain 'schema_columns' or 'row_groups'"
-        )
+        raise ValueError("rugo_metadata must contain 'schema_columns' or 'row_groups'")
 
     columns = []
     for entry in _columns_from_metadata(rugo_metadata):

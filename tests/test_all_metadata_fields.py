@@ -35,6 +35,7 @@ def test_all_metadata_fields_exposed():
             'name',
             'type',  # physical_type in C++
             'logical_type',
+            'path_in_schema',  # not always present
             
             # Sizes & counts
             'num_values',
