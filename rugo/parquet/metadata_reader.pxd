@@ -6,6 +6,12 @@ from libcpp.unordered_map cimport unordered_map
 
 
 cdef extern from "metadata.hpp":
+    cdef cppclass MetadataParseOptions:
+        bint schema_only
+        bint include_statistics
+        long long max_row_groups
+        MetadataParseOptions() except +
+
     cdef cppclass ColumnStats:
         string name
         string physical_type
@@ -43,12 +49,36 @@ cdef extern from "metadata.hpp":
         long long total_byte_size
         vector[ColumnStats] columns
 
+    cdef cppclass SchemaElement:
+        string name
+        string full_name
+        string physical_type
+        string logical_type
+        int num_children
+        int type_length
+        int scale
+        int precision
+        int repetition_type
+        vector[SchemaElement] children
+
+    cdef cppclass SchemaField:
+        string name
+        string physical_type
+        string logical_type
+        bint nullable
+
     cdef cppclass FileStats:
         long long num_rows
         vector[RowGroupStats] row_groups
+        vector[SchemaElement] schema
+        vector[SchemaField] schema_columns
 
     FileStats ReadParquetMetadataC(const char* path)
     FileStats ReadParquetMetadataFromBuffer(const uint8_t* buf, size_t size)
+    FileStats ReadParquetMetadataC(const char* path, const MetadataParseOptions& options)
+    FileStats ReadParquetMetadata(const string& path, const MetadataParseOptions& options)
+    FileStats ReadParquetMetadata(const string& path)
+    FileStats ReadParquetMetadataFromBuffer(const uint8_t* buf, size_t size, const MetadataParseOptions& options)
     bint TestBloomFilter(const string& file_path, long long bloom_offset, long long bloom_length, const string& value)
     
     # Helper functions

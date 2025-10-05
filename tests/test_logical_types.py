@@ -77,17 +77,15 @@ def test_comparison_with_pyarrow():
         schema = pf.schema.to_arrow_schema()
         arrow_types = {field.name: str(field.type) for field in schema} 
         
-        print(" PyArrow schema:", arrow_types)
         # Our interpretation
         meta = parquet_meta.read_metadata(file_path)
-        print(f" Our interpretation: {[n['name'] for n in meta['row_groups'][0]['columns']]}")
         print("   schema:")
         for col in meta['row_groups'][0]['columns']:
             if "." not in col["name"]:
                 logical = col.get('logical_type', '')
-                print(f"    {col['name']:20} | physical={col['type']:17} | logical={logical or '(none)':<17}  | arrow={arrow_types.get(col['name'], '(missing)')}")
+                print(f"    {col['name']:25} | physical={col['type']:17} | logical={logical or '(none)':<17}  | arrow={arrow_types.get(col['name'], '(missing)')}")
                 assert arrow_types.get(col['name']) in EQUIVALENT_TYPES.get(logical, []), col['name']
-
+        print()
 
 if __name__ == "__main__":
     pytest.main([__file__])

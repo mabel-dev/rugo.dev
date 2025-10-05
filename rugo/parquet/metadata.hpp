@@ -4,6 +4,12 @@
 #include <unordered_map>
 #include <vector>
 
+struct MetadataParseOptions {
+  bool schema_only = false;
+  bool include_statistics = true;
+  int64_t max_row_groups = -1;
+};
+
 struct LogicalTypeInfo {
   std::string type_name; // e.g. "STRING", "TIMESTAMP_MILLIS", "DECIMAL"
   // Additional logical type parameters could be added here if needed
@@ -50,25 +56,45 @@ struct RowGroupStats {
 
 struct SchemaElement {
   std::string name;
+  std::string full_name;
+  std::string physical_type;
   std::string logical_type;
   int num_children = 0;
   int32_t type_length = 0; // for FIXED_LEN_BYTE_ARRAY (e.g. flba5)
   int32_t scale = 0;       // for DECIMAL
   int32_t precision = 0;   // for DECIMAL
+  int32_t repetition_type = -1;
   std::vector<SchemaElement> children;
+};
+
+struct SchemaField {
+  std::string name;
+  std::string physical_type;
+  std::string logical_type;
+  bool nullable = true;
 };
 
 struct FileStats {
   int64_t num_rows = 0;
   std::vector<RowGroupStats> row_groups;
   std::vector<SchemaElement> schema;
+  std::vector<SchemaField> schema_columns;
 };
 
+FileStats ReadParquetMetadata(const std::string &path,
+                             const MetadataParseOptions &options);
 FileStats ReadParquetMetadata(const std::string &path);
+FileStats ReadParquetMetadataFromBuffer(const uint8_t *buf, size_t size,
+                                        const MetadataParseOptions &options);
 FileStats ReadParquetMetadataFromBuffer(const uint8_t *buf, size_t size);
 
 inline FileStats ReadParquetMetadataC(const char *path) {
   return ReadParquetMetadata(std::string(path));
+}
+
+inline FileStats ReadParquetMetadataC(const char *path,
+                                      const MetadataParseOptions &options) {
+  return ReadParquetMetadata(std::string(path), options);
 }
 
 // Helper functions to convert enums to strings

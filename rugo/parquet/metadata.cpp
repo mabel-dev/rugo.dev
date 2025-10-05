@@ -1,9 +1,11 @@
 #include "metadata.hpp"
 #include "thrift.hpp"
+#include <algorithm>
 #include <cstring>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
+#include <vector>
 
 // ------------------- Helpers -------------------
 
@@ -353,7 +355,7 @@ static SchemaElement ParseSchemaElement(TInput &in) {
     case 1: { // type (Physical type)
       int32_t t = ReadI32(in);
       saw_physical_type = true;
-      (void)t; // We don't need physical type here, it's in column metadata
+      elem.physical_type = ParquetTypeToString(t);
       break;
     }
     case 2: { // type_length (for FIXED_LEN_BYTE_ARRAY)
@@ -362,8 +364,7 @@ static SchemaElement ParseSchemaElement(TInput &in) {
       break;
     }
     case 3: { // repetition_type
-      int32_t rep = ReadI32(in);
-      (void)rep;
+      elem.repetition_type = ReadI32(in);
       break;
     }
     case 4: { // name
@@ -479,7 +480,8 @@ static void ParseStatistics(TInput &in, ColumnStats &cs) {
 // 14+: later additions; Bloom filter fields are commonly (per spec updates):
 //      14: optional i64 bloom_filter_offset
 //      15: optional i64 bloom_filter_length
-static void ParseColumnMeta(TInput &in, ColumnStats &cs) {
+static void ParseColumnMeta(TInput &in, ColumnStats &cs,
+                            const MetadataParseOptions &opts) {
   int16_t last_id = 0;
   while (true) {
     auto fh = ReadFieldHeader(in, last_id);
@@ -568,15 +570,27 @@ static void ParseColumnMeta(TInput &in, ColumnStats &cs) {
       break;
     }
     case 12: {
-      ParseStatistics(in, cs);
+      if (opts.include_statistics) {
+        ParseStatistics(in, cs);
+      } else {
+        SkipField(in, fh.type);
+      }
       break;
     } // statistics
     case 14: {
-      cs.bloom_offset = ReadI64(in);
+      if (opts.include_statistics) {
+        cs.bloom_offset = ReadI64(in);
+      } else {
+        (void)ReadI64(in);
+      }
       break;
     } // bloom_filter_offset (common)
     case 15: {
-      cs.bloom_length = ReadI64(in);
+      if (opts.include_statistics) {
+        cs.bloom_length = ReadI64(in);
+      } else {
+        (void)ReadI64(in);
+      }
       break;
     } // bloom_filter_length (common)
     default:
@@ -587,7 +601,8 @@ static void ParseColumnMeta(TInput &in, ColumnStats &cs) {
 }
 
 // parse a ColumnChunk, and descend into meta_data when present
-static void ParseColumnChunk(TInput &in, ColumnStats &out) {
+static void ParseColumnChunk(TInput &in, ColumnStats &out,
+                             const MetadataParseOptions &opts) {
   int16_t last_id = 0;
   while (true) {
     auto fh = ReadFieldHeader(in, last_id);
@@ -603,7 +618,7 @@ static void ParseColumnChunk(TInput &in, ColumnStats &out) {
       break;
     } // file_offset
     case 3: { // meta_data (ColumnMetaData)
-      ParseColumnMeta(in, out);
+      ParseColumnMeta(in, out, opts);
       break;
     }
     // skip everything else
@@ -615,7 +630,8 @@ static void ParseColumnChunk(TInput &in, ColumnStats &out) {
 }
 
 // FIX: correct RowGroup field IDs (columns=1, total_byte_size=2, num_rows=3)
-static void ParseRowGroup(TInput &in, RowGroupStats &rg) {
+static void ParseRowGroup(TInput &in, RowGroupStats &rg,
+                          const MetadataParseOptions &opts) {
   int16_t last_id = 0;
   while (true) {
     auto fh = ReadFieldHeader(in, last_id);
@@ -625,9 +641,10 @@ static void ParseRowGroup(TInput &in, RowGroupStats &rg) {
     switch (fh.id) {
     case 1: { // columns: list<ColumnChunk>
       auto lh = ReadListHeader(in);
+      rg.columns.reserve(lh.size);
       for (uint32_t i = 0; i < lh.size; i++) {
         ColumnStats cs;
-        ParseColumnChunk(in, cs); // <-- go via ColumnChunk
+        ParseColumnChunk(in, cs, opts); // <-- go via ColumnChunk
         rg.columns.push_back(std::move(cs));
       }
       break;
@@ -654,10 +671,11 @@ WalkSchema(TInput &in, int remaining, const std::string &parent_path = "") {
 
   for (int i = 0; i < remaining; i++) {
     SchemaElement elem = ParseSchemaElement(in);
-    elem.name = parent_path.empty() ? elem.name : parent_path + "." + elem.name;
+    elem.full_name =
+        parent_path.empty() ? elem.name : parent_path + "." + elem.name;
 
     if (elem.num_children > 0) {
-      elem.children = WalkSchema(in, elem.num_children, elem.name);
+      elem.children = WalkSchema(in, elem.num_children, elem.full_name);
     }
 
     nodes.push_back(std::move(elem));
@@ -665,65 +683,122 @@ WalkSchema(TInput &in, int remaining, const std::string &parent_path = "") {
   return nodes;
 }
 
-static void InterpretSchema(const SchemaElement &elem,
-                            const std::string &parent_path,
-                            std::unordered_map<std::string, std::string> &out) {
-  // Build full path
-  const std::string path =
-      parent_path.empty() ? elem.name : parent_path + "." + elem.name;
+static inline bool IsOptional(const SchemaElement &elem) {
+  return elem.repetition_type == 1;
+}
 
-  // IMPORTANT: Root struct must NOT collapse; recurse into its children.
-  if (elem.logical_type == "struct") {
-    if (parent_path.empty()) {
-      // Root "schema" node: walk children so we see real columns (identifier,
-      // etc.)
-      for (const auto &child : elem.children) {
-        InterpretSchema(child, path, out);
+static std::string ResolveArrayLogicalType(const SchemaElement &elem) {
+  std::string child_type = "unknown";
+  if (!elem.children.empty()) {
+    const SchemaElement *cur = &elem.children[0];
+    while (cur) {
+      if (!cur->logical_type.empty() && cur->logical_type != "struct" &&
+          cur->logical_type != "array") {
+        child_type = cur->logical_type;
+        break;
       }
-      return; // handled root; don't also fall through
-    } else {
-      // Non-root struct columns collapse to json
-      out[CanonicalizeColumnName(path)] = "json";
-      // return;
+      if (!cur->physical_type.empty() && cur->logical_type.empty() &&
+          cur->children.empty()) {
+        child_type = cur->physical_type;
+        break;
+      }
+      if (cur->children.empty())
+        break;
+      cur = &cur->children[0];
     }
   }
+  return "array<" + child_type + ">";
+}
 
-  if (elem.logical_type == "array") {
-    std::string child_type = "unknown";
-    if (!elem.children.empty()) {
-      // Walk down until we find a concrete logical type
-      const SchemaElement *cur = &elem.children[0];
-      while (cur) {
-        if (!cur->logical_type.empty() && cur->logical_type != "struct" &&
-            cur->logical_type != "array") {
-          child_type = cur->logical_type;
-          break;
-        }
-        if (cur->children.empty())
-          break;
-        cur = &cur->children[0];
-      }
+static void EmitSchemaEntry(const SchemaElement &elem, bool ancestor_optional,
+                            bool is_top_level,
+                            std::vector<SchemaField> &columns,
+                            std::unordered_map<std::string, std::string> &map) {
+  const bool nullable = ancestor_optional || IsOptional(elem);
+  const std::string canonical = CanonicalizeColumnName(
+      elem.full_name.empty() ? elem.name : elem.full_name);
+
+  if (elem.logical_type == "struct") {
+    if (is_top_level) {
+      SchemaField field;
+      field.name = canonical;
+      field.physical_type = "struct";
+      field.logical_type = "json";
+      field.nullable = nullable;
+      columns.push_back(std::move(field));
     }
-    out[CanonicalizeColumnName(path)] = "array<" + child_type + ">";
+
+    map[canonical] = "json";
+    if (elem.name != canonical) {
+      map[elem.name] = "json";
+    }
+
+    for (const auto &child : elem.children) {
+      EmitSchemaEntry(child, nullable, false, columns, map);
+    }
     return;
   }
 
-  if (elem.logical_type.empty() && elem.type_length > 0) {
-    out[path] =
-        "fixed_len_byte_array[" + std::to_string(elem.type_length) + "]";
+  if (elem.logical_type == "array") {
+    const std::string array_type = ResolveArrayLogicalType(elem);
+    if (is_top_level) {
+      SchemaField field;
+      field.name = canonical;
+      field.physical_type = "list";
+      field.logical_type = array_type;
+      field.nullable = nullable;
+      columns.push_back(std::move(field));
+    }
+
+    map[canonical] = array_type;
+    if (elem.name != canonical) {
+      map[elem.name] = array_type;
+    }
+    return;
   }
 
-  if (!elem.logical_type.empty()) {
-    out[path] = elem.logical_type;
+  std::string logical = elem.logical_type;
+  if (logical.empty()) {
+    if (elem.type_length > 0 && elem.physical_type == "fixed_len_byte_array") {
+      logical =
+          "fixed_len_byte_array[" + std::to_string(elem.type_length) + "]";
+    } else if (elem.physical_type == "byte_array") {
+      logical = "binary";
+    } else if (elem.physical_type == "fixed_len_byte_array") {
+      logical = "binary";
+    } else if (!elem.physical_type.empty()) {
+      logical = elem.physical_type;
+    } else {
+      logical = "unknown";
+    }
   }
 
-  // Recurse into normal children
-  for (const auto &child : elem.children) {
-    InterpretSchema(child, path, out);
+  if (is_top_level) {
+    SchemaField field;
+    field.name = canonical;
+    field.physical_type =
+        elem.physical_type.empty() ? logical : elem.physical_type;
+    field.logical_type = logical;
+    field.nullable = nullable;
+    columns.push_back(std::move(field));
+  }
+
+  map[canonical] = logical;
+  if (elem.name != canonical) {
+    map[elem.name] = logical;
   }
 }
 
-static FileStats ParseFileMeta(TInput &in) {
+static void
+CollectSchemaArtifacts(const SchemaElement &root,
+                       std::vector<SchemaField> &columns,
+                       std::unordered_map<std::string, std::string> &map) {
+  for (const auto &child : root.children) {
+    EmitSchemaEntry(child, false, true, columns, map);
+  }
+}
+
+static FileStats ParseFileMeta(TInput &in, const MetadataParseOptions &opts) {
   FileStats fs;
 
   int16_t last_id = 0;
@@ -743,11 +818,26 @@ static FileStats ParseFileMeta(TInput &in) {
       break;
     case 4: { // row_groups (list<RowGroup>)
       auto lh = ReadListHeader(in);
-      fs.row_groups.reserve(lh.size);
-      for (uint32_t i = 0; i < lh.size; i++) {
-        RowGroupStats rg;
-        ParseRowGroup(in, rg);
-        fs.row_groups.push_back(std::move(rg));
+      if (opts.schema_only) {
+        for (uint32_t i = 0; i < lh.size; i++) {
+          SkipStruct(in);
+        }
+      } else {
+        uint32_t limit = lh.size;
+        if (opts.max_row_groups >= 0) {
+          limit = std::min<uint32_t>(
+              lh.size, static_cast<uint32_t>(opts.max_row_groups));
+        }
+        fs.row_groups.reserve(limit);
+        for (uint32_t i = 0; i < lh.size; i++) {
+          if (i < limit) {
+            RowGroupStats rg;
+            ParseRowGroup(in, rg, opts);
+            fs.row_groups.push_back(std::move(rg));
+          } else {
+            SkipStruct(in);
+          }
+        }
       }
       break;
     }
@@ -758,79 +848,33 @@ static FileStats ParseFileMeta(TInput &in) {
   }
   return fs;
 }
-
-static inline bool IsDotPrefixedAncestor(const std::string &ancestor,
-                                         const std::string &leaf) {
-  // ancestor must be a proper prefix of leaf on a dot boundary: "a.b" is
-  // ancestor of "a.b.c"
-  return leaf.size() > ancestor.size() &&
-         std::memcmp(leaf.data(), ancestor.data(), ancestor.size()) == 0 &&
-         leaf[ancestor.size()] == '.';
-}
-
 static void ApplyLogicalTypes(
     FileStats &fs,
     const std::unordered_map<std::string, std::string> &logical_type_map) {
+  if (fs.row_groups.empty()) {
+    return;
+  }
 
   for (auto &rg : fs.row_groups) {
     for (auto &col : rg.columns) {
-      // 1) exact
       auto it = logical_type_map.find(col.name);
-
-      // 2) schema.+exact
-      if (it == logical_type_map.end()) {
-        it = logical_type_map.find("schema." + col.name);
-      }
-
-      // 3) suffix match (handles "schema.schema.X" vs "X")
-      if (it == logical_type_map.end()) {
-        for (const auto &kv : logical_type_map) {
-          const std::string &key = kv.first;
-          if (key.size() > col.name.size() &&
-              key.compare(key.size() - col.name.size(), col.name.size(),
-                          col.name) == 0 &&
-              key[key.size() - col.name.size() - 1] == '.') {
-            it = logical_type_map.find(key);
-            break;
-          }
-        }
-      }
-
       if (it != logical_type_map.end()) {
         col.logical_type = it->second;
         continue;
       }
 
-      // 4) json ancestor propagation (only if no mapping found)
-      {
-        const std::string &leaf = col.name;
-        std::string best_prefix;
-        for (const auto &kv : logical_type_map) {
-          if (kv.second != "json")
-            continue;
-          if (IsDotPrefixedAncestor(kv.first, leaf)) {
-            if (kv.first.size() > best_prefix.size())
-              best_prefix = kv.first; // deepest
-          }
+      if (col.logical_type.empty()) {
+        if (col.physical_type == "int96") {
+          col.logical_type = "timestamp[ns]";
+        } else if (col.physical_type == "byte_array") {
+          col.logical_type = "binary";
+        } else if (col.physical_type == "fixed_len_byte_array") {
+          col.logical_type = "binary";
+        } else if (!col.physical_type.empty()) {
+          col.logical_type = col.physical_type;
+        } else {
+          col.logical_type = "unknown";
         }
-        if (!best_prefix.empty()) {
-          col.logical_type = "json";
-          continue; // don’t override with fallback
-        }
-      }
-
-      // 5) fallback inference
-      if (col.physical_type == "int96") {
-        col.logical_type = "timestamp[ns]";
-      } else if (col.physical_type == "byte_array") {
-        col.logical_type =
-            col.logical_type.empty() ? "binary" : col.logical_type;
-      } else if (col.physical_type == "fixed_len_byte_array") {
-        // Prefer to normalize this in InterpretSchema; otherwise leave as
-        // physical fallback.
-        col.logical_type = "fixed_len_byte_array";
-      } else {
-        col.logical_type = col.physical_type;
       }
     }
   }
@@ -838,7 +882,8 @@ static void ApplyLogicalTypes(
 
 // ------------------- Entry point -------------------
 
-FileStats ReadParquetMetadataFromBuffer(const uint8_t *buf, size_t size) {
+FileStats ReadParquetMetadataFromBuffer(const uint8_t *buf, size_t size,
+                                        const MetadataParseOptions &opts) {
   if (size < 8) {
     throw std::runtime_error("Buffer too small");
   }
@@ -857,16 +902,73 @@ FileStats ReadParquetMetadataFromBuffer(const uint8_t *buf, size_t size) {
   const uint8_t *footer_end = buf + size - 8;
 
   TInput in{footer_start, footer_end};
-  FileStats fs = ParseFileMeta(in);
+  FileStats fs = ParseFileMeta(in, opts);
 
-  // Now interpret schema to build logical type map
   std::unordered_map<std::string, std::string> logical_type_map;
-  for (auto &elem : fs.schema) {
-    InterpretSchema(elem, "", logical_type_map);
+  if (!fs.schema.empty()) {
+    for (const auto &root : fs.schema) {
+      if (root.children.empty()) {
+        continue;
+      }
+      CollectSchemaArtifacts(root, fs.schema_columns, logical_type_map);
+      break;
+    }
   }
 
   // Apply map to row group columns
   ApplyLogicalTypes(fs, logical_type_map);
 
   return fs;
+}
+
+FileStats ReadParquetMetadataFromBuffer(const uint8_t *buf, size_t size) {
+  MetadataParseOptions opts;
+  return ReadParquetMetadataFromBuffer(buf, size, opts);
+}
+
+FileStats ReadParquetMetadata(const std::string &path,
+                              const MetadataParseOptions &options) {
+  std::ifstream file(path, std::ios::binary);
+  if (!file.is_open()) {
+    throw std::runtime_error("Unable to open parquet file: " + path);
+  }
+
+  file.seekg(0, std::ios::end);
+  const std::streamoff file_size = file.tellg();
+  if (file_size < 8) {
+    throw std::runtime_error("File too small to be a parquet file");
+  }
+
+  file.seekg(file_size - 8);
+  uint8_t trailer[8];
+  file.read(reinterpret_cast<char *>(trailer), 8);
+  if (file.gcount() != 8) {
+    throw std::runtime_error("Failed to read parquet footer");
+  }
+
+  if (std::memcmp(trailer + 4, "PAR1", 4) != 0) {
+    throw std::runtime_error("Not a parquet file");
+  }
+
+  const uint32_t footer_len = ReadLE32(trailer);
+  if (static_cast<uint64_t>(footer_len) + 8 >
+      static_cast<uint64_t>(file_size)) {
+    throw std::runtime_error("Footer length invalid");
+  }
+
+  std::vector<uint8_t> buffer(static_cast<size_t>(footer_len) + 8);
+  file.seekg(file_size - 8 - footer_len);
+  file.read(reinterpret_cast<char *>(buffer.data()), footer_len);
+  if (file.gcount() != static_cast<std::streamsize>(footer_len)) {
+    throw std::runtime_error("Failed to read parquet footer metadata");
+  }
+
+  std::memcpy(buffer.data() + footer_len, trailer, 8);
+
+  return ReadParquetMetadataFromBuffer(buffer.data(), buffer.size(), options);
+}
+
+FileStats ReadParquetMetadata(const std::string &path) {
+  MetadataParseOptions opts;
+  return ReadParquetMetadata(path, opts);
 }

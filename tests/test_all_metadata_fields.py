@@ -24,9 +24,6 @@ def test_all_metadata_fields_exposed():
 
         metadata = parquet_meta.read_metadata(file_path)
 
-        import orjson
-        print(orjson.dumps(metadata, default=str))
-
         # Get first column metadata
         assert metadata['row_groups'], "No row groups found"
         assert metadata['row_groups'][0]['columns'], "No columns found"
@@ -186,5 +183,4 @@ def test_multiple_columns():
 
 
 if __name__ == "__main__":
-    test_all_metadata_fields_exposed()
     pytest.main([__file__])

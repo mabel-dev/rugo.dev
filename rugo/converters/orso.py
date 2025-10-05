@@ -4,6 +4,7 @@ Convert rugo parquet metadata schemas to orso RelationSchema format.
 
 from typing import Any
 from typing import Dict
+from typing import Iterable
 from typing import Optional
 
 from orso.schema import FlatColumn
@@ -12,7 +13,7 @@ from orso.types import OrsoTypes
 
 
 def _map_parquet_type_to_orso(
-    parquet_type: str, logical_type: Optional[str] = None
+    parquet_type: Optional[str], logical_type: Optional[str] = None
 ) -> str:
     """
     Map parquet physical and logical types to orso types.
@@ -50,6 +51,10 @@ def _map_parquet_type_to_orso(
         if logical_lower == "boolean":
             return OrsoTypes.BOOLEAN
 
+        # Binary types
+        if logical_lower in ("binary", "byte_array", "fixed_len_byte_array"):
+            return OrsoTypes.BLOB
+
         if logical_lower.startswith(("array", "decimal")):
             _type, _length, _precision, _scale, _element_type = OrsoTypes.from_name(
                 logical_lower
@@ -61,7 +66,7 @@ def _map_parquet_type_to_orso(
             return _type
 
     # Fall back to physical type mapping
-    physical_lower = parquet_type.lower()
+    physical_lower = parquet_type.lower() if parquet_type else ""
 
     # Integer types
     if physical_lower in ("int8", "int16", "int32", "int64"):
@@ -73,7 +78,7 @@ def _map_parquet_type_to_orso(
 
     # Binary/string types
     if physical_lower in ("byte_array", "fixed_len_byte_array"):
-        return OrsoTypes.VARCHAR
+        return OrsoTypes.BLOB
 
     # Boolean type
     if physical_lower == "boolean":
@@ -81,6 +86,53 @@ def _map_parquet_type_to_orso(
 
     # Default to VARCHAR for unknown types
     return OrsoTypes.VARCHAR
+
+
+def _columns_from_metadata(metadata: Dict[str, Any]) -> Iterable[Dict[str, Any]]:
+    schema_columns = metadata.get("schema_columns")
+    if schema_columns:
+        return schema_columns
+
+    return _fallback_schema_columns(metadata)
+
+
+def _fallback_schema_columns(metadata: Dict[str, Any]) -> Iterable[Dict[str, Any]]:
+    row_groups = metadata.get("row_groups") or []
+    if not row_groups:
+        return []
+
+    first_row_group = row_groups[0]
+    columns_meta = first_row_group.get("columns") or []
+
+    columns: Dict[str, Dict[str, Any]] = {}
+    for col_metadata in columns_meta:
+        col_name = col_metadata.get("name")
+        if not col_name:
+            continue
+
+        logical_type = col_metadata.get("logical_type")
+        physical_type = col_metadata.get("type") or ""
+
+        top_name = col_name.split(".", 1)[0]
+        if top_name != col_name:
+            if top_name in columns:
+                continue
+            columns[top_name] = {
+                "name": top_name,
+                "physical_type": "struct",
+                "logical_type": "json",
+                "nullable": True,
+            }
+            continue
+
+        columns[col_name] = {
+            "name": col_name,
+            "physical_type": physical_type,
+            "logical_type": logical_type,
+            "nullable": bool(col_metadata.get("null_count", 0)),
+        }
+
+    return columns.values()
 
 
 def rugo_to_orso_schema(
@@ -102,55 +154,32 @@ def rugo_to_orso_schema(
     if not isinstance(rugo_metadata, dict):
         raise ValueError("rugo_metadata must be a dictionary")
 
-    if "row_groups" not in rugo_metadata:
-        raise ValueError("rugo_metadata must contain 'row_groups' key")
-
-    if not rugo_metadata["row_groups"]:
-        raise ValueError("rugo_metadata must contain at least one row group")
-
-    # Get columns from the first row group (schema should be consistent across row groups)
-    first_row_group = rugo_metadata["row_groups"][0]
-
-    if "columns" not in first_row_group:
-        raise ValueError("Row group must contain 'columns' key")
-
-    columns = []
-    seen_structs = set()
-    for col_metadata in first_row_group["columns"]:
-        if "name" not in col_metadata or "type" not in col_metadata:
-            raise ValueError("Column metadata must contain 'name' and 'type' keys")
-
-        col_name = col_metadata["name"]
-        physical_type = col_metadata["type"]
-        logical_type = col_metadata.get("logical_type")
-
-        top_name = col_name.split(".", 1)[0]
-        if top_name != col_name:
-            if top_name in seen_structs:
-                continue  # Already processed this struct
-            col_name = top_name
-            physical_type = "struct"
-            logical_type = "jsonb"
-            seen_structs.add(top_name)
-
-        # Map to orso type
-        orso_type = _map_parquet_type_to_orso(physical_type, logical_type)
-
-        # Create orso column
-        orso_column = FlatColumn(
-            name=col_name,
-            type=orso_type,
-            nullable=col_metadata.get("null_count", 0) > 0,
+    if not rugo_metadata.get("schema_columns") and not rugo_metadata.get("row_groups"):
+        raise ValueError(
+            "rugo_metadata must contain 'schema_columns' or 'row_groups'"
         )
 
-        columns.append(orso_column)
+    columns = []
+    for entry in _columns_from_metadata(rugo_metadata):
+        name = entry.get("name")
+        if not name:
+            continue
+
+        physical_type = entry.get("physical_type")
+        logical_type = entry.get("logical_type")
+        nullable = bool(entry.get("nullable", True))
+
+        orso_type = _map_parquet_type_to_orso(physical_type, logical_type)
+        columns.append(FlatColumn(name=name, type=orso_type, nullable=nullable))
+
+    if not columns:
+        raise ValueError("No columns could be derived from rugo metadata")
 
     # Create and populate the RelationSchema
     schema = RelationSchema(name=schema_name)
 
     # Add all columns to the schema
-    for column in columns:
-        schema.columns.append(column)
+    schema.columns.extend(columns)
 
     # Add row count estimate if available
     if "num_rows" in rugo_metadata:
@@ -172,14 +201,17 @@ def extract_schema_only(
     Returns:
         Dictionary with schema name and column type mappings
     """
-    orso_schema = rugo_to_orso_schema(rugo_metadata, schema_name)
-
     column_types = {}
-    for column in orso_schema.columns:
-        column_types[column.name] = column.type
+    for entry in _columns_from_metadata(rugo_metadata):
+        name = entry.get("name")
+        if not name:
+            continue
+        physical = entry.get("physical_type")
+        logical = entry.get("logical_type")
+        column_types[name] = _map_parquet_type_to_orso(physical, logical)
 
     return {
         "schema_name": schema_name,
         "columns": column_types,
-        "row_count": orso_schema.row_count_estimate,
+        "row_count": rugo_metadata.get("num_rows"),
     }

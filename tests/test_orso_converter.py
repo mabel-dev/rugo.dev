@@ -32,7 +32,7 @@ class TestOrsoConverter:
         # Test with physical types only
         assert _map_parquet_type_to_orso("int64") == OrsoTypes.INTEGER
         assert _map_parquet_type_to_orso("float64") == OrsoTypes.DOUBLE
-        assert _map_parquet_type_to_orso("byte_array") == OrsoTypes.VARCHAR
+        assert _map_parquet_type_to_orso("byte_array") == OrsoTypes.BLOB
         assert _map_parquet_type_to_orso("boolean") == OrsoTypes.BOOLEAN
         
         # Test with logical types
@@ -104,19 +104,19 @@ class TestOrsoConverter:
             rugo_to_orso_schema("not a dict")
         
         # Test with missing row_groups
-        with pytest.raises(ValueError, match="rugo_metadata must contain 'row_groups' key"):
+        with pytest.raises(ValueError, match="rugo_metadata must contain 'schema_columns' or 'row_groups'"):
             rugo_to_orso_schema({})
         
         # Test with empty row_groups
-        with pytest.raises(ValueError, match="rugo_metadata must contain at least one row group"):
+        with pytest.raises(ValueError, match="rugo_metadata must contain 'schema_columns' or 'row_groups'"):
             rugo_to_orso_schema({"row_groups": []})
         
         # Test with missing columns in row group
-        with pytest.raises(ValueError, match="Row group must contain 'columns' key"):
+        with pytest.raises(ValueError, match="No columns could be derived from rugo metadata"):
             rugo_to_orso_schema({"row_groups": [{}]})
         
         # Test with invalid column metadata
-        with pytest.raises(ValueError, match="Column metadata must contain 'name' and 'type' keys"):
+        with pytest.raises(ValueError, match="No columns could be derived from rugo metadata"):
             rugo_to_orso_schema({"row_groups": [{"columns": [{}]}]})
     
     def test_minimal_valid_metadata(self):

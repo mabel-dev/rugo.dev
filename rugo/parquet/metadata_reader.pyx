@@ -73,102 +73,151 @@ cdef object decode_value(string physical_type, string logical_type, string raw):
         return b.hex()
 
 
-def read_metadata(str path):
-    """Read parquet metadata from a file path (delegates to buffer version)."""
-    with open(path, "rb") as f:
-        data = f.read()
-    return read_metadata_from_bytes(data)
+cdef metadata_reader.MetadataParseOptions _build_options(
+        bint schema_only, bint include_statistics, Py_ssize_t max_row_groups
+    ):
+    cdef metadata_reader.MetadataParseOptions opts = metadata_reader.MetadataParseOptions()
+    opts.schema_only = schema_only
+    if schema_only:
+        opts.include_statistics = False
+    else:
+        opts.include_statistics = include_statistics
+    if max_row_groups >= 0:
+        opts.max_row_groups = <long long>max_row_groups
+    else:
+        opts.max_row_groups = -1
+    return opts
 
 
-def read_metadata_from_bytes(bytes data):
+cdef object _filestats_to_python(metadata_reader.FileStats fs,
+                                 bint include_row_groups):
+    cdef dict result = {"num_rows": fs.num_rows}
+
+    cdef list schema_columns = []
+    cdef metadata_reader.SchemaField field
+    cdef size_t idx
+    for idx in range(fs.schema_columns.size()):
+        field = fs.schema_columns[idx]
+        schema_columns.append({
+            "name": field.name.decode("utf-8"),
+            "physical_type": field.physical_type.decode("utf-8"),
+            "logical_type": field.logical_type.decode("utf-8"),
+            "nullable": bool(field.nullable),
+        })
+    result["schema_columns"] = schema_columns
+
+    if include_row_groups and fs.row_groups.size() > 0:
+        row_groups = []
+        for rg in fs.row_groups:
+            rg_dict = {
+                "num_rows": rg.num_rows,
+                "total_byte_size": rg.total_byte_size,
+                "columns": []
+            }
+            for col in rg.columns:
+                if col.logical_type.size() > 0:
+                    logical_type_str = col.logical_type.decode("utf-8")
+                else:
+                    logical_type_str = ""
+
+                null_count = col.null_count if col.null_count >= 0 else None
+                distinct_count = col.distinct_count if col.distinct_count >= 0 else None
+                num_values = col.num_values if col.num_values >= 0 else None
+                total_uncompressed_size = col.total_uncompressed_size if col.total_uncompressed_size >= 0 else None
+                total_compressed_size = col.total_compressed_size if col.total_compressed_size >= 0 else None
+                data_page_offset = col.data_page_offset if col.data_page_offset >= 0 else None
+                index_page_offset = col.index_page_offset if col.index_page_offset >= 0 else None
+                dictionary_page_offset = col.dictionary_page_offset if col.dictionary_page_offset >= 0 else None
+                bloom_offset = col.bloom_offset if col.bloom_offset >= 0 else None
+                bloom_length = col.bloom_length if col.bloom_length >= 0 else None
+
+                min_val = decode_value(col.physical_type, col.logical_type, col.min) if col.min.size() > 0 else None
+                max_val = decode_value(col.physical_type, col.logical_type, col.max) if col.max.size() > 0 else None
+
+                encodings_list = []
+                for enc in col.encodings:
+                    encodings_list.append(metadata_reader.EncodingToString(enc).decode("utf-8"))
+
+                codec_str = None
+                if col.codec >= 0:
+                    codec_str = metadata_reader.CompressionCodecToString(col.codec).decode("utf-8")
+
+                kv_metadata = {}
+                for item in col.key_value_metadata:
+                    kv_metadata[item.first.decode("utf-8")] = item.second.decode("utf-8")
+
+                rg_dict["columns"].append({
+                    "name": col.name.decode("utf-8"),
+                    "type": col.physical_type.decode("utf-8"),
+                    "logical_type": logical_type_str,
+                    "min": min_val,
+                    "max": max_val,
+                    "null_count": null_count,
+                    "distinct_count": distinct_count,
+                    "num_values": num_values,
+                    "total_uncompressed_size": total_uncompressed_size,
+                    "total_compressed_size": total_compressed_size,
+                    "data_page_offset": data_page_offset,
+                    "index_page_offset": index_page_offset,
+                    "dictionary_page_offset": dictionary_page_offset,
+                    "bloom_offset": bloom_offset,
+                    "bloom_length": bloom_length,
+                    "encodings": encodings_list,
+                    "compression_codec": codec_str,
+                    "key_value_metadata": kv_metadata if kv_metadata else None,
+                })
+            row_groups.append(rg_dict)
+        result["row_groups"] = row_groups
+    else:
+        result["row_groups"] = []
+
+    return result
+
+
+def read_metadata(str path, *, bint schema_only=False,
+                  bint include_statistics=True, Py_ssize_t max_row_groups=-1):
+    """Read parquet metadata from a file path."""
+    cdef metadata_reader.MetadataParseOptions opts = _build_options(
+        schema_only, include_statistics, max_row_groups
+    )
+    cdef bytes path_bytes = path.encode("utf-8")
+    cdef const char* c_path = path_bytes
+    cdef metadata_reader.FileStats fs = metadata_reader.ReadParquetMetadataC(
+        c_path, opts
+    )
+    return _filestats_to_python(fs, not schema_only)
+
+
+def read_metadata_from_bytes(bytes data, *, bint schema_only=False,
+                             bint include_statistics=True,
+                             Py_ssize_t max_row_groups=-1):
     """Read parquet metadata from an in-memory bytes object."""
+    cdef metadata_reader.MetadataParseOptions opts = _build_options(
+        schema_only, include_statistics, max_row_groups
+    )
     cdef const uint8_t* buf = <const uint8_t*> data
     cdef size_t size = len(data)
-    return _read_metadata_common(buf, size)
+    cdef metadata_reader.FileStats fs = metadata_reader.ReadParquetMetadataFromBuffer(
+        buf, size, opts
+    )
+    return _filestats_to_python(fs, not schema_only)
 
 
-def read_metadata_from_memoryview(memoryview mv):
+def read_metadata_from_memoryview(memoryview mv, *, bint schema_only=False,
+                                  bint include_statistics=True,
+                                  Py_ssize_t max_row_groups=-1):
     """Read parquet metadata from a Python memoryview (zero-copy)."""
     if not mv.contiguous:
         raise ValueError("Memoryview must be contiguous")
 
+    cdef metadata_reader.MetadataParseOptions opts = _build_options(
+        schema_only, include_statistics, max_row_groups
+    )
     cdef memoryview[uint8_t] mv_bytes = mv.cast('B')  # keep reference alive
     cdef const uint8_t* buf = &mv_bytes[0]
     cdef size_t size = mv_bytes.nbytes
 
-    return _read_metadata_common(buf, size)
-
-
-cdef object _read_metadata_common(const uint8_t* buf, size_t size):
-    cdef metadata_reader.FileStats fs
-    fs = metadata_reader.ReadParquetMetadataFromBuffer(buf, size)
-
-    result = {
-        "num_rows": fs.num_rows,
-        "row_groups": []
-    }
-    for rg in fs.row_groups:
-        rg_dict = {
-            "num_rows": rg.num_rows,
-            "total_byte_size": rg.total_byte_size,
-            "columns": []
-        }
-        for col in rg.columns:
-            if col.logical_type.size() > 0:
-                logical_type_str = col.logical_type.decode("utf-8")
-            else:
-                logical_type_str = ""
-
-            # Convert -1 to None for missing stats
-            null_count = col.null_count if col.null_count >= 0 else None
-            distinct_count = col.distinct_count if col.distinct_count >= 0 else None
-            num_values = col.num_values if col.num_values >= 0 else None
-            total_uncompressed_size = col.total_uncompressed_size if col.total_uncompressed_size >= 0 else None
-            total_compressed_size = col.total_compressed_size if col.total_compressed_size >= 0 else None
-            data_page_offset = col.data_page_offset if col.data_page_offset >= 0 else None
-            index_page_offset = col.index_page_offset if col.index_page_offset >= 0 else None
-            dictionary_page_offset = col.dictionary_page_offset if col.dictionary_page_offset >= 0 else None
-            bloom_offset = col.bloom_offset if col.bloom_offset >= 0 else None
-            bloom_length = col.bloom_length if col.bloom_length >= 0 else None
-
-            # Decode min/max, treating empty strings as None (no stats)
-            min_val = decode_value(col.physical_type, col.logical_type, col.min) if col.min.size() > 0 else None
-            max_val = decode_value(col.physical_type, col.logical_type, col.max) if col.max.size() > 0 else None
-
-            # Convert encodings to list of strings
-            encodings_list = []
-            for enc in col.encodings:
-                encodings_list.append(metadata_reader.EncodingToString(enc).decode("utf-8"))
-
-            # Convert codec to string
-            codec_str = None
-            if col.codec >= 0:
-                codec_str = metadata_reader.CompressionCodecToString(col.codec).decode("utf-8")
-
-            # Convert key_value_metadata to Python dict
-            kv_metadata = {}
-            for item in col.key_value_metadata:
-                kv_metadata[item.first.decode("utf-8")] = item.second.decode("utf-8")
-
-            rg_dict["columns"].append({
-                "name": col.name.decode("utf-8"),
-                "type": col.physical_type.decode("utf-8"),
-                "logical_type": logical_type_str,
-                "min": min_val,
-                "max": max_val,
-                "null_count": null_count,
-                "distinct_count": distinct_count,
-                "num_values": num_values,
-                "total_uncompressed_size": total_uncompressed_size,
-                "total_compressed_size": total_compressed_size,
-                "data_page_offset": data_page_offset,
-                "index_page_offset": index_page_offset,
-                "dictionary_page_offset": dictionary_page_offset,
-                "bloom_offset": bloom_offset,
-                "bloom_length": bloom_length,
-                "encodings": encodings_list,
-                "compression_codec": codec_str,
-                "key_value_metadata": kv_metadata if kv_metadata else None,
-            })
-        result["row_groups"].append(rg_dict)
-    return result
+    cdef metadata_reader.FileStats fs = metadata_reader.ReadParquetMetadataFromBuffer(
+        buf, size, opts
+    )
+    return _filestats_to_python(fs, not schema_only)
