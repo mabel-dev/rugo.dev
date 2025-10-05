@@ -44,9 +44,6 @@ def test_logical_types():
     files_to_test = glob.glob("tests/data/*.parquet")
     
     for file_path in files_to_test:
-        if not Path(file_path).exists():
-            print(f"Skipping {file_path} - file not found")
-            continue
             
         print(f"\nFile: {file_path}")
 

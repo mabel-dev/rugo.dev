@@ -13,7 +13,7 @@ except Exception:
     # Fallback version for development/editable installs
     __version__ = "0.0.0"
 
-__author__ = "Mabel Dev"
+__author__ = "@joocer"
 
 # Import converters for easy access
 try:
