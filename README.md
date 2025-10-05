@@ -1,358 +1,192 @@
 # rugo
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
+[![Python Version](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/downloads/)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/rugo?period=total&units=INTERNATIONAL_SYSTEM&left_color=BRIGHTGREEN&right_color=LIGHTGREY&left_text=downloads)](https://pepy.tech/projects/rugo)
 
-A lightning-fast Parquet file reader built with C++ and Cython, optimized for ultra-fast metadata extraction and analysis.
+`rugo` is a C++17 and Cython powered Parquet metadata reader for Python. It delivers high-throughput metadata inspection without loading columnar data pages.
 
-## 🚀 Features
+## Key Features
+- Fast metadata extraction backed by an optimized C++17 parser and thin Python bindings.
+- Complete schema and row-group details, including encodings, codecs, offsets, bloom filter pointers, and custom key/value metadata.
+- Works with file paths, byte strings, and contiguous memoryviews for zero-copy parsing.
+- Optional schema conversion helpers for [Orso](https://github.com/mabel-dev/orso).
+- No runtime dependencies beyond the Python standard library.
 
-- **🚀 Lightning-fast metadata reading** - 10-50x faster than PyArrow for metadata operations
-- **🏗️ C++ core with Cython bindings** - Maximum performance with Python convenience
-- **📊 Complete schema information** - Physical types, logical types, and statistics
-- **🔄 Schema conversion** - Convert rugo schemas to orso format (optional)
-- **🔬 Zero dependencies** - No runtime dependencies for core functionality
-- **✅ PyArrow compatible** - Validated results, drop-in replacement for metadata operations
+## Installation
 
-## 📦 Installation
-
+### PyPI
 ```bash
-# Basic installation (coming soon to PyPI)
 pip install rugo
 
-# With orso schema conversion support
+# Optional extras
 pip install rugo[orso]
+pip install rugo[dev]
 ```
 
-### From Source
-
+### From source
 ```bash
-# Clone the repository
 git clone https://github.com/mabel-dev/rugo.git
 cd rugo
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate
-
-# Install build dependencies
-pip install setuptools cython
-
-# Build the extension
+python -m venv .venv
+source .venv/bin/activate
+make update
 make compile
-
-# Install in development mode
 pip install -e .
 ```
 
 ### Requirements
+- Python 3.9 or newer
+- A C++17 compatible compiler (clang, gcc, or MSVC)
+- Cython and setuptools for source builds (installed by the commands above)
 
-- Python 3.9+
-- C++ compiler with C++17 support
-- Cython (for building from source)
-
-## 🔧 Usage
-
-### Reading Parquet Metadata
-
-Rugo provides blazing-fast access to Parquet file metadata without the overhead of loading actual data:
-
-```python
-import rugo.parquet as parquet_meta
-
-# Extract complete metadata from a Parquet file
-metadata = parquet_meta.read_metadata("example.parquet")
-
-print(f"Number of rows: {metadata['num_rows']}")
-print(f"Number of row groups: {len(metadata['row_groups'])}")
-
-# Analyze row groups and column statistics
-for i, row_group in enumerate(metadata['row_groups']):
-    print(f"Row Group {i}:")
-    print(f"  Rows: {row_group['num_rows']}")
-    print(f"  Size: {row_group['total_byte_size']} bytes")
-    
-    for col in row_group['columns']:
-        print(f"    Column: {col['name']}")
-        print(f"    Physical Type: {col['type']}")
-        print(f"    Logical Type: {col.get('logical_type', '(none)')}")
-        print(f"    Nulls: {col['null_count']}")
-        print(f"    Min: {col['min']}")
-        print(f"    Max: {col['max']}")
-        
-        # Check for bloom filter availability
-        if parquet_meta.has_bloom_filter(col):
-            print(f"    Has bloom filter: Yes")
-        else:
-            print(f"    Has bloom filter: No")
-```
-
-### Advanced Features
-
-#### Schema Analysis
-
-Extract detailed schema information including both physical and logical types:
-
-```python
-import rugo.parquet as parquet_meta
-
-metadata = parquet_meta.read_metadata("example.parquet")
-for col in metadata['row_groups'][0]['columns']:
-    print(f"{col['name']}: {col['type']} -> {col.get('logical_type', '(inferred)')}")
-    # Example output:
-    # name: BYTE_ARRAY -> STRING
-    # timestamp: INT64 -> TIMESTAMP_MILLIS
-    # price: DOUBLE -> (inferred)
-```
-
-#### Bloom Filter Testing
-
-Quickly test if values might exist in columns without reading the actual data:
-
+## Quickstart
 ```python
 import rugo.parquet as parquet_meta
 
 metadata = parquet_meta.read_metadata("example.parquet")
 
-for col in metadata['row_groups'][0]['columns']:
-    if parquet_meta.has_bloom_filter(col):
-        # Test if a value might be present
-        might_exist = parquet_meta.test_bloom_filter(
-            "example.parquet",
-            col['bloom_offset'],
-            col['bloom_length'], 
-            "search_value"
-        )
-        if might_exist:
-            print(f"Value might be in column {col['name']}")
-        else:
-            print(f"Value definitely not in column {col['name']}")
+print(f"Rows: {metadata['num_rows']}")
+print("Schema columns:")
+for column in metadata["schema_columns"]:
+    print(f"  {column['name']}: {column['physical_type']} ({column['logical_type']})")
+
+first_row_group = metadata["row_groups"][0]
+for column in first_row_group["columns"]:
+    print(
+        f"{column['name']}: codec={column['compression_codec']}, "
+        f"nulls={column['null_count']}, range=({column['min']}, {column['max']})"
+    )
 ```
+`read_metadata` returns dictionaries composed of Python primitives, ready for JSON serialisation or downstream processing.
 
-#### Schema Conversion to Orso
-
-Convert rugo parquet schemas to [orso](https://github.com/mabel-dev/orso) format:
-
-```python
-from rugo.converters.orso import rugo_to_orso_schema, extract_schema_only
-import rugo.parquet as parquet_meta
-
-# Read parquet metadata
-metadata = parquet_meta.read_metadata("example.parquet")
-
-# Convert to orso RelationSchema
-orso_schema = rugo_to_orso_schema(metadata, "my_table")
-
-print(f"Schema: {orso_schema.name}")
-print(f"Columns: {len(orso_schema.columns)}")
-print(f"Estimated rows: {orso_schema.row_count_estimate}")
-
-# Access individual columns
-for column in orso_schema.columns[:3]:
-    print(f"{column.name}: {column.type} ({'nullable' if column.nullable else 'not null'})")
-
-# Or get a simplified column mapping
-schema_info = extract_schema_only(metadata, "simple_name")
-print("Column types:", schema_info['columns'])
-```
-
-**Note:** Orso conversion requires the optional `orso` dependency:
-```bash
-pip install rugo[orso]
-
-### Metadata Structure
-
-The `read_metadata()` function returns a dictionary with the following structure:
-
+## Returned metadata layout
 ```python
 {
-    "num_rows": int,           # Total number of rows in the file
-    "row_groups": [            # List of row groups
+    "num_rows": int,
+    "schema_columns": [
         {
-            "num_rows": int,           # Rows in this row group
-            "total_byte_size": int,    # Size in bytes
-            "columns": [               # Column metadata
+            "name": str,
+            "physical_type": str,
+            "logical_type": str,
+            "nullable": bool,
+        },
+        ...
+    ],
+    "row_groups": [
+        {
+            "num_rows": int,
+            "total_byte_size": int,
+            "columns": [
                 {
-                    "name": str,           # Column name/path
-                    "type": str,           # Physical type (INT64, BYTE_ARRAY, etc.)
-                    "logical_type": str,   # Logical type (STRING, TIMESTAMP_MILLIS, etc.)
-                    "min": any,            # Minimum value (decoded)
-                    "max": any,            # Maximum value (decoded)
-                    "null_count": int,     # Number of null values (None if not available)
-                    "distinct_count": int, # Number of distinct values (None if not available)
-                    "num_values": int,     # Total number of values (None if not available)
-                    "total_uncompressed_size": int,  # Uncompressed data size in bytes
-                    "total_compressed_size": int,    # Compressed data size in bytes
-                    "data_page_offset": int,         # Offset to data pages
-                    "index_page_offset": int,        # Offset to index pages (None if none)
-                    "dictionary_page_offset": int,   # Offset to dictionary pages (None if none)
-                    "bloom_offset": int,   # Bloom filter offset (None if none)
-                    "bloom_length": int,   # Bloom filter length (None if none)
-                    "encodings": [str],    # List of encodings used (e.g., ["PLAIN", "RLE"])
-                    "compression_codec": str,  # Compression codec (e.g., "SNAPPY", "GZIP")
-                    "key_value_metadata": dict,  # Custom key-value metadata (None if none)
-                }
-            ]
-        }
-    ]
+                    "name": str,
+                    "path_in_schema": str,
+                    "type": str,
+                    "logical_type": str,
+                    "num_values": Optional[int],
+                    "total_uncompressed_size": Optional[int],
+                    "total_compressed_size": Optional[int],
+                    "data_page_offset": Optional[int],
+                    "index_page_offset": Optional[int],
+                    "dictionary_page_offset": Optional[int],
+                    "min": Any,
+                    "max": Any,
+                    "null_count": Optional[int],
+                    "distinct_count": Optional[int],
+                    "bloom_offset": Optional[int],
+                    "bloom_length": Optional[int],
+                    "encodings": List[str],
+                    "compression_codec": Optional[str],
+                    "key_value_metadata": Optional[Dict[str, str]],
+                },
+                ...
+            ],
+        },
+        ...
+    ],
 }
 ```
+Fields that are not present in the source Parquet file are reported as `None`. Minimum and maximum values are decoded into Python types when possible; otherwise hexadecimal strings are returned.
 
-## ⚡ Performance
+## Parsing options
+All entry points share the same keyword arguments:
 
-Rugo is specifically designed for blazing-fast Parquet metadata operations:
+- `schema_only` (default `False`): return only the top-level schema without row group details.
+- `include_statistics` (default `True`): skip min/max/num_values decoding when set to `False`.
+- `max_row_groups` (default `-1`): limit the number of row groups inspected; handy for very large files.
 
-- **⚡ 10-50x faster** than PyArrow for metadata extraction
-- **🧠 Minimal memory footprint** - Direct binary parsing without intermediate objects
-- **🚀 Lightning startup** - Fast imports with optimized compiled extensions
-- **📊 Efficient statistics** - Decode min/max values without loading columns
-
-### Benchmarks
-
-Run performance comparisons yourself:
-```bash
-make test  # Includes comprehensive PyArrow vs Rugo benchmarks
+```python
+metadata = parquet_meta.read_metadata(
+    "large_file.parquet",
+    schema_only=False,
+    include_statistics=False,
+    max_row_groups=2,
+)
 ```
 
-**Why is Rugo so fast?**
-- Direct C++ implementation of Parquet metadata parsing
-- Zero-copy binary protocol parsing
-- Optimized Thrift deserialization
-- No Python object overhead during parsing
+## Working with in-memory data
+```python
+with open("example.parquet", "rb") as fh:
+    data = fh.read()
 
-## 🛠️ Development
-
-### Building from Source
-
-```bash
-# Install development dependencies
-make update
-
-# Build Cython extensions
-make compile
-
-# Run tests
-make test
-
-# Run linting
-make lint
-
-# Check type hints
-make mypy
-
-# Generate coverage report
-make coverage
+from_bytes = parquet_meta.read_metadata_from_bytes(data)
+from_view = parquet_meta.read_metadata_from_memoryview(memoryview(data))
 ```
+`read_metadata_from_memoryview` performs zero-copy parsing when given a contiguous buffer.
 
-### Project Structure
+## Optional Orso conversion
+Install the optional extra (`pip install rugo[orso]`) to enable Orso helpers:
+```python
+from rugo.converters.orso import extract_schema_only, rugo_to_orso_schema
 
+metadata = parquet_meta.read_metadata("example.parquet")
+relation = rugo_to_orso_schema(metadata, "example_table")
+schema_info = extract_schema_only(metadata)
+```
+See `examples/orso_conversion.py` for a complete walkthrough.
+
+## Development
+```bash
+make update     # install build and test tooling (uses uv under the hood)
+make compile    # rebuild the Cython extension with -O3 and C++17 flags
+make test       # run pytest-based validation (includes PyArrow comparisons)
+make lint       # run ruff, isort, pycln, cython-lint
+make mypy       # type checking
+```
+`make compile` clears previous build artefacts before rebuilding the extension in-place.
+
+## Project layout
 ```
 rugo/
-├── rugo/
-│   ├── __init__.py          # Main package
-│   └── parquet/             # Parquet decoder implementation
-│       ├── metadata.cpp     # C++ metadata parser
-│       ├── metadata.hpp     # C++ headers
-│       ├── thrift.hpp       # Thrift protocol implementation
-│       └── metadata_reader.pyx  # Cython bindings
+├── rugo/__init__.py
+├── rugo/parquet/
+│   ├── metadata_reader.pyx
+│   ├── metadata.cpp
+│   ├── metadata.hpp
+│   └── thrift.hpp
+├── rugo/converters/orso.py
+├── examples/
+│   ├── comprehensive_metadata.py
+│   └── orso_conversion.py
 ├── tests/
-│   ├── data/                # Test Parquet files
-│   └── tests
-├── Makefile                 # Build automation
-├── setup.py                 # Build configuration
-└── pyproject.toml           # Project metadata
+│   ├── data/
+│   ├── test_all_metadata_fields.py
+│   ├── test_logical_types.py
+│   ├── test_orso_converter.py
+│   └── test_statistics.py
+├── Makefile
+├── pyproject.toml
+└── README.md
 ```
 
-### Testing
+## Status and limitations
+- Active development status (alpha); API details may evolve.
+- Focused on metadata inspection; columnar data reads are out of scope.
+- Requires a C++17 compiler when installing from source or editing the Cython bindings.
+- Bloom filter information is exposed via offsets and lengths; higher-level helpers are planned.
 
-The test suite includes:
-- **Validation tests** - Compare output with PyArrow
-- **Performance benchmarks** - Speed comparisons
-- **Edge case handling** - Various Parquet file formats
+## License
+Licensed under the Apache License 2.0. See `LICENSE` for full terms.
 
-```bash
-# Run all tests
-make test
-
-# Run specific test
-python -m pytest tests/test_compare_arrow_rugo.py -v
-```
-
-### Code Quality
-
-We maintain high code quality with:
-- **Linting**: ruff, isort, pycln
-- **Type checking**: mypy
-- **Formatting**: ruff format
-- **Cython linting**: cython-lint
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature-name`
-3. Make your changes and add tests
-4. Run the test suite: `make test`
-5. Run linting: `make lint`  
-6. Submit a pull request
-
-### Development Setup
-
-```bash
-# Clone your fork
-git clone https://github.com/yourusername/rugo.git
-cd rugo
-
-# Set up development environment
-python -m venv venv
-source venv/bin/activate
-make update
-make compile
-make test
-```
-
-## 📊 What Rugo Does
-
-**✅ Currently Supported:**
-- **Fast Parquet metadata extraction** - Schema, statistics, row group information
-- **Logical type detection** - STRING, TIMESTAMP, DECIMAL, etc.
-- **Bloom filter testing** - Value presence checks without data scanning
-- **Statistics decoding** - Min/max values properly typed and decoded
-- **Cross-platform support** - Linux, macOS
-
-**🎯 Focus Areas:**
-Rugo is laser-focused on being the fastest Parquet metadata reader available. It doesn't try to be everything to everyone - it does one thing exceptionally well.
-
-## 🐛 Known Limitations
-
-- **Metadata-only**: Rugo focuses on metadata extraction, not data reading
-- **C++ compiler required**: Building from source requires C++17 compiler
-- **Parquet-specific**: Designed specifically for Parquet format
-
-## 📄 License
-
-Licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
-
-## 👨‍💻 Authors
-
-- **Justin Joyce** - *Initial work* - [joocer](https://github.com/joocer)
-
-## 🙏 Acknowledgments
-
-- Built on top of the Apache Parquet format specification
-- Inspired by PyArrow's parquet module design
-- Uses optimized Thrift binary protocol for metadata parsing
-- Performance insights from the Apache Arrow community
-
-## 📈 Roadmap
-
-**Core Focus: Fastest Parquet Metadata Reader**
-- [x] Lightning-fast metadata extraction
-- [x] Complete schema information with logical types  
-- [ ] Bloom filter support
-- [ ] Advanced statistics (histograms, sketches)
-- [ ] Parquet format validation
-
----
-
-For more information, visit the [GitHub repository](https://github.com/mabel-dev/rugo) or open an [issue](https://github.com/mabel-dev/rugo/issues).
+## Maintainer
+Created and maintained by Justin Joyce (`@joocer`). Contributions are welcome via issues and pull requests.
