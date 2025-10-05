@@ -2,7 +2,11 @@
 """
 Example demonstrating the comprehensive metadata now exposed by rugo.
 """
-import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import rugo.parquet as parquet_meta
 
 
@@ -14,27 +18,27 @@ def main():
     # Read metadata
     metadata = parquet_meta.read_metadata('tests/data/planets.parquet')
     
-    print(f"\n📊 File Statistics:")
+    print("\n📊 File Statistics:")
     print(f"   Total rows: {metadata['num_rows']}")
     print(f"   Row groups: {len(metadata['row_groups'])}")
     
     # Show first row group
     rg = metadata['row_groups'][0]
-    print(f"\n🔢 Row Group 0:")
+    print("\n🔢 Row Group 0:")
     print(f"   Rows: {rg['num_rows']}")
     print(f"   Total bytes: {rg['total_byte_size']:,}")
     print(f"   Columns: {len(rg['columns'])}")
     
     # Show detailed metadata for first few columns
-    print(f"\n📋 Column Details (first 3 columns):")
+    print("\n📋 Column Details (first 3 columns):")
     print(f"{'-' * 70}")
     
     for i, col in enumerate(rg['columns'][:3], 1):
         print(f"\n{i}. {col['name']} ({col['type']} → {col['logical_type']})")
-        print(f"   Values: {col['num_values']}")
+        print(f"   Values: {col.get('num_values', '?')}")
         print(f"   Null count: {col['null_count']}")
         
-        if col['distinct_count'] is not None:
+        if col.get('distinct_count') is not None:
             print(f"   Distinct values: {col['distinct_count']}")
         
         print(f"   Size: {col['total_compressed_size']:,} bytes (compressed)")
@@ -46,7 +50,7 @@ def main():
         print(f"   Encodings: {', '.join(col['encodings'])}")
         print(f"   Codec: {col['compression_codec']}")
         
-        print(f"   Offsets:")
+        print("   Offsets:")
         if col['dictionary_page_offset'] is not None:
             print(f"      Dictionary: {col['dictionary_page_offset']}")
         print(f"      Data: {col['data_page_offset']}")
