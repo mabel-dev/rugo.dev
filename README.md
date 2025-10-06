@@ -134,6 +134,38 @@ from_view = parquet_meta.read_metadata_from_memoryview(memoryview(data))
 ```
 `read_metadata_from_memoryview` performs zero-copy parsing when given a contiguous buffer.
 
+## Prototype Data Decoding (Experimental)
+`rugo` includes a prototype decoder for reading actual column data from Parquet files. This is a **limited, experimental feature** designed for simple use cases and testing.
+
+### Supported Features
+- ✅ Uncompressed columns only (`codec=UNCOMPRESSED`)
+- ✅ PLAIN encoding only
+- ✅ `int32`, `int64`, and `string` (byte_array) types only
+
+### Unsupported Features  
+- ❌ Compressed columns (SNAPPY, GZIP, ZSTD, etc.)
+- ❌ Dictionary encoding, Delta encoding, RLE_DICTIONARY
+- ❌ Other types (float, boolean, date, timestamp, complex types)
+- ❌ Nullable columns (columns with definition levels)
+- ❌ Multiple row groups (only first row group is decoded)
+
+### Usage
+```python
+import rugo.parquet as parquet_meta
+
+# Check if a file can be decoded with the prototype decoder
+if parquet_meta.can_decode("data.parquet"):
+    # Decode a specific column (returns a Python list)
+    values = parquet_meta.decode_column("data.parquet", "column_name")
+    print(values)  # e.g., [1, 2, 3, 4, 5] or ['a', 'b', 'c']
+else:
+    print("File cannot be decoded - use PyArrow or another full decoder")
+```
+
+See `examples/decode_example.py` for a complete demonstration.
+
+**Note:** This decoder is a **prototype** for educational and testing purposes. For production use with full Parquet support, use [PyArrow](https://arrow.apache.org/docs/python/) or [FastParquet](https://github.com/dask/fastparquet).
+
 ## Optional Orso conversion
 Install the optional extra (`pip install rugo[orso]`) to enable Orso helpers:
 ```python
@@ -163,14 +195,18 @@ rugo/
 │   ├── metadata_reader.pyx
 │   ├── metadata.cpp
 │   ├── metadata.hpp
+│   ├── decode.cpp
+│   ├── decode.hpp
 │   └── thrift.hpp
 ├── rugo/converters/orso.py
 ├── examples/
 │   ├── comprehensive_metadata.py
+│   ├── decode_example.py
 │   └── orso_conversion.py
 ├── tests/
 │   ├── data/
 │   ├── test_all_metadata_fields.py
+│   ├── test_decode.py
 │   ├── test_logical_types.py
 │   ├── test_orso_converter.py
 │   └── test_statistics.py
@@ -181,7 +217,7 @@ rugo/
 
 ## Status and limitations
 - Active development status (alpha); API details may evolve.
-- Focused on metadata inspection; columnar data reads are out of scope.
+- Primary focus is metadata inspection; the data decoder is a prototype with limited capabilities.
 - Requires a C++17 compiler when installing from source or editing the Cython bindings.
 - Bloom filter information is exposed via offsets and lengths; higher-level helpers are planned.
 

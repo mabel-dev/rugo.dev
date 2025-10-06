@@ -2,6 +2,7 @@
 Tests for Parquet data decoding functionality.
 """
 import pytest
+
 import rugo.parquet as parquet_meta
 
 
