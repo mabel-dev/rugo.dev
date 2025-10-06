@@ -283,3 +283,46 @@ def read_metadata_from_memoryview(memoryview mv, *, bint schema_only=False,
         buf, size, opts
     )
     return _filestats_to_python(fs, not schema_only)
+
+
+def can_decode(str path):
+    """Check if a parquet file can be decoded with our limited decoder.
+    
+    Returns True only if:
+    - All columns are uncompressed
+    - All columns use PLAIN encoding
+    - All columns are int32, int64, or string types
+    """
+    cdef bytes path_bytes = path.encode("utf-8")
+    cdef string cpp_path = path_bytes
+    return metadata_reader.CanDecode(cpp_path)
+
+
+def decode_column(str path, str column_name):
+    """Decode a specific column from a parquet file.
+    
+    Returns a Python list containing the decoded values.
+    Only works for uncompressed, PLAIN-encoded int32, int64, and string columns.
+    
+    Returns None if the column cannot be decoded.
+    """
+    cdef bytes path_bytes = path.encode("utf-8")
+    cdef string cpp_path = path_bytes
+    cdef bytes column_bytes = column_name.encode("utf-8")
+    cdef string cpp_column = column_bytes
+    
+    cdef metadata_reader.DecodedColumn result = metadata_reader.DecodeColumn(cpp_path, cpp_column)
+    
+    if not result.success:
+        return None
+    
+    cdef str col_type = result.type.decode("utf-8")
+    
+    if col_type == "int32":
+        return list(result.int32_values)
+    elif col_type == "int64":
+        return list(result.int64_values)
+    elif col_type == "byte_array":
+        return [s.decode("utf-8") for s in result.string_values]
+    else:
+        return None
