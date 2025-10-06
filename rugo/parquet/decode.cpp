@@ -85,7 +85,7 @@ static PageHeader ParsePageHeader(TInput &in) {
     case 3: // compressed_page_size
       header.compressed_page_size = ReadI32(in);
       break;
-    case 5: { // data_page_header (struct)
+    case 5: { // data_page_header (struct) - field type should be 12 for STRUCT
       int16_t dph_last_id = 0;
       while (true) {
         auto dph_fh = ReadFieldHeader(in, dph_last_id);
@@ -157,28 +157,29 @@ DecodedColumn DecodeColumn(const std::string &path,
     // Set the type
     result.type = target_col->physical_type;
 
-    // Open the file and seek to data page offset
+    // Open the file and read the entire column chunk
     std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) {
       return result;
     }
 
     int64_t offset = target_col->data_page_offset;
-    if (offset < 0) {
+    int64_t total_size = target_col->total_compressed_size;
+    if (offset < 0 || total_size <= 0) {
       return result;
     }
 
     file.seekg(offset);
 
-    // Read page header
-    std::vector<uint8_t> header_buf(1024); // Should be enough for header
-    file.read(reinterpret_cast<char *>(header_buf.data()), header_buf.size());
-    if (!file.good()) {
+    // Read the entire column chunk
+    std::vector<uint8_t> chunk_data(total_size);
+    file.read(reinterpret_cast<char *>(chunk_data.data()), total_size);
+    if (file.gcount() != total_size) {
       return result;
     }
 
-    TInput header_in{header_buf.data(),
-                     header_buf.data() + header_buf.size()};
+    // Parse the page header to find where the data starts
+    TInput header_in{chunk_data.data(), chunk_data.data() + chunk_data.size()};
     PageHeader page_header = ParsePageHeader(header_in);
 
     if (page_header.page_type != 0) {
@@ -186,51 +187,51 @@ DecodedColumn DecodeColumn(const std::string &path,
     }
 
     // Calculate how much of the buffer was used for the header
-    size_t header_size = header_in.p - header_buf.data();
+    size_t header_size = header_in.p - chunk_data.data();
 
-    // Seek to start of page data
-    file.seekg(offset + header_size);
+    // The data starts after the header
+    // For non-nullable PLAIN-encoded columns, data follows immediately
+    const uint8_t *data_ptr = chunk_data.data() + header_size;
+    size_t data_size = chunk_data.size() - header_size;
 
-    // Read the page data
-    std::vector<uint8_t> page_data(page_header.uncompressed_page_size);
-    file.read(reinterpret_cast<char *>(page_data.data()), page_data.size());
-    if (file.gcount() != page_header.uncompressed_page_size) {
-      return result;
+    int32_t num_values = target_col->num_values;
+    if (num_values <= 0) {
+      num_values = page_header.num_values;
     }
 
-    // For PLAIN encoding with no nulls (simple case):
-    // The data is just raw values back-to-back
-    const uint8_t *data_ptr = page_data.data();
-    int32_t num_values = page_header.num_values;
-
+    // Decode based on type
     if (result.type == "int32") {
       result.int32_values.reserve(num_values);
-      for (int32_t i = 0; i < num_values; i++) {
+      for (int32_t i = 0; i < num_values && data_ptr + 4 <= chunk_data.data() + chunk_data.size(); i++) {
         int32_t value = ReadLE32(data_ptr);
         result.int32_values.push_back(value);
         data_ptr += 4;
       }
-      result.success = true;
+      result.success = (result.int32_values.size() == (size_t)num_values);
     } else if (result.type == "int64") {
       result.int64_values.reserve(num_values);
-      for (int32_t i = 0; i < num_values; i++) {
+      for (int32_t i = 0; i < num_values && data_ptr + 8 <= chunk_data.data() + chunk_data.size(); i++) {
         int64_t value = ReadLE64(data_ptr);
         result.int64_values.push_back(value);
         data_ptr += 8;
       }
-      result.success = true;
+      result.success = (result.int64_values.size() == (size_t)num_values);
     } else if (result.type == "byte_array") {
       // PLAIN encoding for byte_array: each value is 4-byte length + data
       result.string_values.reserve(num_values);
-      for (int32_t i = 0; i < num_values; i++) {
+      for (int32_t i = 0; i < num_values && data_ptr + 4 <= chunk_data.data() + chunk_data.size(); i++) {
         int32_t length = ReadLE32(data_ptr);
         data_ptr += 4;
+
+        if (data_ptr + length > chunk_data.data() + chunk_data.size()) {
+          break;
+        }
 
         std::string value(reinterpret_cast<const char *>(data_ptr), length);
         result.string_values.push_back(value);
         data_ptr += length;
       }
-      result.success = true;
+      result.success = (result.string_values.size() == (size_t)num_values);
     }
 
   } catch (...) {
