@@ -15,7 +15,11 @@ def get_extensions():
     # Parquet decoder extension
     parquet_ext = Extension(
         "rugo.parquet",
-        sources=["rugo/parquet/metadata_reader.pyx", "rugo/parquet/metadata.cpp"],
+        sources=[
+            "rugo/parquet/metadata_reader.pyx",
+            "rugo/parquet/metadata.cpp",
+            "rugo/parquet/bloom_filter.cpp",
+        ],
         include_dirs=[],
         language="c++",
         extra_compile_args=["-O3", "-std=c++17"],

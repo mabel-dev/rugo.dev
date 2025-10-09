@@ -9,7 +9,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import rugo.parquet as parquet_meta
+from rugo import parquet
 
 # Try to import orso components
 try:
@@ -49,7 +49,7 @@ class TestOrsoConverter:
         if not Path(planets_path).exists():
             pytest.skip(f"Test file {planets_path} not found")
         
-        rugo_metadata = parquet_meta.read_metadata(planets_path)
+        rugo_metadata = parquet.read_metadata(planets_path)
         
         # Convert to orso schema
         orso_schema = rugo_to_orso_schema(rugo_metadata, "planets")
@@ -78,7 +78,7 @@ class TestOrsoConverter:
         if not Path(planets_path).exists():
             pytest.skip(f"Test file {planets_path} not found")
         
-        rugo_metadata = parquet_meta.read_metadata(planets_path)
+        rugo_metadata = parquet.read_metadata(planets_path)
         schema_info = extract_schema_only(rugo_metadata, "test_schema")
         
         # Verify structure
@@ -155,7 +155,7 @@ def test_struct_handling():
     if not Path(cve_path).exists():
         pytest.skip(f"Test file {cve_path} not found")
     
-    rugo_metadata = parquet_meta.read_metadata(cve_path)
+    rugo_metadata = parquet.read_metadata(cve_path)
     orso_schema = rugo_to_orso_schema(rugo_metadata, "cve_data")
 
     assert isinstance(orso_schema, RelationSchema)
@@ -171,7 +171,7 @@ def test_s_handling():
     if not Path(cve_path).exists():
         pytest.skip(f"Test file {cve_path} not found")
     
-    rugo_metadata = parquet_meta.read_metadata(cve_path)
+    rugo_metadata = parquet.read_metadata(cve_path)
     print(rugo_metadata)
 
 if __name__ == "__main__":

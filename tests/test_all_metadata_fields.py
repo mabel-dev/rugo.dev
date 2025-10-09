@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import glob
 import pytest
 
-import rugo.parquet as parquet_meta
+from rugo import parquet
 
 
 def test_all_metadata_fields_exposed():
@@ -22,7 +22,7 @@ def test_all_metadata_fields_exposed():
 
         print(f"\nTesting file: {file_path}")
 
-        metadata = parquet_meta.read_metadata(file_path)
+        metadata = parquet.read_metadata(file_path)
 
         # Get first column metadata
         assert metadata['row_groups'], "No row groups found"
@@ -82,7 +82,7 @@ def test_metadata_field_types():
 
     for file_path in files_to_test:
 
-        metadata = parquet_meta.read_metadata(file_path)
+        metadata = parquet.read_metadata(file_path)
         col = metadata['row_groups'][0]['columns'][0]
         
         # Check types
@@ -121,7 +121,7 @@ def test_metadata_field_values():
 
     for file_path in files_to_test:
 
-        metadata = parquet_meta.read_metadata(file_path)
+        metadata = parquet.read_metadata(file_path)
         col = metadata['row_groups'][0]['columns'][0]
         
         # Basic fields should be present
@@ -165,7 +165,7 @@ def test_metadata_field_values():
 
 def test_multiple_columns():
     """Test that all columns have the complete metadata."""
-    metadata = parquet_meta.read_metadata('tests/data/planets.parquet')
+    metadata = parquet.read_metadata('tests/data/planets.parquet')
     
     expected_fields = {
         'name', 'type', 'logical_type', 'num_values', 'total_uncompressed_size',
