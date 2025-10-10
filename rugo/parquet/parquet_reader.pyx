@@ -11,7 +11,7 @@ import datetime
 import os
 import struct
 
-cimport metadata_reader
+cimport parquet_reader
 from libc.stdint cimport uint8_t
 from libcpp.string cimport string
 from libcpp.vector cimport vector
@@ -117,11 +117,11 @@ cdef object decode_value(
         return b.hex()
 
 
-cdef metadata_reader.MetadataParseOptions _build_options(
+cdef parquet_reader.MetadataParseOptions _build_options(
         bint schema_only,
         bint include_statistics,
         Py_ssize_t max_row_groups):
-    cdef metadata_reader.MetadataParseOptions opts = metadata_reader.MetadataParseOptions()
+    cdef parquet_reader.MetadataParseOptions opts = parquet_reader.MetadataParseOptions()
     opts.schema_only = schema_only
     if schema_only:
         opts.include_statistics = False
@@ -134,12 +134,12 @@ cdef metadata_reader.MetadataParseOptions _build_options(
     return opts
 
 
-cdef object _filestats_to_python(metadata_reader.FileStats fs,
+cdef object _filestats_to_python(parquet_reader.FileStats fs,
                                  bint include_row_groups):
     cdef dict result = {"num_rows": fs.num_rows}
 
     cdef list schema_columns = []
-    cdef metadata_reader.SchemaField field
+    cdef parquet_reader.SchemaField field
     cdef size_t idx
     cdef dict top_level_types = {}
     for idx in range(fs.schema_columns.size()):
@@ -214,11 +214,11 @@ cdef object _filestats_to_python(metadata_reader.FileStats fs,
 
                 encodings_list = []
                 for enc in col.encodings:
-                    encodings_list.append(metadata_reader.EncodingToString(enc).decode("utf-8"))
+                    encodings_list.append(parquet_reader.EncodingToString(enc).decode("utf-8"))
 
                 codec_str = None
                 if col.codec >= 0:
-                    codec_str = metadata_reader.CompressionCodecToString(col.codec).decode("utf-8")
+                    codec_str = parquet_reader.CompressionCodecToString(col.codec).decode("utf-8")
 
                 kv_metadata = {}
                 for item in col.key_value_metadata:
@@ -256,12 +256,12 @@ cdef object _filestats_to_python(metadata_reader.FileStats fs,
 def read_metadata(str path, *, bint schema_only=False,
                   bint include_statistics=True, Py_ssize_t max_row_groups=-1):
     """Read parquet metadata from a file path."""
-    cdef metadata_reader.MetadataParseOptions opts = _build_options(
+    cdef parquet_reader.MetadataParseOptions opts = _build_options(
         schema_only, include_statistics, max_row_groups
     )
     cdef bytes path_bytes = path.encode("utf-8")
     cdef const char* c_path = path_bytes
-    cdef metadata_reader.FileStats fs = metadata_reader.ReadParquetMetadataC(
+    cdef parquet_reader.FileStats fs = parquet_reader.ReadParquetMetadataC(
         c_path, opts
     )
     return _filestats_to_python(fs, not schema_only)
@@ -271,12 +271,12 @@ def read_metadata_from_bytes(bytes data, *, bint schema_only=False,
                              bint include_statistics=True,
                              Py_ssize_t max_row_groups=-1):
     """Read parquet metadata from an in-memory bytes object."""
-    cdef metadata_reader.MetadataParseOptions opts = _build_options(
+    cdef parquet_reader.MetadataParseOptions opts = _build_options(
         schema_only, include_statistics, max_row_groups
     )
     cdef const uint8_t* buf = <const uint8_t*> data
     cdef size_t size = len(data)
-    cdef metadata_reader.FileStats fs = metadata_reader.ReadParquetMetadataFromBuffer(
+    cdef parquet_reader.FileStats fs = parquet_reader.ReadParquetMetadataFromBuffer(
         buf, size, opts
     )
     return _filestats_to_python(fs, not schema_only)
@@ -289,14 +289,14 @@ def read_metadata_from_memoryview(memoryview mv, *, bint schema_only=False,
     if not mv.contiguous:
         raise ValueError("Memoryview must be contiguous")
 
-    cdef metadata_reader.MetadataParseOptions opts = _build_options(
+    cdef parquet_reader.MetadataParseOptions opts = _build_options(
         schema_only, include_statistics, max_row_groups
     )
     cdef memoryview[uint8_t] mv_bytes = mv.cast('B')  # keep reference alive
     cdef const uint8_t* buf = &mv_bytes[0]
     cdef size_t size = mv_bytes.nbytes
 
-    cdef metadata_reader.FileStats fs = metadata_reader.ReadParquetMetadataFromBuffer(
+    cdef parquet_reader.FileStats fs = parquet_reader.ReadParquetMetadataFromBuffer(
         buf, size, opts
     )
     return _filestats_to_python(fs, not schema_only)
@@ -312,14 +312,14 @@ def can_decode(str path):
     """
     cdef bytes path_bytes = path.encode("utf-8")
     cdef string cpp_path = path_bytes
-    return metadata_reader.CanDecode(cpp_path)
+    return parquet_reader.CanDecode(cpp_path)
 
 
 def decode_column(str path, str column_name):
     """Decode a specific column from a parquet file.
 
     Returns a Python list containing the decoded values.
-    Only works for uncompressed, PLAIN-encoded int32, int64, and string columns.
+    Only works for uncompressed, PLAIN-encoded int32, int64, string, boolean, float32, and float64 columns.
 
     Returns None if the column cannot be decoded.
     """
@@ -328,7 +328,7 @@ def decode_column(str path, str column_name):
     cdef bytes column_bytes = column_name.encode("utf-8")
     cdef string cpp_column = column_bytes
 
-    cdef metadata_reader.DecodedColumn result = metadata_reader.DecodeColumn(cpp_path, cpp_column)
+    cdef parquet_reader.DecodedColumn result = parquet_reader.DecodeColumn(cpp_path, cpp_column)
 
     if not result.success:
         return None
@@ -341,6 +341,12 @@ def decode_column(str path, str column_name):
         return list(result.int64_values)
     elif col_type == "byte_array":
         return [_safe_decode_utf8(s) for s in result.string_values]
+    elif col_type == "boolean":
+        return [bool(val) for val in result.boolean_values]
+    elif col_type == "float32":
+        return list(result.float32_values)
+    elif col_type == "float64":
+        return list(result.float64_values)
     else:
         return None
 
@@ -355,7 +361,7 @@ def decode_column_from_row_group(str path, str column_name, row_group_stats, int
         row_group_index: Index of the row group (for reference/debugging)
 
     Returns a Python list containing the decoded values.
-    Only works for uncompressed, PLAIN-encoded int32, int64, and string columns.
+    Only works for uncompressed, PLAIN-encoded int32, int64, string, boolean, float32, and float64 columns.
 
     Returns None if the column cannot be decoded.
     """
@@ -365,8 +371,8 @@ def decode_column_from_row_group(str path, str column_name, row_group_stats, int
     cdef string cpp_column = column_bytes
 
     # Convert the Python row_group_stats to C++ RowGroupStats
-    cdef metadata_reader.RowGroupStats cpp_row_group
-    cdef metadata_reader.ColumnStats cpp_col
+    cdef parquet_reader.RowGroupStats cpp_row_group
+    cdef parquet_reader.ColumnStats cpp_col
     cpp_row_group.num_rows = row_group_stats.num_rows
     cpp_row_group.total_byte_size = row_group_stats.total_byte_size
 
@@ -394,7 +400,7 @@ def decode_column_from_row_group(str path, str column_name, row_group_stats, int
         # Note: key_value_metadata conversion would require more complex handling
         cpp_row_group.columns.push_back(cpp_col)
 
-    cdef metadata_reader.DecodedColumn result = metadata_reader.DecodeColumn(
+    cdef parquet_reader.DecodedColumn result = parquet_reader.DecodeColumn(
         cpp_path, cpp_column, cpp_row_group, row_group_index)
 
     if not result.success:
@@ -408,6 +414,12 @@ def decode_column_from_row_group(str path, str column_name, row_group_stats, int
         return list(result.int64_values)
     elif col_type == "byte_array":
         return [_safe_decode_utf8(s) for s in result.string_values]
+    elif col_type == "boolean":
+        return [bool(val) for val in result.boolean_values]
+    elif col_type == "float32":
+        return list(result.float32_values)
+    elif col_type == "float64":
+        return list(result.float64_values)
     else:
         return None
 
@@ -437,10 +449,10 @@ def test_bloom_filter(path, bloom_offset, bloom_length, value):
     else:
         value_bytes = str(value).encode("utf-8")
 
-    cdef metadata_reader.string c_path = path_bytes
-    cdef metadata_reader.string c_value = value_bytes
+    cdef parquet_reader.string c_path = path_bytes
+    cdef parquet_reader.string c_value = value_bytes
 
-    return bool(metadata_reader.TestBloomFilter(c_path, native_offset, native_length, c_value))
+    return bool(parquet_reader.TestBloomFilter(c_path, native_offset, native_length, c_value))
 
 
 def can_decode_from_memory(data):
@@ -463,7 +475,7 @@ def can_decode_from_memory(data):
         raise TypeError("data must be bytes, bytearray, or memoryview")
 
     size = mem_view.shape[0]
-    return bool(metadata_reader.CanDecode(&mem_view[0], size))
+    return bool(parquet_reader.CanDecode(&mem_view[0], size))
 
 
 def read_parquet(data, column_names=None):
@@ -500,16 +512,16 @@ def read_parquet(data, column_names=None):
     size = mem_view.shape[0]
 
     # Call the appropriate C++ function based on whether columns are specified
-    cdef metadata_reader.DecodedTable result
+    cdef parquet_reader.DecodedTable result
 
     if column_names is None:
         # Decode all columns
-        result = metadata_reader.ReadParquet(&mem_view[0], size)
+        result = parquet_reader.ReadParquet(&mem_view[0], size)
     else:
         # Decode specified columns
         for name in column_names:
             cpp_column_names.push_back(str(name).encode("utf-8"))
-        result = metadata_reader.ReadParquet(&mem_view[0], size, cpp_column_names)
+        result = parquet_reader.ReadParquet(&mem_view[0], size, cpp_column_names)
 
     if not result.success:
         return None
@@ -539,6 +551,12 @@ def read_parquet(data, column_names=None):
                 row_group.append(list(column.int64_values))
             elif col_type == "byte_array":
                 row_group.append([_safe_decode_utf8(s) for s in column.string_values])
+            elif col_type == "boolean":
+                row_group.append([bool(val) for val in column.boolean_values])
+            elif col_type == "float32":
+                row_group.append(list(column.float32_values))
+            elif col_type == "float64":
+                row_group.append(list(column.float64_values))
             else:
                 row_group.append(None)
 
@@ -557,14 +575,14 @@ def decode_column_from_memory(data, str column_name, row_group_stats, int row_gr
         row_group_index: Index of the row group (for reference/debugging)
 
     Returns a Python list containing the decoded values.
-    Only works for uncompressed, PLAIN-encoded int32, int64, and string columns.
+    Only works for uncompressed, PLAIN-encoded int32, int64, string, boolean, float32, and float64 columns.
 
     Returns None if the column cannot be decoded.
     """
     cdef const uint8_t[::1] mem_view
     cdef size_t size
-    cdef metadata_reader.RowGroupStats cpp_row_group
-    cdef metadata_reader.ColumnStats cpp_col
+    cdef parquet_reader.RowGroupStats cpp_row_group
+    cdef parquet_reader.ColumnStats cpp_col
 
     # Convert input data to memory view
     if isinstance(data, (bytes, bytearray)):
@@ -607,7 +625,7 @@ def decode_column_from_memory(data, str column_name, row_group_stats, int row_gr
         cpp_col.codec = col.codec
         cpp_row_group.columns.push_back(cpp_col)
 
-    cdef metadata_reader.DecodedColumn result = metadata_reader.DecodeColumnFromMemory(
+    cdef parquet_reader.DecodedColumn result = parquet_reader.DecodeColumnFromMemory(
         &mem_view[0], size, cpp_column, cpp_row_group, row_group_index)
 
     if not result.success:
@@ -621,5 +639,11 @@ def decode_column_from_memory(data, str column_name, row_group_stats, int row_gr
         return list(result.int64_values)
     elif col_type == "byte_array":
         return [_safe_decode_utf8(s) for s in result.string_values]
+    elif col_type == "boolean":
+        return [bool(val) for val in result.boolean_values]
+    elif col_type == "float32":
+        return list(result.float32_values)
+    elif col_type == "float64":
+        return list(result.float64_values)
     else:
         return None

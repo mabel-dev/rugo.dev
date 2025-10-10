@@ -16,7 +16,7 @@ def get_extensions():
     parquet_ext = Extension(
         "rugo.parquet",
         sources=[
-            "rugo/parquet/metadata_reader.pyx",
+            "rugo/parquet/parquet_reader.pyx",
             "rugo/parquet/metadata.cpp",
             "rugo/parquet/bloom_filter.cpp",
             "rugo/parquet/decode.cpp",

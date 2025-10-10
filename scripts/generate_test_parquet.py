@@ -289,6 +289,9 @@ def get_rugo_compatible_config() -> List[Dict[str, Any]]:
         {'name': 'value', 'type': 'int64', 'min_value': 0, 'max_value': 2**50},
         {'name': 'name', 'type': 'string', 'pattern': 'sequential', 'string_length': 15},
         {'name': 'category', 'type': 'string', 'pattern': 'repeated', 'string_length': 8},
+        {'name': 'is_active', 'type': 'bool'},
+        {'name': 'score', 'type': 'float32', 'min_value': 0.0, 'max_value': 100.0},
+        {'name': 'rating', 'type': 'float64', 'min_value': 0.0, 'max_value': 1000.0},
     ]
 
 
@@ -332,7 +335,7 @@ if __name__ == "__main__":
         rows_per_group=1000,
         num_groups=3,
         compression='none',  # Uncompressed
-        encoding={'id': 'PLAIN', 'value': 'PLAIN', 'name': 'PLAIN', 'category': 'PLAIN'},
+        encoding={'id': 'PLAIN', 'value': 'PLAIN', 'name': 'PLAIN', 'category': 'PLAIN', 'is_active': 'PLAIN', 'score': 'PLAIN', 'rating': 'PLAIN'},
         seed=42
     )
     
