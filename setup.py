@@ -19,6 +19,7 @@ def get_extensions():
             "rugo/parquet/metadata_reader.pyx",
             "rugo/parquet/metadata.cpp",
             "rugo/parquet/bloom_filter.cpp",
+            "rugo/parquet/decode.cpp",
         ],
         include_dirs=[],
         language="c++",

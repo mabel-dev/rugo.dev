@@ -86,3 +86,14 @@ cdef extern from "metadata.hpp":
     # Helper functions
     const char* EncodingToString(int32_t enc)
     const char* CompressionCodecToString(int32_t codec)
+
+cdef extern from "decode.hpp":
+    cdef cppclass DecodedColumn:
+        vector[int32_t] int32_values
+        vector[int64_t] int64_values
+        vector[string] string_values
+        string type
+        bint success
+    
+    bint CanDecode(const string& path)
+    DecodedColumn DecodeColumn(const string& path, const string& column_name)
