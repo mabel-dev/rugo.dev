@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rugo"
-version = "0.1.7"
+version = "0.1.8"
 description = "Parquet Metadata Reader"
 readme = "README.md"
 authors = [
@@ -24,7 +24,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
     "Topic :: System :: Archiving",
 ]
-keywords = ["file", "decoder", "parquet", "cython"]
+keywords = ["data", "decoder", "parquet", "cython", "python"]
 requires-python = ">=3.9"
 dependencies = [
 ]
@@ -37,6 +37,7 @@ dev = [
     "twine",
 ]
 test = [
+    "orso",
     "pyarrow",
     "pytest>=6.0.0",
     "pytest-cov",
