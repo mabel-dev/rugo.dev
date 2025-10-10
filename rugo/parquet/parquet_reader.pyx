@@ -227,7 +227,7 @@ cdef object _filestats_to_python(parquet_reader.FileStats fs,
                 rg_dict["columns"].append({
                     "name": display_name,
                     "path_in_schema": full_name,
-                    "type": col.physical_type.decode("utf-8"),
+                    "physical_type": col.physical_type.decode("utf-8"),
                     "logical_type": logical_type_str,
                     "min": min_val,
                     "max": max_val,

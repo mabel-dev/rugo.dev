@@ -1,6 +1,7 @@
 #include "decode.hpp"
 #include "metadata.hpp"
 #include "thrift.hpp"
+#include "compression.hpp"
 #include <algorithm>
 #include <cstring>
 #include <fstream>
@@ -38,8 +39,8 @@ bool CanDecode(const std::string &path) {
     // Check all columns in all row groups
     for (const auto &rg : metadata.row_groups) {
       for (const auto &col : rg.columns) {
-        // Check compression codec - must be uncompressed (codec == 0)
-        if (col.codec != 0) {
+        // Check compression codec - support UNCOMPRESSED (0), SNAPPY (1), ZSTD (6)
+        if (col.codec != 0 && col.codec != 1 && col.codec != 6) {
           return false;
         }
 
@@ -78,8 +79,8 @@ bool CanDecode(const uint8_t* data, size_t size) {
     // Check all columns in all row groups
     for (const auto &rg : metadata.row_groups) {
       for (const auto &col : rg.columns) {
-        // Check compression codec - must be uncompressed (codec == 0)
-        if (col.codec != 0) {
+        // Check compression codec - support UNCOMPRESSED (0), SNAPPY (1), ZSTD (6)
+        if (col.codec != 0 && col.codec != 1 && col.codec != 6) {
           return false;
         }
 
@@ -184,11 +185,7 @@ DecodedColumn DecodeColumn(const std::string &path,
       return result;
     }
 
-    // Check if we can decode this column
-    if (target_col->codec != 0) {
-      return result; // Not uncompressed
-    }
-
+    // Check if we can decode this column's encoding (we support compression now!)
     bool has_plain = false;
     for (int32_t enc : target_col->encodings) {
       if (enc == 0) {
@@ -235,10 +232,43 @@ DecodedColumn DecodeColumn(const std::string &path,
     // Calculate how much of the buffer was used for the header
     size_t header_size = header_in.p - chunk_data.data();
 
-    // The data starts after the header
-    // For non-nullable PLAIN-encoded columns, data follows immediately
-    const uint8_t *data_ptr = chunk_data.data() + header_size;
-    size_t data_size = chunk_data.size() - header_size;
+    // Get the compressed page data
+    // For compressed pages, use compressed_page_size from header
+    // For uncompressed pages, compressed_page_size == uncompressed_page_size
+    const uint8_t *compressed_data = chunk_data.data() + header_size;
+    size_t compressed_size = page_header.compressed_page_size;
+    
+    // Fallback: if compressed_page_size is 0 or invalid, use remaining chunk
+    if (compressed_size == 0 || compressed_size > chunk_data.size() - header_size) {
+      compressed_size = chunk_data.size() - header_size;
+    }
+
+    // Decompress the page data if necessary
+    std::vector<uint8_t> decompressed_data;
+    const uint8_t *data_ptr;
+    size_t data_size;
+    
+    if (target_col->codec == 0) {
+      // UNCOMPRESSED - use data directly
+      data_ptr = compressed_data;
+      data_size = compressed_size;
+    } else {
+      // COMPRESSED - decompress first
+      try {
+        auto codec = rugo::compression::CodecFromInt(target_col->codec);
+        decompressed_data = rugo::compression::DecompressData(
+          compressed_data,
+          compressed_size,
+          page_header.uncompressed_page_size,
+          codec
+        );
+        data_ptr = decompressed_data.data();
+        data_size = decompressed_data.size();
+      } catch (const std::exception& e) {
+        // Decompression failed - return unsuccessful result
+        return result;
+      }
+    }
 
     int32_t num_values = target_col->num_values;
     if (num_values <= 0) {
@@ -246,9 +276,11 @@ DecodedColumn DecodeColumn(const std::string &path,
     }
 
     // Decode based on type
+    const uint8_t *data_end = data_ptr + data_size;
+    
     if (result.type == "int32") {
       result.int32_values.reserve(num_values);
-      for (int32_t i = 0; i < num_values && data_ptr + 4 <= chunk_data.data() + chunk_data.size(); i++) {
+      for (int32_t i = 0; i < num_values && data_ptr + 4 <= data_end; i++) {
         int32_t value = ReadLE32(data_ptr);
         result.int32_values.push_back(value);
         data_ptr += 4;
@@ -256,7 +288,7 @@ DecodedColumn DecodeColumn(const std::string &path,
       result.success = (result.int32_values.size() == (size_t)num_values);
     } else if (result.type == "int64") {
       result.int64_values.reserve(num_values);
-      for (int32_t i = 0; i < num_values && data_ptr + 8 <= chunk_data.data() + chunk_data.size(); i++) {
+      for (int32_t i = 0; i < num_values && data_ptr + 8 <= data_end; i++) {
         int64_t value = ReadLE64(data_ptr);
         result.int64_values.push_back(value);
         data_ptr += 8;
@@ -265,11 +297,11 @@ DecodedColumn DecodeColumn(const std::string &path,
     } else if (result.type == "byte_array") {
       // PLAIN encoding for byte_array: each value is 4-byte length + data
       result.string_values.reserve(num_values);
-      for (int32_t i = 0; i < num_values && data_ptr + 4 <= chunk_data.data() + chunk_data.size(); i++) {
+      for (int32_t i = 0; i < num_values && data_ptr + 4 <= data_end; i++) {
         int32_t length = ReadLE32(data_ptr);
         data_ptr += 4;
 
-        if (data_ptr + length > chunk_data.data() + chunk_data.size()) {
+        if (data_ptr + length > data_end) {
           break;
         }
 
@@ -281,7 +313,7 @@ DecodedColumn DecodeColumn(const std::string &path,
     } else if (result.type == "boolean") {
       // PLAIN encoding for boolean: 1 bit per value, packed into bytes
       result.boolean_values.reserve(num_values);
-      for (int32_t i = 0; i < num_values && data_ptr < chunk_data.data() + chunk_data.size(); i++) {
+      for (int32_t i = 0; i < num_values && data_ptr < data_end; i++) {
         // Each byte contains up to 8 boolean values
         uint8_t byte_value = data_ptr[i / 8];
         uint8_t bit_value = (byte_value >> (i % 8)) & 1;
@@ -297,7 +329,7 @@ DecodedColumn DecodeColumn(const std::string &path,
       result.success = (result.boolean_values.size() == (size_t)num_values);
     } else if (result.type == "float32") {
       result.float32_values.reserve(num_values);
-      for (int32_t i = 0; i < num_values && data_ptr + 4 <= chunk_data.data() + chunk_data.size(); i++) {
+      for (int32_t i = 0; i < num_values && data_ptr + 4 <= data_end; i++) {
         float value = ReadFloat32(data_ptr);
         result.float32_values.push_back(value);
         data_ptr += 4;
@@ -305,7 +337,7 @@ DecodedColumn DecodeColumn(const std::string &path,
       result.success = (result.float32_values.size() == (size_t)num_values);
     } else if (result.type == "float64") {
       result.float64_values.reserve(num_values);
-      for (int32_t i = 0; i < num_values && data_ptr + 8 <= chunk_data.data() + chunk_data.size(); i++) {
+      for (int32_t i = 0; i < num_values && data_ptr + 8 <= data_end; i++) {
         double value = ReadFloat64(data_ptr);
         result.float64_values.push_back(value);
         data_ptr += 8;
@@ -326,9 +358,9 @@ static DecodedColumn DecodeColumnFromChunk(const uint8_t* chunk_data, size_t chu
   DecodedColumn result;
   
   try {
-    // Check if we can decode this column
-    if (target_col->codec != 0) {
-      return result; // Not uncompressed
+    // Check if we can decode this column (updated to support compression)
+    if (target_col->codec != 0 && target_col->codec != 1 && target_col->codec != 6) {
+      return result; // Unsupported compression codec
     }
 
     bool has_plain = false;
@@ -356,8 +388,43 @@ static DecodedColumn DecodeColumnFromChunk(const uint8_t* chunk_data, size_t chu
     // Calculate how much of the buffer was used for the header
     size_t header_size = header_in.p - chunk_data;
 
-    // The data starts after the header
-    const uint8_t *data_ptr = chunk_data + header_size;
+    // Get the compressed page data
+    // For compressed pages, use compressed_page_size from header
+    // For uncompressed pages, compressed_page_size == uncompressed_page_size
+    const uint8_t *compressed_data = chunk_data + header_size;
+    size_t compressed_size = page_header.compressed_page_size;
+    
+    // Fallback: if compressed_page_size is 0 or invalid, use remaining chunk
+    if (compressed_size == 0 || compressed_size > chunk_size - header_size) {
+      compressed_size = chunk_size - header_size;
+    }
+
+    // Decompress the page data if necessary
+    std::vector<uint8_t> decompressed_data;
+    const uint8_t *data_ptr;
+    size_t data_size;
+    
+    if (target_col->codec == 0) {
+      // UNCOMPRESSED - use data directly
+      data_ptr = compressed_data;
+      data_size = compressed_size;
+    } else {
+      // COMPRESSED - decompress first
+      try {
+        auto codec = rugo::compression::CodecFromInt(target_col->codec);
+        decompressed_data = rugo::compression::DecompressData(
+          compressed_data,
+          compressed_size,
+          page_header.uncompressed_page_size,
+          codec
+        );
+        data_ptr = decompressed_data.data();
+        data_size = decompressed_data.size();
+      } catch (const std::exception& e) {
+        // Decompression failed - return unsuccessful result
+        return result;
+      }
+    }
 
     int32_t num_values = target_col->num_values;
     if (num_values <= 0) {
@@ -365,9 +432,10 @@ static DecodedColumn DecodeColumnFromChunk(const uint8_t* chunk_data, size_t chu
     }
 
     // Decode based on type
+    const uint8_t *data_end = data_ptr + data_size;
     if (result.type == "int32") {
       result.int32_values.reserve(num_values);
-      for (int32_t i = 0; i < num_values && data_ptr + 4 <= chunk_data + chunk_size; i++) {
+      for (int32_t i = 0; i < num_values && data_ptr + 4 <= data_end; i++) {
         int32_t value = ReadLE32(data_ptr);
         result.int32_values.push_back(value);
         data_ptr += 4;
@@ -375,7 +443,7 @@ static DecodedColumn DecodeColumnFromChunk(const uint8_t* chunk_data, size_t chu
       result.success = (result.int32_values.size() == (size_t)num_values);
     } else if (result.type == "int64") {
       result.int64_values.reserve(num_values);
-      for (int32_t i = 0; i < num_values && data_ptr + 8 <= chunk_data + chunk_size; i++) {
+      for (int32_t i = 0; i < num_values && data_ptr + 8 <= data_end; i++) {
         int64_t value = ReadLE64(data_ptr);
         result.int64_values.push_back(value);
         data_ptr += 8;
@@ -384,11 +452,11 @@ static DecodedColumn DecodeColumnFromChunk(const uint8_t* chunk_data, size_t chu
     } else if (result.type == "byte_array") {
       // PLAIN encoding for byte_array: each value is 4-byte length + data
       result.string_values.reserve(num_values);
-      for (int32_t i = 0; i < num_values && data_ptr + 4 <= chunk_data + chunk_size; i++) {
+      for (int32_t i = 0; i < num_values && data_ptr + 4 <= data_end; i++) {
         int32_t length = ReadLE32(data_ptr);
         data_ptr += 4;
 
-        if (data_ptr + length > chunk_data + chunk_size) {
+        if (data_ptr + length > data_end) {
           break;
         }
 
@@ -400,7 +468,7 @@ static DecodedColumn DecodeColumnFromChunk(const uint8_t* chunk_data, size_t chu
     } else if (result.type == "boolean") {
       // PLAIN encoding for boolean: 1 bit per value, packed into bytes
       result.boolean_values.reserve(num_values);
-      for (int32_t i = 0; i < num_values && data_ptr < chunk_data + chunk_size; i++) {
+      for (int32_t i = 0; i < num_values && data_ptr < data_end; i++) {
         // Each byte contains up to 8 boolean values
         uint8_t byte_value = data_ptr[i / 8];
         uint8_t bit_value = (byte_value >> (i % 8)) & 1;
@@ -416,7 +484,7 @@ static DecodedColumn DecodeColumnFromChunk(const uint8_t* chunk_data, size_t chu
       result.success = (result.boolean_values.size() == (size_t)num_values);
     } else if (result.type == "float32") {
       result.float32_values.reserve(num_values);
-      for (int32_t i = 0; i < num_values && data_ptr + 4 <= chunk_data + chunk_size; i++) {
+      for (int32_t i = 0; i < num_values && data_ptr + 4 <= data_end; i++) {
         float value = ReadFloat32(data_ptr);
         result.float32_values.push_back(value);
         data_ptr += 4;
@@ -424,7 +492,7 @@ static DecodedColumn DecodeColumnFromChunk(const uint8_t* chunk_data, size_t chu
       result.success = (result.float32_values.size() == (size_t)num_values);
     } else if (result.type == "float64") {
       result.float64_values.reserve(num_values);
-      for (int32_t i = 0; i < num_values && data_ptr + 8 <= chunk_data + chunk_size; i++) {
+      for (int32_t i = 0; i < num_values && data_ptr + 8 <= data_end; i++) {
         double value = ReadFloat64(data_ptr);
         result.float64_values.push_back(value);
         data_ptr += 8;
