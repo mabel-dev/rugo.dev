@@ -31,6 +31,31 @@ static inline double ReadFloat64(const uint8_t *p) {
   return *reinterpret_cast<const double*>(&bits);
 }
 
+// Skip RLE/Bit-packed encoded levels (repetition or definition levels)
+// Returns the number of bytes to skip
+// According to Parquet spec:
+// - For Data Page V1, levels are RLE-encoded with 4-byte length prefix IF max_level > 0
+// - If max_level = 0, NO level data is written at all
+static size_t SkipRLEBitPackedLevels(const uint8_t* data, size_t max_size, int max_level) {
+  if (max_level <= 0) {
+    // No levels encoded when max_level = 0
+    return 0;
+  }
+  
+  // For max_level > 0, the level data is length-prefixed with a 4-byte little-endian int
+  if (max_size < 4) {
+    return 0;  // Not enough data
+  }
+  
+  int32_t level_byte_length = ReadLE32(data);
+  if (level_byte_length < 0 || level_byte_length > (int32_t)max_size - 4) {
+    return 0;  // Invalid length
+  }
+  
+  // Skip the 4-byte length + the level data itself
+  return 4 + level_byte_length;
+}
+
 bool CanDecode(const std::string &path) {
   try {
     // Read metadata to check if we can decode this file
@@ -48,6 +73,11 @@ bool CanDecode(const std::string &path) {
         if (col.physical_type != "int32" && col.physical_type != "int64" &&
             col.physical_type != "byte_array" && col.physical_type != "boolean" &&
             col.physical_type != "float32" && col.physical_type != "float64") {
+          return false;
+        }
+
+        // Check for dictionary encoding - we don't support it yet
+        if (col.dictionary_page_offset >= 0) {
           return false;
         }
 
@@ -88,6 +118,11 @@ bool CanDecode(const uint8_t* data, size_t size) {
         if (col.physical_type != "int32" && col.physical_type != "int64" &&
             col.physical_type != "byte_array" && col.physical_type != "boolean" &&
             col.physical_type != "float32" && col.physical_type != "float64") {
+          return false;
+        }
+
+        // Check for dictionary encoding - we don't support it yet
+        if (col.dictionary_page_offset >= 0) {
           return false;
         }
 
@@ -275,6 +310,24 @@ DecodedColumn DecodeColumn(const std::string &path,
       num_values = page_header.num_values;
     }
 
+    // Skip repetition and definition levels according to Parquet spec
+    // For Data Page V1, both are RLE-encoded with 4-byte length prefixes when present
+    // They are only present if max_level > 0
+    
+    // Skip repetition levels (only if max_repetition_level > 0)
+    if (target_col->max_repetition_level > 0) {
+      size_t rep_level_bytes = SkipRLEBitPackedLevels(data_ptr, data_size, target_col->max_repetition_level);
+      data_ptr += rep_level_bytes;
+      data_size -= rep_level_bytes;
+    }
+    
+    // Skip definition levels (only if max_definition_level > 0)
+    if (target_col->max_definition_level > 0) {
+      size_t def_level_bytes = SkipRLEBitPackedLevels(data_ptr, data_size, target_col->max_definition_level);
+      data_ptr += def_level_bytes;
+      data_size -= def_level_bytes;
+    }
+
     // Decode based on type
     const uint8_t *data_end = data_ptr + data_size;
     
@@ -429,6 +482,24 @@ static DecodedColumn DecodeColumnFromChunk(const uint8_t* chunk_data, size_t chu
     int32_t num_values = target_col->num_values;
     if (num_values <= 0) {
       num_values = page_header.num_values;
+    }
+
+    // Skip repetition and definition levels according to Parquet spec
+    // For Data Page V1, both are RLE-encoded with 4-byte length prefixes when present
+    // They are only present if max_level > 0
+    
+    // Skip repetition levels (only if max_repetition_level > 0)
+    if (target_col->max_repetition_level > 0) {
+      size_t rep_level_bytes = SkipRLEBitPackedLevels(data_ptr, data_size, target_col->max_repetition_level);
+      data_ptr += rep_level_bytes;
+      data_size -= rep_level_bytes;
+    }
+    
+    // Skip definition levels (only if max_definition_level > 0)
+    if (target_col->max_definition_level > 0) {
+      size_t def_level_bytes = SkipRLEBitPackedLevels(data_ptr, data_size, target_col->max_definition_level);
+      data_ptr += def_level_bytes;
+      data_size -= def_level_bytes;
     }
 
     // Decode based on type
