@@ -9,7 +9,7 @@ import pyarrow.parquet as pq
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import rugo.parquet as parquet_meta
+from rugo import parquet
 
 FILES = glob.glob("tests/data/*.parquet")
 
@@ -63,7 +63,7 @@ def extract_pyarrow(path: str):
     return out
 
 def extract_custom(path: str):
-    return parquet_meta.read_metadata(path)
+    return parquet.read_metadata(path)
 
 def compare(pa, cu):
     diffs = []

@@ -12,7 +12,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import rugo.parquet as parquet_meta
+from rugo import parquet
 
 # these are specific to the test files only
 EQUIVALENT_TYPES = {
@@ -55,7 +55,7 @@ def test_logical_types():
             
         print(f"\nFile: {file_path}")
 
-        meta = parquet_meta.read_metadata(file_path)
+        meta = parquet.read_metadata(file_path)
         
         for rg_idx, rg in enumerate(meta['row_groups']):
             print(f"  Row Group {rg_idx}:")
@@ -86,7 +86,7 @@ def test_comparison_with_pyarrow():
         arrow_types = {field.name: str(field.type) for field in schema} 
         
         # Our interpretation
-        meta = parquet_meta.read_metadata(file_path)
+        meta = parquet.read_metadata(file_path)
         print("   schema:")
         for col in meta['row_groups'][0]['columns']:
             if "." not in col["name"]:

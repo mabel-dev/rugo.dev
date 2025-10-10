@@ -8,6 +8,7 @@
 # cython: infer_types=True
 
 import datetime
+import os
 import struct
 
 cimport metadata_reader
@@ -284,7 +285,7 @@ def read_metadata_from_memoryview(memoryview mv, *, bint schema_only=False,
     )
     return _filestats_to_python(fs, not schema_only)
 
-
+  
 def can_decode(str path):
     """Check if a parquet file can be decoded with our limited decoder.
     
@@ -326,3 +327,34 @@ def decode_column(str path, str column_name):
         return [s.decode("utf-8") for s in result.string_values]
     else:
         return None
+
+
+def test_bloom_filter(path, bloom_offset, bloom_length, value):
+    """Evaluate a parquet column bloom filter at the given offset."""
+    if bloom_offset is None:
+        raise ValueError("Bloom filter offset is required")
+
+    cdef long long native_offset = <long long>bloom_offset
+    if native_offset < 0:
+        raise ValueError("Bloom filter offset must be non-negative")
+
+    cdef long long native_length
+    if bloom_length is None:
+        native_length = -1
+    else:
+        native_length = <long long>bloom_length
+        if native_length <= 0:
+            native_length = -1
+
+    cdef str path_str = os.fspath(path)
+    cdef bytes path_bytes = path_str.encode("utf-8")
+
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        value_bytes = bytes(value)
+    else:
+        value_bytes = str(value).encode("utf-8")
+
+    cdef metadata_reader.string c_path = path_bytes
+    cdef metadata_reader.string c_value = value_bytes
+
+    return bool(metadata_reader.TestBloomFilter(c_path, native_offset, native_length, c_value))
