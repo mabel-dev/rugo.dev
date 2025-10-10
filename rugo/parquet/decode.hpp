@@ -9,7 +9,10 @@ struct DecodedColumn {
   std::vector<int32_t> int32_values;
   std::vector<int64_t> int64_values;
   std::vector<std::string> string_values;
-  std::string type; // "int32", "int64", "string"
+  std::vector<uint8_t> boolean_values;   // for boolean (using uint8_t instead of bool)
+  std::vector<float> float32_values;     // for float32
+  std::vector<double> float64_values;    // for float64
+  std::string type; // "int32", "int64", "string", "boolean", "float32", "float64"
   bool success = false;
 };
 

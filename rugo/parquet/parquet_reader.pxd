@@ -1,4 +1,4 @@
-# parquet_meta.pxd
+# parquet_reader.pxd
 from libc.stdint cimport uint8_t, int32_t, int64_t
 from libcpp.string cimport string
 from libcpp.vector cimport vector
@@ -92,6 +92,9 @@ cdef extern from "decode.hpp":
         vector[int32_t] int32_values
         vector[int64_t] int64_values
         vector[string] string_values
+        vector[uint8_t] boolean_values
+        vector[float] float32_values
+        vector[double] float64_values
         string type
         bint success
     

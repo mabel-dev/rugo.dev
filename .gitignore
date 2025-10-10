@@ -214,5 +214,5 @@ __marimo__/
 tests/data/42004e494300.parquet
 tests/data/hits_51.parquet
 .DS_Store
-rugo/parquet/metadata_reader.cpp
 rugo/.DS_Store
+rugo/parquet/parquet_reader.cpp

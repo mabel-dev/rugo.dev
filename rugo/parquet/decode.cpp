@@ -19,6 +19,17 @@ static inline int64_t ReadLE64(const uint8_t *p) {
          ((int64_t)p[6] << 48) | ((int64_t)p[7] << 56);
 }
 
+// Helper functions to read LE floats from buffer
+static inline float ReadFloat32(const uint8_t *p) {
+  uint32_t bits = ReadLE32(p);
+  return *reinterpret_cast<const float*>(&bits);
+}
+
+static inline double ReadFloat64(const uint8_t *p) {
+  uint64_t bits = ReadLE64(p);
+  return *reinterpret_cast<const double*>(&bits);
+}
+
 bool CanDecode(const std::string &path) {
   try {
     // Read metadata to check if we can decode this file
@@ -32,9 +43,10 @@ bool CanDecode(const std::string &path) {
           return false;
         }
 
-        // Check physical type - must be int32, int64, or byte_array
+        // Check physical type - must be supported primitive types
         if (col.physical_type != "int32" && col.physical_type != "int64" &&
-            col.physical_type != "byte_array") {
+            col.physical_type != "byte_array" && col.physical_type != "boolean" &&
+            col.physical_type != "float32" && col.physical_type != "float64") {
           return false;
         }
 
@@ -71,9 +83,10 @@ bool CanDecode(const uint8_t* data, size_t size) {
           return false;
         }
 
-        // Check physical type - must be int32, int64, or byte_array
+        // Check physical type - must be supported primitive types
         if (col.physical_type != "int32" && col.physical_type != "int64" &&
-            col.physical_type != "byte_array") {
+            col.physical_type != "byte_array" && col.physical_type != "boolean" &&
+            col.physical_type != "float32" && col.physical_type != "float64") {
           return false;
         }
 
@@ -265,6 +278,39 @@ DecodedColumn DecodeColumn(const std::string &path,
         data_ptr += length;
       }
       result.success = (result.string_values.size() == (size_t)num_values);
+    } else if (result.type == "boolean") {
+      // PLAIN encoding for boolean: 1 bit per value, packed into bytes
+      result.boolean_values.reserve(num_values);
+      for (int32_t i = 0; i < num_values && data_ptr < chunk_data.data() + chunk_data.size(); i++) {
+        // Each byte contains up to 8 boolean values
+        uint8_t byte_value = data_ptr[i / 8];
+        uint8_t bit_value = (byte_value >> (i % 8)) & 1;
+        result.boolean_values.push_back(bit_value);
+        if ((i + 1) % 8 == 0) {
+          data_ptr += 1;
+        }
+      }
+      // Move past the last partial byte if necessary
+      if (num_values % 8 != 0 && num_values > 0) {
+        data_ptr += 1;
+      }
+      result.success = (result.boolean_values.size() == (size_t)num_values);
+    } else if (result.type == "float32") {
+      result.float32_values.reserve(num_values);
+      for (int32_t i = 0; i < num_values && data_ptr + 4 <= chunk_data.data() + chunk_data.size(); i++) {
+        float value = ReadFloat32(data_ptr);
+        result.float32_values.push_back(value);
+        data_ptr += 4;
+      }
+      result.success = (result.float32_values.size() == (size_t)num_values);
+    } else if (result.type == "float64") {
+      result.float64_values.reserve(num_values);
+      for (int32_t i = 0; i < num_values && data_ptr + 8 <= chunk_data.data() + chunk_data.size(); i++) {
+        double value = ReadFloat64(data_ptr);
+        result.float64_values.push_back(value);
+        data_ptr += 8;
+      }
+      result.success = (result.float64_values.size() == (size_t)num_values);
     }
 
   } catch (...) {
@@ -351,6 +397,39 @@ static DecodedColumn DecodeColumnFromChunk(const uint8_t* chunk_data, size_t chu
         data_ptr += length;
       }
       result.success = (result.string_values.size() == (size_t)num_values);
+    } else if (result.type == "boolean") {
+      // PLAIN encoding for boolean: 1 bit per value, packed into bytes
+      result.boolean_values.reserve(num_values);
+      for (int32_t i = 0; i < num_values && data_ptr < chunk_data + chunk_size; i++) {
+        // Each byte contains up to 8 boolean values
+        uint8_t byte_value = data_ptr[i / 8];
+        uint8_t bit_value = (byte_value >> (i % 8)) & 1;
+        result.boolean_values.push_back(bit_value);
+        if ((i + 1) % 8 == 0) {
+          data_ptr += 1;
+        }
+      }
+      // Move past the last partial byte if necessary
+      if (num_values % 8 != 0 && num_values > 0) {
+        data_ptr += 1;
+      }
+      result.success = (result.boolean_values.size() == (size_t)num_values);
+    } else if (result.type == "float32") {
+      result.float32_values.reserve(num_values);
+      for (int32_t i = 0; i < num_values && data_ptr + 4 <= chunk_data + chunk_size; i++) {
+        float value = ReadFloat32(data_ptr);
+        result.float32_values.push_back(value);
+        data_ptr += 4;
+      }
+      result.success = (result.float32_values.size() == (size_t)num_values);
+    } else if (result.type == "float64") {
+      result.float64_values.reserve(num_values);
+      for (int32_t i = 0; i < num_values && data_ptr + 8 <= chunk_data + chunk_size; i++) {
+        double value = ReadFloat64(data_ptr);
+        result.float64_values.push_back(value);
+        data_ptr += 8;
+      }
+      result.success = (result.float64_values.size() == (size_t)num_values);
     }
 
   } catch (...) {
