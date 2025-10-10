@@ -40,13 +40,18 @@ test: dev-install ## Run full test suite
 	$(call print_blue,"Running full test suite...")
 	@$(PIP) install --upgrade pytest pytest-xdist
 	@clear
-	@MANUAL_TEST=1 $(PYTEST) -n auto --color=yes
+	@$(PYTEST) -n auto --color=yes
 
-compile: clean ## Compile Cython extensions
+compile: ## Compile Cython extensions
 	$(call print_blue,"Compiling Cython extensions...")
 	@$(PIP) install --upgrade pip uv numpy cython setuptools
-	find . -name '*.so' -delete
-	rm -rf build dist *.egg-info
+	@find . -name '*.so' -delete
+	@rm -rf build dist *.egg-info
 	@$(PYTHON) setup.py clean
 	@$(PYTHON) setup.py build_ext --inplace -j $(JOBS)
 	$(call print_green,"Compilation complete!")
+
+dev-install: ## Install development dependencies
+	$(call print_blue,"Installing development dependencies...")
+	@$(PIP) install --upgrade pip uv
+	@$(PIP) install --upgrade -r tests/requirements.txt
