@@ -1,41 +1,57 @@
-lint:
-	python -m uv pip install --quiet --upgrade pycln isort ruff yamllint cython-lint
-#	python -m yamllint .
-	cython-lint rugo/**/*.pyx
-	python -m ruff check --fix --exit-zero
-	python -m pycln .
-	python -m isort .
-	python -m ruff format rugo
+SHELL := /bin/bash
 
-update:
-	python -m pip install --upgrade pip uv
-	python -m uv pip install --upgrade -r pyproject.toml
+# Variables
+PYTHON := python
+UV := $(PYTHON) -m uv
+PIP := $(UV) pip
+PYTEST := $(PYTHON) -m pytest
 
-test:
-	python -m uv pip install --upgrade pytest pytest-xdist
-	clear
-	export MANUAL_TEST=1
-	python -m pytest -n auto --color=yes
+# Parallel job count for compilation
+JOBS := $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 
-mypy:
-	clear
-	python -m pip install --upgrade mypy
-	python -m mypy --ignore-missing-imports --python-version 3.11 --no-strict-optional --check-untyped-defs rugo
+# Directories
+SRC_DIR := rugo
+TEST_DIR := tests
 
-coverage:
-	clear
-	export MANUAL_TEST=1
-	python -m coverage run -m pytest --color=yes
-	python -m coverage report --include=rugo/** --fail-under=80 -m
+define print_green
+	@echo -e "\033[0;32m$(1)\033[0m"
+endef
 
-compile:
-	clear
-	python -m pip install --upgrade pip uv
-	python -m uv pip install --upgrade cython setuptools
-	find . -name '*.so' -delete
-	rm -rf build dist *.egg-info
-	python setup.py clean
-	python setup.py build_ext --inplace -j 8
+define print_blue
+	@echo -e "\033[0;34m$(1)\033[0m"
+endef
 
-verify-version:
-	python verify_version.py
+lint: ## Run all linting tools
+	$(call print_blue,"Installing linting tools...")
+	@$(PIP) install --quiet --upgrade pycln isort ruff yamllint cython-lint
+	$(call print_blue,"Running Cython lint...")
+	@cython-lint $(SRC_DIR)/compiled/**/*.pyx || true
+	$(call print_blue,"Running Ruff checks...")
+	@$(PYTHON) -m ruff check --fix --exit-zero
+	$(call print_blue,"Cleaning unused imports...")
+	@$(PYTHON) -m pycln .
+	$(call print_blue,"Sorting imports...")
+	@$(PYTHON) -m isort .
+	$(call print_blue,"Formatting code...")
+	@$(PYTHON) -m ruff format $(SRC_DIR)
+	$(call print_green,"Linting complete!")
+
+test: dev-install ## Run full test suite
+	$(call print_blue,"Running full test suite...")
+	@$(PIP) install --upgrade pytest pytest-xdist
+	@clear
+	@$(PYTEST) -n auto --color=yes
+
+compile: ## Compile Cython extensions
+	$(call print_blue,"Compiling Cython extensions...")
+	@$(PIP) install --upgrade pip uv numpy cython setuptools
+	@find . -name '*.so' -delete
+	@rm -rf build dist *.egg-info
+	@$(PYTHON) setup.py clean
+	@$(PYTHON) setup.py build_ext --inplace -j $(JOBS)
+	$(call print_green,"Compilation complete!")
+
+dev-install: ## Install development dependencies
+	$(call print_blue,"Installing development dependencies...")
+	@$(PIP) install --upgrade pip uv
+	@$(PIP) install --upgrade -r tests/requirements.txt

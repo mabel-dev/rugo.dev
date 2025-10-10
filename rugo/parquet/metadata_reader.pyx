@@ -28,6 +28,21 @@ cdef inline bint _text_is_printable(str text):
     return True
 
 
+cdef inline str _safe_decode_utf8(string raw_bytes):
+    """Safely decode bytes to UTF-8 string, handling invalid sequences."""
+    cdef bytes b = raw_bytes
+    try:
+        return b.decode("utf-8")
+    except UnicodeDecodeError:
+        # Fall back to latin-1 (which can decode any byte sequence)
+        # or use error handling to replace invalid characters
+        try:
+            return b.decode("utf-8", errors="replace")
+        except Exception:
+            # Ultimate fallback: decode as latin-1 which never fails
+            return b.decode("latin-1")
+
+
 cdef object decode_value(
         string physical_type,
         string logical_type,
@@ -325,7 +340,7 @@ def decode_column(str path, str column_name):
     elif col_type == "int64":
         return list(result.int64_values)
     elif col_type == "byte_array":
-        return [s.decode("utf-8") for s in result.string_values]
+        return [_safe_decode_utf8(s) for s in result.string_values]
     else:
         return None
 
@@ -392,7 +407,7 @@ def decode_column_from_row_group(str path, str column_name, row_group_stats, int
     elif col_type == "int64":
         return list(result.int64_values)
     elif col_type == "byte_array":
-        return [s.decode("utf-8") for s in result.string_values]
+        return [_safe_decode_utf8(s) for s in result.string_values]
     else:
         return None
 
@@ -523,7 +538,7 @@ def read_parquet(data, column_names=None):
             elif col_type == "int64":
                 row_group.append(list(column.int64_values))
             elif col_type == "byte_array":
-                row_group.append([s.decode("utf-8") for s in column.string_values])
+                row_group.append([_safe_decode_utf8(s) for s in column.string_values])
             else:
                 row_group.append(None)
 
@@ -605,6 +620,6 @@ def decode_column_from_memory(data, str column_name, row_group_stats, int row_gr
     elif col_type == "int64":
         return list(result.int64_values)
     elif col_type == "byte_array":
-        return [s.decode("utf-8") for s in result.string_values]
+        return [_safe_decode_utf8(s) for s in result.string_values]
     else:
         return None
