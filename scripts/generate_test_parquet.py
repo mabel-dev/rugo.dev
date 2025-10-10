@@ -107,7 +107,7 @@ def generate_test_data(
                     values.append(f"value_{i % 100}")
                 else:  # random
                     chars = string.ascii_letters + string.digits
-                    values.append(''.join(random.choices(chars, k=string_length)))
+                    values.append(''.join([random.choice(chars) for _ in range(string_length)]))
                     
             elif col_type == 'date':
                 start_date = datetime(2020, 1, 1).date()
