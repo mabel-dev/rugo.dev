@@ -23,12 +23,16 @@ static inline int64_t ReadLE64(const uint8_t *p) {
 // Helper functions to read LE floats from buffer
 static inline float ReadFloat32(const uint8_t *p) {
   uint32_t bits = ReadLE32(p);
-  return *reinterpret_cast<const float*>(&bits);
+  float value;
+  std::memcpy(&value, &bits, sizeof(value));
+  return value;
 }
 
 static inline double ReadFloat64(const uint8_t *p) {
   uint64_t bits = ReadLE64(p);
-  return *reinterpret_cast<const double*>(&bits);
+  double value;
+  std::memcpy(&value, &bits, sizeof(value));
+  return value;
 }
 
 // Skip RLE/Bit-packed encoded levels (repetition or definition levels)
