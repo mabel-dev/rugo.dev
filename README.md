@@ -10,6 +10,7 @@
 - Fast metadata extraction backed by an optimized C++17 parser and thin Python bindings.
 - Complete schema and row-group details, including encodings, codecs, offsets, bloom filter pointers, and custom key/value metadata.
 - Works with file paths, byte strings, and contiguous memoryviews for zero-copy parsing.
+- **Memory-based data reading** for uncompressed PLAIN-encoded columns with column selection and multi-row-group support.
 - Optional schema conversion helpers for [Orso](https://github.com/mabel-dev/orso).
 - No runtime dependencies beyond the Python standard library.
 
@@ -141,28 +142,104 @@ from_view = parquet_meta.read_metadata_from_memoryview(memoryview(data))
 - ✅ Uncompressed columns only (`codec=UNCOMPRESSED`)
 - ✅ PLAIN encoding only
 - ✅ `int32`, `int64`, and `string` (byte_array) types only
+- ✅ Memory-based processing (load once, decode multiple times)
+- ✅ Column selection (decode only the columns you need)
+- ✅ Multi-row-group support
 
 ### Unsupported Features  
 - ❌ Compressed columns (SNAPPY, GZIP, ZSTD, etc.)
 - ❌ Dictionary encoding, Delta encoding, RLE_DICTIONARY
 - ❌ Other types (float, boolean, date, timestamp, complex types)
 - ❌ Nullable columns (columns with definition levels)
-- ❌ Multiple row groups (only first row group is decoded)
 
-### Usage
+### Primary API: Memory-Based Reading
+
+The recommended approach loads Parquet data into memory once and performs all operations on the in-memory buffer:
+
 ```python
-import rugo.parquet as parquet_meta
+import rugo.parquet as rp
 
-# Check if a file can be decoded with the prototype decoder
-if parquet_meta.can_decode("data.parquet"):
-    # Decode a specific column (returns a Python list)
-    values = parquet_meta.decode_column("data.parquet", "column_name")
-    print(values)  # e.g., [1, 2, 3, 4, 5] or ['a', 'b', 'c']
-else:
-    print("File cannot be decoded - use PyArrow or another full decoder")
+# Load file into memory once
+with open("data.parquet", "rb") as f:
+    parquet_data = f.read()
+
+# Check if the data can be decoded
+if rp.can_decode_from_memory(parquet_data):
+    
+    # Read ALL columns from all row groups
+    table = rp.read_parquet(parquet_data)
+    
+    # Or read SPECIFIC columns only
+    table = rp.read_parquet(parquet_data, ["name", "age", "salary"])
+    
+    # Access the structured data
+    print(f"Columns: {table['column_names']}")
+    print(f"Row groups: {len(table['row_groups'])}")
+    
+    # Iterate through row groups and columns
+    for rg_idx, row_group in enumerate(table['row_groups']):
+        print(f"Row group {rg_idx}:")
+        for col_idx, column_data in enumerate(row_group):
+            col_name = table['column_names'][col_idx]
+            if column_data is not None:
+                print(f"  {col_name}: {len(column_data)} values")
+            else:
+                print(f"  {col_name}: Failed to decode")
 ```
 
-See `examples/decode_example.py` for a complete demonstration.
+### Data Structure
+The `read_parquet()` function returns a dictionary with this structure:
+```python
+{
+    'success': bool,                    # True if reading succeeded
+    'column_names': ['col1', 'col2'],   # List of column names
+    'row_groups': [                     # List of row groups
+        [col1_data, col2_data],         # Row group 0: list of columns
+        [col1_data, col2_data],         # Row group 1: list of columns
+        # ... more row groups
+    ]
+}
+```
+Each column's data is a Python list containing the decoded values.
+
+### Performance Benefits
+
+**Traditional Approach (Multiple File I/O):**
+```python
+# Each operation reads the file separately
+metadata = rp.read_metadata("file.parquet")       # File I/O #1
+col1 = rp.decode_column("file.parquet", "col1")   # File I/O #2  
+col2 = rp.decode_column("file.parquet", "col2")   # File I/O #3
+```
+
+**Memory-Based Approach (Single File I/O):**
+```python
+# Load once, process multiple times
+with open("file.parquet", "rb") as f:
+    data = f.read()  # File I/O #1 (only)
+
+table = rp.read_parquet(data, ["col1", "col2"])   # In-memory processing
+```
+
+### Legacy File-Based API
+For backward compatibility, file-based functions are still available:
+
+```python
+# Check if a file can be decoded
+if rp.can_decode("data.parquet"):
+    # Decode a specific column from first row group only
+    values = rp.decode_column("data.parquet", "column_name")
+    print(values)  # e.g., [1, 2, 3, 4, 5] or ['a', 'b', 'c']
+```
+
+### Use Cases
+The memory-based API is optimized for:
+- **Query engines** with metadata-driven pruning
+- **ETL pipelines** processing multiple Parquet files
+- **Data exploration** where you need to examine various columns
+- **High-performance scenarios** minimizing I/O operations
+
+See `examples/memory_based_api_example.py` and `examples/optional_columns_example.py` for complete demonstrations.
 
 **Note:** This decoder is a **prototype** for educational and testing purposes. For production use with full Parquet support, use [PyArrow](https://arrow.apache.org/docs/python/) or [FastParquet](https://github.com/dask/fastparquet).
 
@@ -202,6 +279,9 @@ rugo/
 ├── examples/
 │   ├── comprehensive_metadata.py
 │   ├── decode_example.py
+│   ├── memory_based_api_example.py
+│   ├── new_decode_api_example.py
+│   ├── optional_columns_example.py
 │   └── orso_conversion.py
 ├── tests/
 │   ├── data/
@@ -217,7 +297,7 @@ rugo/
 
 ## Status and limitations
 - Active development status (alpha); API details may evolve.
-- Primary focus is metadata inspection; the data decoder is a prototype with limited capabilities.
+- Primary focus is metadata inspection; the data decoder is a prototype with limited capabilities but supports memory-based processing and multi-row-group reading.
 - Requires a C++17 compiler when installing from source or editing the Cython bindings.
 - Bloom filter information is exposed via offsets and lengths; higher-level helpers are planned.
 

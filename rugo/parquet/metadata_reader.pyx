@@ -14,6 +14,7 @@ import struct
 cimport metadata_reader
 from libc.stdint cimport uint8_t
 from libcpp.string cimport string
+from libcpp.vector cimport vector
 
 
 # --- value decoder ---
@@ -329,6 +330,73 @@ def decode_column(str path, str column_name):
         return None
 
 
+def decode_column_from_row_group(str path, str column_name, row_group_stats, int row_group_index):
+    """Decode a specific column from a specific row group in a parquet file.
+
+    Args:
+        path: Path to the parquet file
+        column_name: Name of the column to decode
+        row_group_stats: RowGroupStats object containing metadata for the row group
+        row_group_index: Index of the row group (for reference/debugging)
+
+    Returns a Python list containing the decoded values.
+    Only works for uncompressed, PLAIN-encoded int32, int64, and string columns.
+
+    Returns None if the column cannot be decoded.
+    """
+    cdef bytes path_bytes = path.encode("utf-8")
+    cdef string cpp_path = path_bytes
+    cdef bytes column_bytes = column_name.encode("utf-8")
+    cdef string cpp_column = column_bytes
+
+    # Convert the Python row_group_stats to C++ RowGroupStats
+    cdef metadata_reader.RowGroupStats cpp_row_group
+    cdef metadata_reader.ColumnStats cpp_col
+    cpp_row_group.num_rows = row_group_stats.num_rows
+    cpp_row_group.total_byte_size = row_group_stats.total_byte_size
+
+    # Convert the columns
+    for col in row_group_stats.columns:
+        cpp_col.name = col.name.encode("utf-8")
+        cpp_col.physical_type = col.physical_type.encode("utf-8")
+        cpp_col.logical_type = col.logical_type.encode("utf-8")
+        cpp_col.num_values = col.num_values
+        cpp_col.total_uncompressed_size = col.total_uncompressed_size
+        cpp_col.total_compressed_size = col.total_compressed_size
+        cpp_col.data_page_offset = col.data_page_offset
+        cpp_col.index_page_offset = col.index_page_offset
+        cpp_col.dictionary_page_offset = col.dictionary_page_offset
+        cpp_col.has_min = col.has_min
+        cpp_col.has_max = col.has_max
+        cpp_col.min = col.min.encode("utf-8") if col.min else b""
+        cpp_col.max = col.max.encode("utf-8") if col.max else b""
+        cpp_col.null_count = col.null_count
+        cpp_col.distinct_count = col.distinct_count
+        cpp_col.bloom_offset = col.bloom_offset
+        cpp_col.bloom_length = col.bloom_length
+        cpp_col.encodings = col.encodings
+        cpp_col.codec = col.codec
+        # Note: key_value_metadata conversion would require more complex handling
+        cpp_row_group.columns.push_back(cpp_col)
+
+    cdef metadata_reader.DecodedColumn result = metadata_reader.DecodeColumn(
+        cpp_path, cpp_column, cpp_row_group, row_group_index)
+
+    if not result.success:
+        return None
+
+    cdef str col_type = result.type.decode("utf-8")
+
+    if col_type == "int32":
+        return list(result.int32_values)
+    elif col_type == "int64":
+        return list(result.int64_values)
+    elif col_type == "byte_array":
+        return [s.decode("utf-8") for s in result.string_values]
+    else:
+        return None
+
+
 def test_bloom_filter(path, bloom_offset, bloom_length, value):
     """Evaluate a parquet column bloom filter at the given offset."""
     if bloom_offset is None:
@@ -358,3 +426,185 @@ def test_bloom_filter(path, bloom_offset, bloom_length, value):
     cdef metadata_reader.string c_value = value_bytes
 
     return bool(metadata_reader.TestBloomFilter(c_path, native_offset, native_length, c_value))
+
+
+def can_decode_from_memory(data):
+    """Check if parquet data in memory can be decoded with our limited decoder.
+
+    Args:
+        data: bytes, bytearray, or memoryview containing parquet data
+
+    Returns:
+        bool: True if the data can be decoded, False otherwise
+    """
+    cdef const uint8_t[::1] mem_view
+    cdef size_t size
+
+    if isinstance(data, (bytes, bytearray)):
+        mem_view = memoryview(data).cast('B')
+    elif isinstance(data, memoryview):
+        mem_view = data.cast('B')
+    else:
+        raise TypeError("data must be bytes, bytearray, or memoryview")
+
+    size = mem_view.shape[0]
+    return bool(metadata_reader.CanDecode(&mem_view[0], size))
+
+
+def read_parquet(data, column_names=None):
+    """Read parquet data from memory with optional column selection.
+
+    This is the primary API for reading parquet data. It returns a structure
+    organized as [row_group][column] containing the decoded values.
+
+    Args:
+        data: bytes, bytearray, or memoryview containing parquet data
+        column_names: list of column names to read, or None to read all columns
+
+    Returns:
+        dict with:
+            'success': bool indicating if read was successful
+            'column_names': list of column names (same as input, or all columns if None)
+            'row_groups': list of row groups, each containing list of columns
+                         Each column is a list of decoded values
+
+        Returns None if reading failed.
+    """
+    cdef const uint8_t[::1] mem_view
+    cdef size_t size
+    cdef vector[string] cpp_column_names
+
+    # Convert input data to memory view
+    if isinstance(data, (bytes, bytearray)):
+        mem_view = memoryview(data).cast('B')
+    elif isinstance(data, memoryview):
+        mem_view = data.cast('B')
+    else:
+        raise TypeError("data must be bytes, bytearray, or memoryview")
+
+    size = mem_view.shape[0]
+
+    # Call the appropriate C++ function based on whether columns are specified
+    cdef metadata_reader.DecodedTable result
+
+    if column_names is None:
+        # Decode all columns
+        result = metadata_reader.ReadParquet(&mem_view[0], size)
+    else:
+        # Decode specified columns
+        for name in column_names:
+            cpp_column_names.push_back(str(name).encode("utf-8"))
+        result = metadata_reader.ReadParquet(&mem_view[0], size, cpp_column_names)
+
+    if not result.success:
+        return None
+
+    # Convert result to Python structure
+    python_result = {
+        'success': True,
+        'column_names': [name.decode("utf-8") for name in result.column_names],
+        'row_groups': []
+    }
+
+    # Convert each row group
+    for rg_idx in range(result.row_groups.size()):
+        row_group = []
+        for col_idx in range(result.row_groups[rg_idx].size()):
+            column = result.row_groups[rg_idx][col_idx]
+
+            if not column.success:
+                row_group.append(None)
+                continue
+
+            col_type = column.type.decode("utf-8")
+
+            if col_type == "int32":
+                row_group.append(list(column.int32_values))
+            elif col_type == "int64":
+                row_group.append(list(column.int64_values))
+            elif col_type == "byte_array":
+                row_group.append([s.decode("utf-8") for s in column.string_values])
+            else:
+                row_group.append(None)
+
+        python_result['row_groups'].append(row_group)
+
+    return python_result
+
+
+def decode_column_from_memory(data, str column_name, row_group_stats, int row_group_index):
+    """Decode a specific column from memory for a specific row group.
+
+    Args:
+        data: bytes, bytearray, or memoryview containing parquet data
+        column_name: Name of the column to decode
+        row_group_stats: RowGroupStats object containing metadata for the row group
+        row_group_index: Index of the row group (for reference/debugging)
+
+    Returns a Python list containing the decoded values.
+    Only works for uncompressed, PLAIN-encoded int32, int64, and string columns.
+
+    Returns None if the column cannot be decoded.
+    """
+    cdef const uint8_t[::1] mem_view
+    cdef size_t size
+    cdef metadata_reader.RowGroupStats cpp_row_group
+    cdef metadata_reader.ColumnStats cpp_col
+
+    # Convert input data to memory view
+    if isinstance(data, (bytes, bytearray)):
+        mem_view = memoryview(data).cast('B')
+    elif isinstance(data, memoryview):
+        mem_view = data.cast('B')
+    else:
+        raise TypeError("data must be bytes, bytearray, or memoryview")
+
+    size = mem_view.shape[0]
+
+    # Convert column name
+    cdef bytes column_bytes = column_name.encode("utf-8")
+    cdef string cpp_column = column_bytes
+
+    # Convert the Python row_group_stats to C++ RowGroupStats
+    cpp_row_group.num_rows = row_group_stats.num_rows
+    cpp_row_group.total_byte_size = row_group_stats.total_byte_size
+
+    # Convert the columns
+    for col in row_group_stats.columns:
+        cpp_col.name = col.name.encode("utf-8")
+        cpp_col.physical_type = col.physical_type.encode("utf-8")
+        cpp_col.logical_type = col.logical_type.encode("utf-8")
+        cpp_col.num_values = col.num_values
+        cpp_col.total_uncompressed_size = col.total_uncompressed_size
+        cpp_col.total_compressed_size = col.total_compressed_size
+        cpp_col.data_page_offset = col.data_page_offset
+        cpp_col.index_page_offset = col.index_page_offset
+        cpp_col.dictionary_page_offset = col.dictionary_page_offset
+        cpp_col.has_min = col.has_min
+        cpp_col.has_max = col.has_max
+        cpp_col.min = col.min.encode("utf-8") if col.min else b""
+        cpp_col.max = col.max.encode("utf-8") if col.max else b""
+        cpp_col.null_count = col.null_count
+        cpp_col.distinct_count = col.distinct_count
+        cpp_col.bloom_offset = col.bloom_offset
+        cpp_col.bloom_length = col.bloom_length
+        cpp_col.encodings = col.encodings
+        cpp_col.codec = col.codec
+        cpp_row_group.columns.push_back(cpp_col)
+
+    cdef metadata_reader.DecodedColumn result = metadata_reader.DecodeColumnFromMemory(
+        &mem_view[0], size, cpp_column, cpp_row_group, row_group_index)
+
+    if not result.success:
+        return None
+
+    cdef str col_type = result.type.decode("utf-8")
+
+    if col_type == "int32":
+        return list(result.int32_values)
+    elif col_type == "int64":
+        return list(result.int64_values)
+    elif col_type == "byte_array":
+        return [s.decode("utf-8") for s in result.string_values]
+    else:
+        return None

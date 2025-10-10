@@ -13,6 +13,13 @@ struct DecodedColumn {
   bool success = false;
 };
 
+// Structure to hold a decoded table
+struct DecodedTable {
+  std::vector<std::vector<DecodedColumn>> row_groups; // [row_group][column]
+  std::vector<std::string> column_names;
+  bool success = false;
+};
+
 // Check if a parquet file can be decoded with our limited decoder
 // Returns true only if:
 // - All columns are uncompressed
@@ -20,6 +27,24 @@ struct DecodedColumn {
 // - All columns are int32, int64, or string types
 bool CanDecode(const std::string &path);
 
-// Decode a specific column from a parquet file
-// Returns decoded data in the appropriate vector based on column type
+// Check if parquet data in memory can be decoded
+bool CanDecode(const uint8_t* data, size_t size);
+
+// NEW PRIMARY API: Read parquet data from memory view with column selection
+// Returns a table structure with decoded data organized by row groups and columns
+DecodedTable ReadParquet(const uint8_t* data, size_t size, const std::vector<std::string>& column_names);
+
+// Overload that decodes all columns when none are specified
+DecodedTable ReadParquet(const uint8_t* data, size_t size);
+
+// Decode a specific column from memory buffer for a specific row group
+DecodedColumn DecodeColumnFromMemory(const uint8_t* data, size_t size, 
+                                   const std::string &column_name,
+                                   const RowGroupStats &row_group, 
+                                   int row_group_index);
+
+// Legacy file-based functions (kept for backward compatibility)
+DecodedColumn DecodeColumn(const std::string &path, const std::string &column_name, 
+                           const RowGroupStats &row_group, int row_group_index);
+
 DecodedColumn DecodeColumn(const std::string &path, const std::string &column_name);
