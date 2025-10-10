@@ -149,6 +149,7 @@ cdef object _filestats_to_python(parquet_reader.FileStats fs,
         field_logical = field.logical_type.decode("utf-8")
         schema_columns.append({
             "name": field_name,
+            "type": field_physical,
             "physical_type": field_physical,
             "logical_type": field_logical,
             "nullable": bool(field.nullable),
@@ -168,6 +169,7 @@ cdef object _filestats_to_python(parquet_reader.FileStats fs,
                 "columns": []
             }
             for col in rg.columns:
+                physical_type_str = col.physical_type.decode("utf-8")
                 if col.logical_type.size() > 0:
                     logical_type_str = col.logical_type.decode("utf-8")
                 else:
@@ -227,7 +229,8 @@ cdef object _filestats_to_python(parquet_reader.FileStats fs,
                 rg_dict["columns"].append({
                     "name": display_name,
                     "path_in_schema": full_name,
-                    "physical_type": col.physical_type.decode("utf-8"),
+                    "type": physical_type_str,
+                    "physical_type": physical_type_str,
                     "logical_type": logical_type_str,
                     "min": min_val,
                     "max": max_val,
