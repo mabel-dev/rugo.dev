@@ -4,13 +4,13 @@
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/downloads/)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/rugo?period=total&units=INTERNATIONAL_SYSTEM&left_color=BRIGHTGREEN&right_color=LIGHTGREY&left_text=downloads)](https://pepy.tech/projects/rugo)
 
-`rugo` is a C++17 and Cython powered Parquet metadata reader for Python. It delivers high-throughput metadata inspection without loading columnar data pages.
+`rugo` is a C++17 and Cython powered Parquet metadata reader for Python. It delivers high-throughput metadata inspection and now includes an experimental column reader for PLAIN-encoded data with UNCOMPRESSED, SNAPPY, and ZSTD codecs. The data-reading API is evolving rapidly and will change in upcoming releases.
 
 ## Key Features
 - Fast metadata extraction backed by an optimized C++17 parser and thin Python bindings.
 - Complete schema and row-group details, including encodings, codecs, offsets, bloom filter pointers, and custom key/value metadata (with a stable `type` alias matching each column's physical type).
 - Works with file paths, byte strings, and contiguous memoryviews for zero-copy parsing.
-- **Memory-based data reading** for uncompressed PLAIN-encoded columns with column selection and multi-row-group support.
+- **Experimental memory-based data reading** for PLAIN-encoded columns with UNCOMPRESSED, SNAPPY, and ZSTD codecs, plus column selection and multi-row-group support (breaking API changes expected).
 - Optional schema conversion helpers for [Orso](https://github.com/mabel-dev/orso).
 - No runtime dependencies beyond the Python standard library.
 
@@ -140,10 +140,12 @@ from_view = parquet_meta.read_metadata_from_memoryview(memoryview(data))
 `read_metadata_from_memoryview` performs zero-copy parsing when given a contiguous buffer.
 
 ## Prototype Data Decoding (Experimental)
+> **API stability:** The column-reading functions are experimental and will change without notice while we expand format coverage.
+
 `rugo` includes a prototype decoder for reading actual column data from Parquet files. This is a **limited, experimental feature** designed for simple use cases and testing.
 
 ### Supported Features
-- ✅ Uncompressed columns only (`codec=UNCOMPRESSED`)
+- ✅ UNCOMPRESSED, SNAPPY, and ZSTD codecs
 - ✅ PLAIN encoding only
 - ✅ `int32`, `int64`, and `string` (byte_array) types only
 - ✅ Memory-based processing (load once, decode multiple times)
@@ -151,7 +153,7 @@ from_view = parquet_meta.read_metadata_from_memoryview(memoryview(data))
 - ✅ Multi-row-group support
 
 ### Unsupported Features  
-- ❌ Compressed columns (SNAPPY, GZIP, ZSTD, etc.)
+- ❌ Other codecs (GZIP, LZ4, etc.)
 - ❌ Dictionary encoding, Delta encoding, RLE_DICTIONARY
 - ❌ Other types (float, boolean, date, timestamp, complex types)
 - ❌ Nullable columns (columns with definition levels)
@@ -273,35 +275,45 @@ make mypy       # type checking
 rugo/
 ├── rugo/__init__.py
 ├── rugo/parquet/
-│   ├── metadata_reader.pyx
+│   ├── parquet_reader.pyx
+│   ├── parquet_reader.pxd
+│   ├── parquet_reader.cpp
 │   ├── metadata.cpp
 │   ├── metadata.hpp
+│   ├── bloom_filter.cpp
 │   ├── decode.cpp
 │   ├── decode.hpp
-│   └── thrift.hpp
+│   ├── compression.cpp
+│   ├── compression.hpp
+│   ├── thrift.hpp
+│   └── vendor/
 ├── rugo/converters/orso.py
 ├── examples/
-│   ├── comprehensive_metadata.py
-│   ├── decode_example.py
-│   ├── memory_based_api_example.py
-│   ├── new_decode_api_example.py
-│   ├── optional_columns_example.py
+│   ├── read_parquet_metadata.py
+│   ├── read_parquet_data.py
+│   ├── create_test_file.py
 │   └── orso_conversion.py
+├── scripts/
+│   ├── generate_test_parquet.py
+│   └── vendor_compression_libs.py
 ├── tests/
 │   ├── data/
 │   ├── test_all_metadata_fields.py
+│   ├── test_bloom_filter.py
 │   ├── test_decode.py
 │   ├── test_logical_types.py
 │   ├── test_orso_converter.py
-│   └── test_statistics.py
+│   ├── test_statistics.py
+│   └── requirements.txt
 ├── Makefile
 ├── pyproject.toml
+├── setup.py
 └── README.md
 ```
 
 ## Status and limitations
-- Active development status (alpha); API details may evolve.
-- Primary focus is metadata inspection; the data decoder is a prototype with limited capabilities but supports memory-based processing and multi-row-group reading.
+- Active development status (alpha); metadata APIs are largely stable but the column-reading API will change between releases.
+- Primary focus is metadata inspection; the data decoder remains a prototype with limited capabilities even while the API evolves.
 - Requires a C++17 compiler when installing from source or editing the Cython bindings.
 - Bloom filter information is exposed via offsets and lengths; higher-level helpers are planned.
 
