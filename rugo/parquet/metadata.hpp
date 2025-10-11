@@ -46,6 +46,11 @@ struct ColumnStats {
   std::vector<int32_t> encodings;
   int32_t codec = -1;
 
+  // Schema information
+  int32_t repetition_type = -1;  // 0=REQUIRED, 1=OPTIONAL, 2=REPEATED
+  int32_t max_definition_level = -1;
+  int32_t max_repetition_level = -1;
+
   // Raw key/value metadata (flattened for now)
   std::unordered_map<std::string, std::string> key_value_metadata;
 };

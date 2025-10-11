@@ -8,7 +8,7 @@
 
 ## Key Features
 - Fast metadata extraction backed by an optimized C++17 parser and thin Python bindings.
-- Complete schema and row-group details, including encodings, codecs, offsets, bloom filter pointers, and custom key/value metadata.
+- Complete schema and row-group details, including encodings, codecs, offsets, bloom filter pointers, and custom key/value metadata (with a stable `type` alias matching each column's physical type).
 - Works with file paths, byte strings, and contiguous memoryviews for zero-copy parsing.
 - **Memory-based data reading** for uncompressed PLAIN-encoded columns with column selection and multi-row-group support.
 - Optional schema conversion helpers for [Orso](https://github.com/mabel-dev/orso).
@@ -40,6 +40,7 @@ pip install -e .
 - Python 3.9 or newer
 - A C++17 compatible compiler (clang, gcc, or MSVC)
 - Cython and setuptools for source builds (installed by the commands above)
+- On x86-64 platforms, an assembler capable of compiling `.S` sources (bundled with modern GCC/Clang toolchains)
 
 ## Quickstart
 ```python
@@ -50,7 +51,7 @@ metadata = parquet_meta.read_metadata("example.parquet")
 print(f"Rows: {metadata['num_rows']}")
 print("Schema columns:")
 for column in metadata["schema_columns"]:
-    print(f"  {column['name']}: {column['physical_type']} ({column['logical_type']})")
+    print(f"  {column['name']}: {column['type']} ({column['logical_type']})")
 
 first_row_group = metadata["row_groups"][0]
 for column in first_row_group["columns"]:
@@ -68,6 +69,7 @@ for column in first_row_group["columns"]:
     "schema_columns": [
         {
             "name": str,
+            "type": str,              # alias for physical_type
             "physical_type": str,
             "logical_type": str,
             "nullable": bool,
@@ -108,6 +110,8 @@ for column in first_row_group["columns"]:
 }
 ```
 Fields that are not present in the source Parquet file are reported as `None`. Minimum and maximum values are decoded into Python types when possible; otherwise hexadecimal strings are returned.
+
+> **Compatibility note:** `type` always mirrors `physical_type` and is kept for legacy consumers that relied on the original field name.
 
 ## Parsing options
 All entry points share the same keyword arguments:

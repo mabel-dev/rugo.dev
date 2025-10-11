@@ -3,9 +3,12 @@
 Setup script for rugo - A Cython-based file decoders library
 """
 
+import platform
+
 from Cython.Build import cythonize
 from setuptools import Extension
 from setuptools import setup
+from setuptools.command.build_ext import build_ext as build_ext_orig
 
 
 def get_vendor_sources():
@@ -33,6 +36,12 @@ def get_vendor_sources():
         "rugo/parquet/vendor/zstd/decompress/huf_decompress.cpp",
         "rugo/parquet/vendor/zstd/decompress/zstd_ddict.cpp"
     ]
+
+    machine = platform.machine().lower()
+    if machine in ("x86_64", "amd64"):
+        # BMI2-enabled builds expect this ASM fast path to be present on x86-64.
+        zstd_sources.append("rugo/parquet/vendor/zstd/decompress/huf_decompress_amd64.S")
+
     vendor_sources.extend(zstd_sources)
     
     return vendor_sources
@@ -71,6 +80,17 @@ def get_extensions():
     return extensions
 
 
+class build_ext(build_ext_orig):
+    """Ensure the compiler recognizes vendored assembly sources."""
+
+    def build_extensions(self):
+        if self.compiler:
+            src_exts = self.compiler.src_extensions
+            if ".S" not in src_exts:
+                src_exts.append(".S")
+        super().build_extensions()
+
+
 def main():
     # Get extensions
     extensions = get_extensions()
@@ -91,6 +111,7 @@ def main():
     # Setup configuration
     setup(
         ext_modules=ext_modules,
+        cmdclass={"build_ext": build_ext},
         zip_safe=False,
     )
 

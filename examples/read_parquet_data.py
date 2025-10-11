@@ -88,5 +88,5 @@ if __name__ == "__main__":
     print()
 
     # Example call with test data
-    demonstrate_new_read_parquet_api('tests/data/compressed.parquet')
+    demonstrate_new_read_parquet_api('tests/data/rugo_compatible.parquet')
     

@@ -34,6 +34,7 @@ def test_all_metadata_fields_exposed():
             # Basic fields
             'name',
             'type',  # physical_type in C++
+            'physical_type',  # we need to decide if we're calling it type or physical_type
             'logical_type',
             'path_in_schema',  # not always present
             

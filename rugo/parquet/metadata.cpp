@@ -4,6 +4,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <functional>
 #include <stdexcept>
 #include <vector>
 
@@ -907,6 +908,58 @@ static void ApplyLogicalTypes(
   }
 }
 
+// Enrich column stats with schema information for level data
+static void EnrichColumnStatsWithSchemaInfo(FileStats &fs) {
+  if (fs.schema.empty()) {
+    return;
+  }
+
+  // Build a map from column name to schema element
+  std::unordered_map<std::string, const SchemaElement*> schema_map;
+  
+  std::function<void(const SchemaElement&, int)> walk_schema = 
+    [&](const SchemaElement& elem, int depth) {
+      std::string canonical = CanonicalizeColumnName(
+        elem.full_name.empty() ? elem.name : elem.full_name);
+      schema_map[canonical] = &elem;
+      
+      for (const auto& child : elem.children) {
+        walk_schema(child, depth + 1);
+      }
+    };
+  
+  // Walk the schema starting from root
+  for (const auto& root : fs.schema) {
+    for (const auto& child : root.children) {
+      walk_schema(child, 1);
+    }
+  }
+
+  // Enrich each column in each row group
+  for (auto& rg : fs.row_groups) {
+    for (auto& col : rg.columns) {
+      auto it = schema_map.find(col.name);
+      if (it != schema_map.end()) {
+        const SchemaElement* schema_elem = it->second;
+        col.repetition_type = schema_elem->repetition_type;
+        
+        // For non-nested columns (path contains no dots), max_repetition_level = 0
+        col.max_repetition_level = 0;  // We only support flat schemas
+        
+        // max_definition_level depends on whether column is required or optional
+        // 0 = REQUIRED, 1 = OPTIONAL, 2 = REPEATED
+        if (schema_elem->repetition_type == 0) {
+          // REQUIRED: no nulls possible
+          col.max_definition_level = 0;
+        } else {
+          // OPTIONAL or REPEATED: nulls possible
+          col.max_definition_level = 1;
+        }
+      }
+    }
+  }
+}
+
 // ------------------- Entry point -------------------
 
 FileStats ReadParquetMetadataFromBuffer(const uint8_t *buf, size_t size,
@@ -944,6 +997,9 @@ FileStats ReadParquetMetadataFromBuffer(const uint8_t *buf, size_t size,
 
   // Apply map to row group columns
   ApplyLogicalTypes(fs, logical_type_map);
+
+  // Enrich column stats with schema information (repetition type, max levels)
+  EnrichColumnStatsWithSchemaInfo(fs);
 
   return fs;
 }

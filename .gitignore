@@ -216,3 +216,4 @@ tests/data/hits_51.parquet
 .DS_Store
 rugo/.DS_Store
 rugo/parquet/parquet_reader.cpp
+settings.json

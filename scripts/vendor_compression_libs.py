@@ -5,9 +5,10 @@ Vendor compression libraries for zero-dependency rugo builds
 
 import os
 import shutil
-import urllib.request
 import tarfile
+import urllib.request
 from pathlib import Path
+
 
 def setup_vendor_directory():
     """Create vendor directory structure"""
