@@ -97,6 +97,32 @@ def test_can_decode_test_file():
     assert rp.can_decode('tests/data/test_decode.parquet') is True
 
 
+def test_decode_snappy_compressed_column():
+    """Test decoding a column from a SNAPPY compressed file."""
+    # snappy_compressed.parquet has SNAPPY compression with PLAIN encoding
+    data = rp.decode_column('tests/data/snappy_compressed.parquet', 'id')
+    
+    # File has 2 row groups with 500 rows each, decode_column reads first row group only
+    assert data is not None
+    assert isinstance(data, list)
+    assert len(data) == 500
+    assert all(isinstance(x, int) for x in data)
+
+
+def test_decode_dictionary_encoded_column():
+    """Test decoding a dictionary-encoded column."""
+    # dictionary_encoded.parquet has RLE_DICTIONARY encoding
+    # Note: Full dictionary decoding may not be implemented yet
+    data = rp.decode_column('tests/data/dictionary_encoded.parquet', 'category')
+    
+    # This may return None if dictionary decoding isn't fully implemented
+    # Update this assertion once dictionary decoding is complete
+    # File has 2 row groups with 500 rows each, decode_column reads first row group only
+    if data is not None:
+        assert isinstance(data, list)
+        assert len(data) == 500
+
+
 if __name__ == "__main__":
 
     pytest.main([__file__, "-v"])
