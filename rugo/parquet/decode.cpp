@@ -60,6 +60,88 @@ static size_t SkipRLEBitPackedLevels(const uint8_t* data, size_t max_size, int m
   return 4 + level_byte_length;
 }
 
+// Simple RLE/Bit-packed hybrid decoder for dictionary indices
+// Returns the number of indices decoded, or -1 on error
+// For simplicity, this implementation focuses on RLE runs which are most common in dictionary encoding
+static int32_t DecodeRLEBitPackedIndices(const uint8_t* data, size_t data_size,
+                                        int32_t num_values, int bit_width,
+                                        std::vector<int32_t>& indices) {
+  if (bit_width <= 0 || bit_width > 32 || data_size < 4) {
+    return -1;
+  }
+
+  indices.clear();
+  indices.reserve(num_values);
+
+  // Skip 4-byte length prefix
+  const uint8_t* ptr = data + 4;
+  const uint8_t* end = data + data_size;
+
+  int32_t decoded = 0;
+  while (decoded < num_values && ptr < end) {
+    // Read varint header
+    uint32_t header = 0;
+    int shift = 0;
+    while (ptr < end && shift < 32) {
+      uint8_t byte = *ptr++;
+      header |= ((uint32_t)(byte & 0x7F)) << shift;
+      if ((byte & 0x80) == 0) break;
+      shift += 7;
+    }
+    
+    if ((header & 1) == 0) {
+      // Bit-packed run: (header >> 1) * 8 values
+      int32_t num_groups = header >> 1;
+      int32_t values_in_run = num_groups * 8;
+      int32_t bytes_needed = (values_in_run * bit_width + 7) / 8;
+      
+      if (ptr + bytes_needed > end) break;
+      
+      // Decode bit-packed values
+      for (int32_t i = 0; i < values_in_run && decoded < num_values; i++) {
+        uint32_t value = 0;
+        int bit_pos = i * bit_width;
+        int byte_pos = bit_pos / 8;
+        int bit_offset = bit_pos % 8;
+        
+        // Read up to 5 bytes to cover any bit_width up to 32
+        for (int b = 0; b < 5 && byte_pos + b < bytes_needed; b++) {
+          value |= ((uint32_t)ptr[byte_pos + b]) << (b * 8);
+        }
+        
+        // Shift and mask to get the actual value
+        value = (value >> bit_offset) & ((1U << bit_width) - 1);
+        indices.push_back(value);
+        decoded++;
+      }
+      
+      ptr += bytes_needed;
+      
+    } else {
+      // RLE run: (header >> 1) repetitions of next value
+      int32_t count = header >> 1;
+      
+      // Read the value (bit_width bits, but always read full bytes)
+      uint32_t value = 0;
+      int bytes_needed = (bit_width + 7) / 8;
+      for (int i = 0; i < bytes_needed && ptr < end; i++) {
+        value |= ((uint32_t)(*ptr++)) << (i * 8);
+      }
+      
+      // Mask to bit_width
+      value &= (1U << bit_width) - 1;
+      
+      // Add 'count' copies of 'value'
+      for (int32_t i = 0; i < count && decoded < num_values; i++) {
+        indices.push_back(value);
+        decoded++;
+      }
+    }
+  }
+
+  return decoded == num_values ? decoded : -1;
+}
+
 bool CanDecode(const std::string &path) {
   try {
     // Read metadata to check if we can decode this file
@@ -410,22 +492,122 @@ static DecodedColumn DecodeColumnFromChunk(const uint8_t* chunk_data, size_t chu
       return result; // Unsupported compression codec
     }
 
-    bool has_plain = false;
+    bool has_supported_encoding = false;
+    bool use_dictionary = false;
     for (int32_t enc : target_col->encodings) {
-      if (enc == 0) {
-        has_plain = true;
-        break;
+      if (enc == 0) {  // PLAIN
+        has_supported_encoding = true;
+      } else if (enc == 8) {  // RLE_DICTIONARY
+        has_supported_encoding = true;
+        use_dictionary = true;
       }
     }
-    if (!has_plain) {
-      return result; // No PLAIN encoding
+    if (!has_supported_encoding) {
+      return result; // No supported encoding
     }
 
     // Set the type
     result.type = target_col->physical_type;
 
-    // Parse the page header to find where the data starts
-    TInput header_in{chunk_data, chunk_data + chunk_size};
+    // Dictionary to store values if dictionary encoding is used
+    std::vector<int32_t> dict_int32;
+    std::vector<int64_t> dict_int64;
+    std::vector<std::string> dict_string;
+    std::vector<float> dict_float32;
+    std::vector<double> dict_float64;
+    int32_t dict_size = 0;
+    
+    // Track decompressed data to keep it in scope
+    std::vector<uint8_t> dict_decompressed_data;
+    std::vector<uint8_t> page_decompressed_data;
+    
+    const uint8_t* current_ptr = chunk_data;
+    size_t remaining_size = chunk_size;
+
+    // Check if there's a dictionary page (page_type = 2)
+    if (use_dictionary && target_col->dictionary_page_offset >= 0) {
+      TInput dict_header_in{current_ptr, current_ptr + remaining_size};
+      PageHeader dict_page_header = ParsePageHeader(dict_header_in);
+      
+      if (dict_page_header.page_type == 2) {  // DICTIONARY_PAGE
+        size_t dict_header_size = dict_header_in.p - current_ptr;
+        const uint8_t* dict_compressed_data = current_ptr + dict_header_size;
+        size_t dict_compressed_size = dict_page_header.compressed_page_size;
+        
+        if (dict_compressed_size == 0 || dict_compressed_size > remaining_size - dict_header_size) {
+          dict_compressed_size = remaining_size - dict_header_size;
+        }
+        
+        // Decompress dictionary page if necessary
+        const uint8_t* dict_data_ptr;
+        size_t dict_data_size;
+        
+        if (target_col->codec == 0) {
+          dict_data_ptr = dict_compressed_data;
+          dict_data_size = dict_compressed_size;
+        } else {
+          try {
+            auto codec = rugo::compression::CodecFromInt(target_col->codec);
+            dict_decompressed_data = rugo::compression::DecompressData(
+              dict_compressed_data,
+              dict_compressed_size,
+              dict_page_header.uncompressed_page_size,
+              codec
+            );
+            dict_data_ptr = dict_decompressed_data.data();
+            dict_data_size = dict_decompressed_data.size();
+          } catch (...) {
+            return result;
+          }
+        }
+        
+        // Parse dictionary values (PLAIN encoding in dictionary page)
+        dict_size = dict_page_header.num_values;
+        const uint8_t* dict_end = dict_data_ptr + dict_data_size;
+        
+        if (result.type == "int32") {
+          dict_int32.reserve(dict_size);
+          for (int32_t i = 0; i < dict_size && dict_data_ptr + 4 <= dict_end; i++) {
+            dict_int32.push_back(ReadLE32(dict_data_ptr));
+            dict_data_ptr += 4;
+          }
+        } else if (result.type == "int64") {
+          dict_int64.reserve(dict_size);
+          for (int32_t i = 0; i < dict_size && dict_data_ptr + 8 <= dict_end; i++) {
+            dict_int64.push_back(ReadLE64(dict_data_ptr));
+            dict_data_ptr += 8;
+          }
+        } else if (result.type == "byte_array") {
+          dict_string.reserve(dict_size);
+          for (int32_t i = 0; i < dict_size && dict_data_ptr + 4 <= dict_end; i++) {
+            int32_t length = ReadLE32(dict_data_ptr);
+            dict_data_ptr += 4;
+            if (dict_data_ptr + length > dict_end) break;
+            dict_string.push_back(std::string(reinterpret_cast<const char*>(dict_data_ptr), length));
+            dict_data_ptr += length;
+          }
+        } else if (result.type == "float32") {
+          dict_float32.reserve(dict_size);
+          for (int32_t i = 0; i < dict_size && dict_data_ptr + 4 <= dict_end; i++) {
+            dict_float32.push_back(ReadFloat32(dict_data_ptr));
+            dict_data_ptr += 4;
+          }
+        } else if (result.type == "float64") {
+          dict_float64.reserve(dict_size);
+          for (int32_t i = 0; i < dict_size && dict_data_ptr + 8 <= dict_end; i++) {
+            dict_float64.push_back(ReadFloat64(dict_data_ptr));
+            dict_data_ptr += 8;
+          }
+        }
+        
+        // Move to next page (data page)
+        current_ptr += dict_header_size + dict_compressed_size;
+        remaining_size -= (dict_header_size + dict_compressed_size);
+      }
+    }
+
+    // Parse the data page header
+    TInput header_in{current_ptr, current_ptr + remaining_size};
     PageHeader page_header = ParsePageHeader(header_in);
 
     if (page_header.page_type != 0) {
@@ -433,21 +615,20 @@ static DecodedColumn DecodeColumnFromChunk(const uint8_t* chunk_data, size_t chu
     }
 
     // Calculate how much of the buffer was used for the header
-    size_t header_size = header_in.p - chunk_data;
+    size_t header_size = header_in.p - current_ptr;
 
     // Get the compressed page data
     // For compressed pages, use compressed_page_size from header
     // For uncompressed pages, compressed_page_size == uncompressed_page_size
-    const uint8_t *compressed_data = chunk_data + header_size;
+    const uint8_t *compressed_data = current_ptr + header_size;
     size_t compressed_size = page_header.compressed_page_size;
     
     // Fallback: if compressed_page_size is 0 or invalid, use remaining chunk
-    if (compressed_size == 0 || compressed_size > chunk_size - header_size) {
-      compressed_size = chunk_size - header_size;
+    if (compressed_size == 0 || compressed_size > remaining_size - header_size) {
+      compressed_size = remaining_size - header_size;
     }
 
     // Decompress the page data if necessary
-    std::vector<uint8_t> decompressed_data;
     const uint8_t *data_ptr;
     size_t data_size;
     
@@ -459,14 +640,14 @@ static DecodedColumn DecodeColumnFromChunk(const uint8_t* chunk_data, size_t chu
       // COMPRESSED - decompress first
       try {
         auto codec = rugo::compression::CodecFromInt(target_col->codec);
-        decompressed_data = rugo::compression::DecompressData(
+        page_decompressed_data = rugo::compression::DecompressData(
           compressed_data,
           compressed_size,
           page_header.uncompressed_page_size,
           codec
         );
-        data_ptr = decompressed_data.data();
-        data_size = decompressed_data.size();
+        data_ptr = page_decompressed_data.data();
+        data_size = page_decompressed_data.size();
       } catch (const std::exception& e) {
         // Decompression failed - return unsuccessful result
         return result;
@@ -496,73 +677,148 @@ static DecodedColumn DecodeColumnFromChunk(const uint8_t* chunk_data, size_t chu
       data_size -= def_level_bytes;
     }
 
-    // Decode based on type
+    // Decode based on type and encoding
     const uint8_t *data_end = data_ptr + data_size;
-    if (result.type == "int32") {
-      result.int32_values.reserve(num_values);
-      for (int32_t i = 0; i < num_values && data_ptr + 4 <= data_end; i++) {
-        int32_t value = ReadLE32(data_ptr);
-        result.int32_values.push_back(value);
-        data_ptr += 4;
+    
+    if (use_dictionary && dict_size > 0) {
+      // Dictionary encoding: decode indices then map to dictionary values
+      // Calculate bit width for indices
+      int bit_width = 0;
+      int32_t max_index = dict_size - 1;
+      while (max_index > 0) {
+        bit_width++;
+        max_index >>= 1;
       }
-      result.success = (result.int32_values.size() == (size_t)num_values);
-    } else if (result.type == "int64") {
-      result.int64_values.reserve(num_values);
-      for (int32_t i = 0; i < num_values && data_ptr + 8 <= data_end; i++) {
-        int64_t value = ReadLE64(data_ptr);
-        result.int64_values.push_back(value);
-        data_ptr += 8;
+      if (bit_width == 0) bit_width = 1;
+      
+      std::vector<int32_t> indices;
+      int32_t decoded = DecodeRLEBitPackedIndices(data_ptr, data_size, num_values, bit_width, indices);
+      
+      if (decoded != num_values) {
+        return result; // Failed to decode indices
       }
-      result.success = (result.int64_values.size() == (size_t)num_values);
-    } else if (result.type == "byte_array") {
-      // PLAIN encoding for byte_array: each value is 4-byte length + data
-      result.string_values.reserve(num_values);
-      for (int32_t i = 0; i < num_values && data_ptr + 4 <= data_end; i++) {
-        int32_t length = ReadLE32(data_ptr);
-        data_ptr += 4;
-
-        if (data_ptr + length > data_end) {
-          break;
+      
+      // Map indices to dictionary values
+      if (result.type == "int32") {
+        result.int32_values.reserve(num_values);
+        for (int32_t idx : indices) {
+          if (idx >= 0 && idx < (int32_t)dict_int32.size()) {
+            result.int32_values.push_back(dict_int32[idx]);
+          } else {
+            return result; // Invalid index
+          }
         }
-
-        std::string value(reinterpret_cast<const char *>(data_ptr), length);
-        result.string_values.push_back(value);
-        data_ptr += length;
+        result.success = (result.int32_values.size() == (size_t)num_values);
+      } else if (result.type == "int64") {
+        result.int64_values.reserve(num_values);
+        for (int32_t idx : indices) {
+          if (idx >= 0 && idx < (int32_t)dict_int64.size()) {
+            result.int64_values.push_back(dict_int64[idx]);
+          } else {
+            return result;
+          }
+        }
+        result.success = (result.int64_values.size() == (size_t)num_values);
+      } else if (result.type == "byte_array") {
+        result.string_values.reserve(num_values);
+        for (int32_t idx : indices) {
+          if (idx >= 0 && idx < (int32_t)dict_string.size()) {
+            result.string_values.push_back(dict_string[idx]);
+          } else {
+            return result;
+          }
+        }
+        result.success = (result.string_values.size() == (size_t)num_values);
+      } else if (result.type == "float32") {
+        result.float32_values.reserve(num_values);
+        for (int32_t idx : indices) {
+          if (idx >= 0 && idx < (int32_t)dict_float32.size()) {
+            result.float32_values.push_back(dict_float32[idx]);
+          } else {
+            return result;
+          }
+        }
+        result.success = (result.float32_values.size() == (size_t)num_values);
+      } else if (result.type == "float64") {
+        result.float64_values.reserve(num_values);
+        for (int32_t idx : indices) {
+          if (idx >= 0 && idx < (int32_t)dict_float64.size()) {
+            result.float64_values.push_back(dict_float64[idx]);
+          } else {
+            return result;
+          }
+        }
+        result.success = (result.float64_values.size() == (size_t)num_values);
       }
-      result.success = (result.string_values.size() == (size_t)num_values);
-    } else if (result.type == "boolean") {
-      // PLAIN encoding for boolean: 1 bit per value, packed into bytes
-      result.boolean_values.reserve(num_values);
-      for (int32_t i = 0; i < num_values && data_ptr < data_end; i++) {
-        // Each byte contains up to 8 boolean values
-        uint8_t byte_value = data_ptr[i / 8];
-        uint8_t bit_value = (byte_value >> (i % 8)) & 1;
-        result.boolean_values.push_back(bit_value);
-        if ((i + 1) % 8 == 0) {
+      
+    } else {
+      // PLAIN encoding
+      if (result.type == "int32") {
+        result.int32_values.reserve(num_values);
+        for (int32_t i = 0; i < num_values && data_ptr + 4 <= data_end; i++) {
+          int32_t value = ReadLE32(data_ptr);
+          result.int32_values.push_back(value);
+          data_ptr += 4;
+        }
+        result.success = (result.int32_values.size() == (size_t)num_values);
+      } else if (result.type == "int64") {
+        result.int64_values.reserve(num_values);
+        for (int32_t i = 0; i < num_values && data_ptr + 8 <= data_end; i++) {
+          int64_t value = ReadLE64(data_ptr);
+          result.int64_values.push_back(value);
+          data_ptr += 8;
+        }
+        result.success = (result.int64_values.size() == (size_t)num_values);
+      } else if (result.type == "byte_array") {
+        // PLAIN encoding for byte_array: each value is 4-byte length + data
+        result.string_values.reserve(num_values);
+        for (int32_t i = 0; i < num_values && data_ptr + 4 <= data_end; i++) {
+          int32_t length = ReadLE32(data_ptr);
+          data_ptr += 4;
+
+          if (data_ptr + length > data_end) {
+            break;
+          }
+
+          std::string value(reinterpret_cast<const char *>(data_ptr), length);
+          result.string_values.push_back(value);
+          data_ptr += length;
+        }
+        result.success = (result.string_values.size() == (size_t)num_values);
+      } else if (result.type == "boolean") {
+        // PLAIN encoding for boolean: 1 bit per value, packed into bytes
+        result.boolean_values.reserve(num_values);
+        for (int32_t i = 0; i < num_values && data_ptr < data_end; i++) {
+          // Each byte contains up to 8 boolean values
+          uint8_t byte_value = data_ptr[i / 8];
+          uint8_t bit_value = (byte_value >> (i % 8)) & 1;
+          result.boolean_values.push_back(bit_value);
+          if ((i + 1) % 8 == 0) {
+            data_ptr += 1;
+          }
+        }
+        // Move past the last partial byte if necessary
+        if (num_values % 8 != 0 && num_values > 0) {
           data_ptr += 1;
         }
+        result.success = (result.boolean_values.size() == (size_t)num_values);
+      } else if (result.type == "float32") {
+        result.float32_values.reserve(num_values);
+        for (int32_t i = 0; i < num_values && data_ptr + 4 <= data_end; i++) {
+          float value = ReadFloat32(data_ptr);
+          result.float32_values.push_back(value);
+          data_ptr += 4;
+        }
+        result.success = (result.float32_values.size() == (size_t)num_values);
+      } else if (result.type == "float64") {
+        result.float64_values.reserve(num_values);
+        for (int32_t i = 0; i < num_values && data_ptr + 8 <= data_end; i++) {
+          double value = ReadFloat64(data_ptr);
+          result.float64_values.push_back(value);
+          data_ptr += 8;
+        }
+        result.success = (result.float64_values.size() == (size_t)num_values);
       }
-      // Move past the last partial byte if necessary
-      if (num_values % 8 != 0 && num_values > 0) {
-        data_ptr += 1;
-      }
-      result.success = (result.boolean_values.size() == (size_t)num_values);
-    } else if (result.type == "float32") {
-      result.float32_values.reserve(num_values);
-      for (int32_t i = 0; i < num_values && data_ptr + 4 <= data_end; i++) {
-        float value = ReadFloat32(data_ptr);
-        result.float32_values.push_back(value);
-        data_ptr += 4;
-      }
-      result.success = (result.float32_values.size() == (size_t)num_values);
-    } else if (result.type == "float64") {
-      result.float64_values.reserve(num_values);
-      for (int32_t i = 0; i < num_values && data_ptr + 8 <= data_end; i++) {
-        double value = ReadFloat64(data_ptr);
-        result.float64_values.push_back(value);
-        data_ptr += 8;
-      }
-      result.success = (result.float64_values.size() == (size_t)num_values);
     }
 
   } catch (...) {

@@ -147,15 +147,16 @@ from_view = parquet_meta.read_metadata_from_memoryview(memoryview(data))
 ### Supported Features
 - ✅ UNCOMPRESSED, SNAPPY, and ZSTD codecs
 - ✅ PLAIN encoding
-- ✅ RLE_DICTIONARY encoding (in progress - files with dictionary encoding are accepted but may not decode correctly yet)
-- ✅ `int32`, `int64`, and `string` (byte_array) types only
+- ✅ RLE_DICTIONARY encoding (partial - implementation complete, testing in progress)
+- ✅ `int32`, `int64`, `float32`, `float64`, `boolean`, and `string` (byte_array) types
 - ✅ Memory-based processing (load once, decode multiple times)
 - ✅ Column selection (decode only the columns you need)
 - ✅ Multi-row-group support
 
 ### Unsupported Features  
 - ❌ Other codecs (GZIP, LZ4, etc.)
-- ❌ Delta encoding, other advanced encodings
+- ❌ Delta encoding, PLAIN_DICTIONARY, other advanced encodings
+- ❌ Nullable columns with definition levels > 0
 - ❌ Other types (float, boolean, date, timestamp, complex types)
 - ❌ Nullable columns (columns with definition levels)
 
