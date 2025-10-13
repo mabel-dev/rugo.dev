@@ -376,8 +376,41 @@ if __name__ == "__main__":
         seed=42
     )
     
+    # Example 5: SNAPPY compressed file (supported by rugo)
+    print("\n5. Creating SNAPPY compressed file...")
+    stats5 = create_test_parquet_file(
+        output_path=os.path.join(test_dir, "snappy_compressed.parquet"),
+        column_specs=[
+            {'name': 'id', 'type': 'int32', 'min_value': 1, 'max_value': 1000},
+            {'name': 'name', 'type': 'string', 'pattern': 'sequential', 'string_length': 15},
+            {'name': 'value', 'type': 'int64', 'min_value': 0, 'max_value': 1000000},
+            {'name': 'score', 'type': 'float64', 'min_value': 0.0, 'max_value': 100.0},
+        ],
+        rows_per_group=500,
+        num_groups=2,
+        compression='snappy',  # SNAPPY compression
+        seed=42
+    )
+    
+    # Example 6: Dictionary encoded file (for testing dictionary support)
+    print("\n6. Creating dictionary encoded file...")
+    stats6 = create_test_parquet_file(
+        output_path=os.path.join(test_dir, "dictionary_encoded.parquet"),
+        column_specs=[
+            {'name': 'id', 'type': 'int32', 'min_value': 1, 'max_value': 1000},
+            {'name': 'category', 'type': 'string', 'pattern': 'repeated', 'string_length': 10},  # Repeated for dictionary
+            {'name': 'status', 'type': 'string', 'pattern': 'repeated', 'string_length': 8},     # Repeated for dictionary
+            {'name': 'value', 'type': 'int64', 'min_value': 0, 'max_value': 100000},
+        ],
+        rows_per_group=500,
+        num_groups=2,
+        compression='snappy',  # SNAPPY compression
+        encoding={'category': 'DICTIONARY', 'status': 'DICTIONARY'},  # Use dictionary encoding
+        seed=42
+    )
+    
     print(f"\n✅ All test files created in: {test_dir}/")
     print("\nTest with rugo:")
     print("  import rugo.parquet as rp")
-    print(f"  rp.can_decode('{os.path.join(test_dir, 'rugo_compatible.parquet')}')")
-    print(f"  rp.read_parquet(open('{os.path.join(test_dir, 'rugo_compatible.parquet')}', 'rb').read())")
+    print(f"  rp.can_decode('{os.path.join(test_dir, 'snappy_compressed.parquet')}')")
+    print(f"  rp.can_decode('{os.path.join(test_dir, 'dictionary_encoded.parquet')}')")
