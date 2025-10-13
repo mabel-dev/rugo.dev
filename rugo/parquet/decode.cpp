@@ -80,20 +80,15 @@ bool CanDecode(const std::string &path) {
           return false;
         }
 
-        // Check for dictionary encoding - we don't support it yet
-        if (col.dictionary_page_offset >= 0) {
-          return false;
-        }
-
-        // Check encodings - must contain PLAIN (encoding 0)
-        bool has_plain = false;
+        // Check encodings - must contain PLAIN (encoding 0) or RLE_DICTIONARY (encoding 8)
+        bool has_supported_encoding = false;
         for (int32_t enc : col.encodings) {
-          if (enc == 0) {
-            has_plain = true;
+          if (enc == 0 || enc == 8) {  // PLAIN or RLE_DICTIONARY
+            has_supported_encoding = true;
             break;
           }
         }
-        if (!has_plain) {
+        if (!has_supported_encoding) {
           return false;
         }
       }
@@ -125,20 +120,15 @@ bool CanDecode(const uint8_t* data, size_t size) {
           return false;
         }
 
-        // Check for dictionary encoding - we don't support it yet
-        if (col.dictionary_page_offset >= 0) {
-          return false;
-        }
-
-        // Check encodings - must contain PLAIN (encoding 0)
-        bool has_plain = false;
+        // Check encodings - must contain PLAIN (encoding 0) or RLE_DICTIONARY (encoding 8)
+        bool has_supported_encoding = false;
         for (int32_t enc : col.encodings) {
-          if (enc == 0) {
-            has_plain = true;
+          if (enc == 0 || enc == 8) {  // PLAIN or RLE_DICTIONARY
+            has_supported_encoding = true;
             break;
           }
         }
-        if (!has_plain) {
+        if (!has_supported_encoding) {
           return false;
         }
       }

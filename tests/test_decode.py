@@ -18,10 +18,11 @@ def test_can_decode_uncompressed_plain():
 
 
 def test_can_decode_compressed():
-    """Test that can_decode returns False for compressed files."""
+    """Test that can_decode returns True for files with dictionary encoding."""
     # The planets.parquet file uses SNAPPY compression AND dictionary encoding
-    # We support SNAPPY but not dictionary encoding yet
-    assert rp.can_decode('tests/data/planets.parquet') is False
+    # We now accept dictionary encoding (RLE_DICTIONARY)
+    # Note: Full dictionary decoding implementation is in progress
+    assert rp.can_decode('tests/data/planets.parquet') is True
 
 
 def test_can_decode_unsupported_types():
