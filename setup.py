@@ -3,6 +3,7 @@
 Setup script for rugo - A Cython-based file decoders library
 """
 
+import os
 import platform
 
 from Cython.Build import cythonize
@@ -10,6 +11,13 @@ from setuptools import Extension
 from setuptools import setup
 from setuptools.command.build_ext import build_ext as build_ext_orig
 
+extra_compile_args = ["-O3", "-std=c++17"]
+if platform.system() == "Darwin":
+    # Use native architecture by default, or environment variable if set
+    default_arch = platform.machine()  # Will be 'arm64' on Apple Silicon, 'x86_64' on Intel
+    archs = os.environ.get("CIBW_ARCHS_MACOS", default_arch).split()
+    for arch in archs:
+        extra_compile_args.extend(["-arch", arch])
 
 def get_vendor_sources():
     """Get vendored compression library sources"""
@@ -58,7 +66,7 @@ def get_extensions():
             "rugo/parquet/metadata.cpp",
             "rugo/parquet/bloom_filter.cpp",
             "rugo/parquet/decode.cpp",
-            "rugo/parquet/compression.cpp",  # NEW: compression support
+            "rugo/parquet/compression.cpp",
         ] + get_vendor_sources(),  # ADD: vendored compression libraries
         include_dirs=[
             "rugo/parquet/vendor/snappy",      # Snappy headers
@@ -72,7 +80,7 @@ def get_extensions():
             ("ZSTD_STATIC_LINKING_ONLY", "1")  # Enable zstd static linking
         ],
         language="c++",
-        extra_compile_args=["-O3", "-std=c++17"],
+        extra_compile_args=extra_compile_args,
         extra_link_args=[],
     )
     extensions.append(parquet_ext)

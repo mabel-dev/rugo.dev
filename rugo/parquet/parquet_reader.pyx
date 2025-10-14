@@ -315,116 +315,6 @@ def can_decode(str path):
     cdef string cpp_path = path_bytes
     return parquet_reader.CanDecode(cpp_path)
 
-
-def decode_column(str path, str column_name):
-    """Decode a specific column from a parquet file.
-
-    Returns a Python list containing the decoded values.
-    Only works for uncompressed, PLAIN-encoded int32, int64, string, boolean, float32, and float64 columns.
-
-    Returns None if the column cannot be decoded.
-    """
-    cdef bytes path_bytes = path.encode("utf-8")
-    cdef string cpp_path = path_bytes
-    cdef bytes column_bytes = column_name.encode("utf-8")
-    cdef string cpp_column = column_bytes
-
-    cdef parquet_reader.DecodedColumn result = parquet_reader.DecodeColumn(cpp_path, cpp_column)
-
-    if not result.success:
-        return None
-
-    cdef str col_type = result.type.decode("utf-8")
-
-    if col_type == "int32":
-        return list(result.int32_values)
-    elif col_type == "int64":
-        return list(result.int64_values)
-    elif col_type == "byte_array":
-        return [_safe_decode_utf8(s) for s in result.string_values]
-    elif col_type == "boolean":
-        return [bool(val) for val in result.boolean_values]
-    elif col_type == "float32":
-        return list(result.float32_values)
-    elif col_type == "float64":
-        return list(result.float64_values)
-    else:
-        return None
-
-
-def decode_column_from_row_group(str path, str column_name, row_group_stats, int row_group_index):
-    """Decode a specific column from a specific row group in a parquet file.
-
-    Args:
-        path: Path to the parquet file
-        column_name: Name of the column to decode
-        row_group_stats: RowGroupStats object containing metadata for the row group
-        row_group_index: Index of the row group (for reference/debugging)
-
-    Returns a Python list containing the decoded values.
-    Only works for uncompressed, PLAIN-encoded int32, int64, string, boolean, float32, and float64 columns.
-
-    Returns None if the column cannot be decoded.
-    """
-    cdef bytes path_bytes = path.encode("utf-8")
-    cdef string cpp_path = path_bytes
-    cdef bytes column_bytes = column_name.encode("utf-8")
-    cdef string cpp_column = column_bytes
-
-    # Convert the Python row_group_stats to C++ RowGroupStats
-    cdef parquet_reader.RowGroupStats cpp_row_group
-    cdef parquet_reader.ColumnStats cpp_col
-    cpp_row_group.num_rows = row_group_stats.num_rows
-    cpp_row_group.total_byte_size = row_group_stats.total_byte_size
-
-    # Convert the columns
-    for col in row_group_stats.columns:
-        cpp_col.name = col.name.encode("utf-8")
-        cpp_col.physical_type = col.physical_type.encode("utf-8")
-        cpp_col.logical_type = col.logical_type.encode("utf-8")
-        cpp_col.num_values = col.num_values
-        cpp_col.total_uncompressed_size = col.total_uncompressed_size
-        cpp_col.total_compressed_size = col.total_compressed_size
-        cpp_col.data_page_offset = col.data_page_offset
-        cpp_col.index_page_offset = col.index_page_offset
-        cpp_col.dictionary_page_offset = col.dictionary_page_offset
-        cpp_col.has_min = col.has_min
-        cpp_col.has_max = col.has_max
-        cpp_col.min = col.min.encode("utf-8") if col.min else b""
-        cpp_col.max = col.max.encode("utf-8") if col.max else b""
-        cpp_col.null_count = col.null_count
-        cpp_col.distinct_count = col.distinct_count
-        cpp_col.bloom_offset = col.bloom_offset
-        cpp_col.bloom_length = col.bloom_length
-        cpp_col.encodings = col.encodings
-        cpp_col.codec = col.codec
-        # Note: key_value_metadata conversion would require more complex handling
-        cpp_row_group.columns.push_back(cpp_col)
-
-    cdef parquet_reader.DecodedColumn result = parquet_reader.DecodeColumn(
-        cpp_path, cpp_column, cpp_row_group, row_group_index)
-
-    if not result.success:
-        return None
-
-    cdef str col_type = result.type.decode("utf-8")
-
-    if col_type == "int32":
-        return list(result.int32_values)
-    elif col_type == "int64":
-        return list(result.int64_values)
-    elif col_type == "byte_array":
-        return [_safe_decode_utf8(s) for s in result.string_values]
-    elif col_type == "boolean":
-        return [bool(val) for val in result.boolean_values]
-    elif col_type == "float32":
-        return list(result.float32_values)
-    elif col_type == "float64":
-        return list(result.float64_values)
-    else:
-        return None
-
-
 def test_bloom_filter(path, bloom_offset, bloom_length, value):
     """Evaluate a parquet column bloom filter at the given offset."""
     if bloom_offset is None:
@@ -607,23 +497,43 @@ def decode_column_from_memory(data, str column_name, row_group_stats, int row_gr
     for col in row_group_stats.columns:
         cpp_col.name = col.name.encode("utf-8")
         cpp_col.physical_type = col.physical_type.encode("utf-8")
-        cpp_col.logical_type = col.logical_type.encode("utf-8")
-        cpp_col.num_values = col.num_values
-        cpp_col.total_uncompressed_size = col.total_uncompressed_size
-        cpp_col.total_compressed_size = col.total_compressed_size
-        cpp_col.data_page_offset = col.data_page_offset
-        cpp_col.index_page_offset = col.index_page_offset
-        cpp_col.dictionary_page_offset = col.dictionary_page_offset
-        cpp_col.has_min = col.has_min
-        cpp_col.has_max = col.has_max
-        cpp_col.min = col.min.encode("utf-8") if col.min else b""
-        cpp_col.max = col.max.encode("utf-8") if col.max else b""
-        cpp_col.null_count = col.null_count
-        cpp_col.distinct_count = col.distinct_count
-        cpp_col.bloom_offset = col.bloom_offset
-        cpp_col.bloom_length = col.bloom_length
-        cpp_col.encodings = col.encodings
-        cpp_col.codec = col.codec
+        cpp_col.logical_type = col.logical_type.encode("utf-8") if col.logical_type else b""
+        cpp_col.num_values = col.num_values if col.num_values is not None else -1
+        cpp_col.total_uncompressed_size = col.total_uncompressed_size if col.total_uncompressed_size is not None else -1
+        cpp_col.total_compressed_size = col.total_compressed_size if col.total_compressed_size is not None else -1
+        cpp_col.data_page_offset = col.data_page_offset if col.data_page_offset is not None else -1
+        cpp_col.index_page_offset = col.index_page_offset if col.index_page_offset is not None else -1
+        cpp_col.dictionary_page_offset = col.dictionary_page_offset if col.dictionary_page_offset is not None else -1
+        cpp_col.has_min = col.has_min if hasattr(col, 'has_min') else False
+        cpp_col.has_max = col.has_max if hasattr(col, 'has_max') else False
+        
+        # Handle min/max values which can be different types
+        if col.min:
+            if isinstance(col.min, bytes):
+                cpp_col.min = col.min
+            elif isinstance(col.min, str):
+                cpp_col.min = col.min.encode("utf-8")
+            else:
+                cpp_col.min = str(col.min).encode("utf-8")
+        else:
+            cpp_col.min = b""
+            
+        if col.max:
+            if isinstance(col.max, bytes):
+                cpp_col.max = col.max
+            elif isinstance(col.max, str):
+                cpp_col.max = col.max.encode("utf-8")
+            else:
+                cpp_col.max = str(col.max).encode("utf-8")
+        else:
+            cpp_col.max = b""
+            
+        cpp_col.null_count = col.null_count if col.null_count is not None else -1
+        cpp_col.distinct_count = col.distinct_count if col.distinct_count is not None else -1
+        cpp_col.bloom_offset = col.bloom_offset if col.bloom_offset is not None else -1
+        cpp_col.bloom_length = col.bloom_length if col.bloom_length is not None else -1
+        cpp_col.encodings = col.encodings if hasattr(col, 'encodings') else []
+        cpp_col.codec = col.codec if col.codec is not None else -1
         cpp_row_group.columns.push_back(cpp_col)
 
     cdef parquet_reader.DecodedColumn result = parquet_reader.DecodeColumnFromMemory(
