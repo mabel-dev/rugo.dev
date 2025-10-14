@@ -106,10 +106,6 @@ cdef extern from "decode.hpp":
     bint CanDecode(const string& path)
     bint CanDecode(const uint8_t* data, size_t size)
     
-    # Legacy functions
-    DecodedColumn DecodeColumn(const string& path, const string& column_name)
-    DecodedColumn DecodeColumn(const string& path, const string& column_name, const RowGroupStats& row_group, int row_group_index)
-    
     # New memory-based functions
     DecodedColumn DecodeColumnFromMemory(const uint8_t* data, size_t size, const string& column_name, const RowGroupStats& row_group, int row_group_index)
     DecodedTable ReadParquet(const uint8_t* data, size_t size, const vector[string]& column_names)

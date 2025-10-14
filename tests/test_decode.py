@@ -4,7 +4,7 @@ Tests for Parquet data decoding functionality.
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
 
@@ -39,34 +39,57 @@ def test_can_decode_unsupported_types():
 
 def test_decode_string_column():
     """Test decoding a string column from binary.parquet."""
-    data = rp.decode_column('tests/data/binary.parquet', 'foo')
+    with open('tests/data/binary.parquet', 'rb') as f:
+        file_data = f.read()
     
-    # binary.parquet has 12 string values
-    assert data is not None
+    result = rp.read_parquet(file_data, ['foo'])
+    
+    # binary.parquet has 12 string values in first row group
+    assert result is not None
+    assert result['success']
+    assert result['column_names'] == ['foo']
+    data = result['row_groups'][0][0]  # First row group, first column
     assert isinstance(data, list)
     assert len(data) == 12
     assert all(isinstance(s, str) for s in data)
 
 
 def test_decode_nonexistent_column():
-    """Test that decoding a non-existent column returns None."""
-    data = rp.decode_column('tests/data/binary.parquet', 'nonexistent')
-    assert data is None
+    """Test that decoding a non-existent column returns None in the data."""
+    with open('tests/data/binary.parquet', 'rb') as f:
+        file_data = f.read()
+    
+    result = rp.read_parquet(file_data, ['nonexistent'])
+    # read_parquet returns success=True but column data is None
+    assert result is not None
+    assert result['success']
+    assert result['row_groups'][0][0] is None
 
 
 def test_decode_compressed_column():
-    """Test that decoding a column with unsupported encoding returns None."""
+    """Test that decoding a column with unsupported encoding returns None in the data."""
     # planets.parquet uses DELTA_BYTE_ARRAY encoding
     # We don't support DELTA_BYTE_ARRAY for decoding yet
-    data = rp.decode_column('tests/data/planets.parquet', 'name')
-    assert data is None
+    with open('tests/data/planets.parquet', 'rb') as f:
+        file_data = f.read()
+    
+    result = rp.read_parquet(file_data, ['name'])
+    # read_parquet returns success=True but column data is None for unsupported encoding
+    assert result is not None
+    assert result['success']
+    assert result['row_groups'][0][0] is None
 
 
 def test_decode_int32_column():
     """Test decoding an int32 column."""
-    data = rp.decode_column('tests/data/test_decode.parquet', 'int32_col')
+    with open('tests/data/test_decode.parquet', 'rb') as f:
+        file_data = f.read()
     
-    assert data is not None
+    result = rp.read_parquet(file_data, ['int32_col'])
+    
+    assert result is not None
+    assert result['success']
+    data = result['row_groups'][0][0]  # First row group, first column
     assert isinstance(data, list)
     assert len(data) == 5
     assert data == [10, 20, 30, 40, 50]
@@ -74,9 +97,14 @@ def test_decode_int32_column():
 
 def test_decode_int64_column():
     """Test decoding an int64 column."""
-    data = rp.decode_column('tests/data/test_decode.parquet', 'int64_col')
+    with open('tests/data/test_decode.parquet', 'rb') as f:
+        file_data = f.read()
     
-    assert data is not None
+    result = rp.read_parquet(file_data, ['int64_col'])
+    
+    assert result is not None
+    assert result['success']
+    data = result['row_groups'][0][0]  # First row group, first column
     assert isinstance(data, list)
     assert len(data) == 5
     assert data == [100, 200, 300, 400, 500]
@@ -84,9 +112,14 @@ def test_decode_int64_column():
 
 def test_decode_string_column_types():
     """Test decoding a string column."""
-    data = rp.decode_column('tests/data/test_decode.parquet', 'string_col')
+    with open('tests/data/test_decode.parquet', 'rb') as f:
+        file_data = f.read()
     
-    assert data is not None
+    result = rp.read_parquet(file_data, ['string_col'])
+    
+    assert result is not None
+    assert result['success']
+    data = result['row_groups'][0][0]  # First row group, first column
     assert isinstance(data, list)
     assert len(data) == 5
     assert data == ['test1', 'test2', 'test3', 'test4', 'test5']
@@ -100,10 +133,15 @@ def test_can_decode_test_file():
 def test_decode_snappy_compressed_column():
     """Test decoding a column from a SNAPPY compressed file."""
     # snappy_compressed.parquet has SNAPPY compression with PLAIN encoding
-    data = rp.decode_column('tests/data/snappy_compressed.parquet', 'id')
+    with open('tests/data/snappy_compressed.parquet', 'rb') as f:
+        file_data = f.read()
     
-    # File has 2 row groups with 500 rows each, decode_column reads first row group only
-    assert data is not None
+    result = rp.read_parquet(file_data, ['id'])
+    
+    # File has 2 row groups with 500 rows each
+    assert result is not None
+    assert result['success']
+    data = result['row_groups'][0][0]  # First row group, first column
     assert isinstance(data, list)
     assert len(data) == 500
     assert all(isinstance(x, int) for x in data)
@@ -112,12 +150,17 @@ def test_decode_snappy_compressed_column():
 def test_decode_dictionary_encoded_column():
     """Test decoding a dictionary-encoded column."""
     # dictionary_encoded.parquet has RLE_DICTIONARY encoding
-    # Note: Full dictionary decoding may not be implemented yet
-    data = rp.decode_column('tests/data/dictionary_encoded.parquet', 'category')
+    with open('tests/data/dictionary_encoded.parquet', 'rb') as f:
+        file_data = f.read()
     
-    # This may return None if dictionary decoding isn't fully implemented
-    # Update this assertion once dictionary decoding is complete
-    # File has 2 row groups with 500 rows each, decode_column reads first row group only
+    result = rp.read_parquet(file_data, ['category'])
+    
+    # File has 2 row groups with 500 rows each
+    assert result is not None
+    assert result['success']
+    
+    # Dictionary decoding may or may not be fully implemented
+    data = result['row_groups'][0][0]  # First row group, first column
     if data is not None:
         assert isinstance(data, list)
         assert len(data) == 500
