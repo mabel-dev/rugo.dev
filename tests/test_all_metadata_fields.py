@@ -4,7 +4,7 @@ Test that all metadata fields from the C++ ColumnStats struct are exposed to Pyt
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent))
 
 import glob
 import pytest
@@ -33,8 +33,7 @@ def test_all_metadata_fields_exposed():
         expected_fields = {
             # Basic fields
             'name',
-            'type',  # physical_type in C++
-            'physical_type',  # we need to decide if we're calling it type or physical_type
+            'physical_type',
             'logical_type',
             'path_in_schema',  # not always present
             
@@ -88,7 +87,7 @@ def test_metadata_field_types():
         
         # Check types
         assert isinstance(col['name'], str)
-        assert isinstance(col['type'], str)
+        assert isinstance(col['physical_type'], str)
         assert isinstance(col['logical_type'], str)
         
         # These can be int or None
@@ -127,7 +126,7 @@ def test_metadata_field_values():
         
         # Basic fields should be present
         assert col.get('name') is not None
-        assert col.get('type') is not None
+        assert col.get('physical_type') is not None
         assert col.get('logical_type') is not None
         
         # Sizes should be positive if present
@@ -156,7 +155,7 @@ def test_metadata_field_values():
         
         print("✅ Field values are reasonable")
         print(f"   - Name: {col['name']}")
-        print(f"   - Type: {col['type']} ({col['logical_type']})")
+        print(f"   - Type: {col['physical_type']} ({col['logical_type']})")
         print(f"   - Num values: {col['num_values']}")
         print(f"   - Compressed size: {col['total_compressed_size']} bytes")
         print(f"   - Uncompressed size: {col['total_uncompressed_size']} bytes")
@@ -169,7 +168,7 @@ def test_multiple_columns():
     metadata = parquet.read_metadata('tests/data/planets.parquet')
     
     expected_fields = {
-        'name', 'type', 'logical_type', 'num_values', 'total_uncompressed_size',
+        'name', 'physical_type', 'logical_type', 'num_values', 'total_uncompressed_size',
         'total_compressed_size', 'data_page_offset', 'index_page_offset',
         'dictionary_page_offset', 'min', 'max', 'null_count', 'distinct_count',
         'bloom_offset', 'bloom_length', 'encodings', 'compression_codec',

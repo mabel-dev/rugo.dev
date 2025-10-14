@@ -126,7 +126,7 @@ class TestOrsoConverter:
             "row_groups": [{
                 "columns": [{
                     "name": "test_col",
-                    "type": "int64",
+                    "physical_type": "int64",
                     "null_count": 0
                 }]
             }]

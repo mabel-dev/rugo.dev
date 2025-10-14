@@ -51,7 +51,7 @@ metadata = parquet_meta.read_metadata("example.parquet")
 print(f"Rows: {metadata['num_rows']}")
 print("Schema columns:")
 for column in metadata["schema_columns"]:
-    print(f"  {column['name']}: {column['type']} ({column['logical_type']})")
+    print(f"  {column['name']}: {column['physical_type']} ({column['logical_type']})")
 
 first_row_group = metadata["row_groups"][0]
 for column in first_row_group["columns"]:
@@ -69,7 +69,6 @@ for column in first_row_group["columns"]:
     "schema_columns": [
         {
             "name": str,
-            "type": str,              # alias for physical_type
             "physical_type": str,
             "logical_type": str,
             "nullable": bool,
@@ -84,7 +83,7 @@ for column in first_row_group["columns"]:
                 {
                     "name": str,
                     "path_in_schema": str,
-                    "type": str,
+                    "physical_type": str,
                     "logical_type": str,
                     "num_values": Optional[int],
                     "total_uncompressed_size": Optional[int],
@@ -110,8 +109,6 @@ for column in first_row_group["columns"]:
 }
 ```
 Fields that are not present in the source Parquet file are reported as `None`. Minimum and maximum values are decoded into Python types when possible; otherwise hexadecimal strings are returned.
-
-> **Compatibility note:** `type` always mirrors `physical_type` and is kept for legacy consumers that relied on the original field name.
 
 ## Parsing options
 All entry points share the same keyword arguments:
@@ -146,15 +143,17 @@ from_view = parquet_meta.read_metadata_from_memoryview(memoryview(data))
 
 ### Supported Features
 - ✅ UNCOMPRESSED, SNAPPY, and ZSTD codecs
-- ✅ PLAIN encoding only
-- ✅ `int32`, `int64`, and `string` (byte_array) types only
+- ✅ PLAIN encoding
+- ✅ RLE_DICTIONARY encoding (partial - implementation complete, testing in progress)
+- ✅ `int32`, `int64`, `float32`, `float64`, `boolean`, and `string` (byte_array) types
 - ✅ Memory-based processing (load once, decode multiple times)
 - ✅ Column selection (decode only the columns you need)
 - ✅ Multi-row-group support
 
 ### Unsupported Features  
 - ❌ Other codecs (GZIP, LZ4, etc.)
-- ❌ Dictionary encoding, Delta encoding, RLE_DICTIONARY
+- ❌ Delta encoding, PLAIN_DICTIONARY, other advanced encodings
+- ❌ Nullable columns with definition levels > 0
 - ❌ Other types (float, boolean, date, timestamp, complex types)
 - ❌ Nullable columns (columns with definition levels)
 

@@ -55,7 +55,7 @@ def main():
         print("\n📝 Rugo Schema (first 5 columns):")
         for i, col in enumerate(metadata['row_groups'][0]['columns'][:5]):
             logical = col.get('logical_type', 'inferred')
-            print(f"  {i+1}. {col['name']}: {col['type']} -> {logical}")
+            print(f"  {i+1}. {col['name']}: {col['physical_type']} -> {logical}")
         
         if not ORSO_AVAILABLE:
             print("\n⚠️  Orso conversion not available (orso package not installed)")

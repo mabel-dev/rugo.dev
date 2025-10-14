@@ -54,7 +54,7 @@ def extract_pyarrow(path: str):
             physical_type = type_map.get(col.physical_type, col.physical_type.lower())
             out["columns"].append({
                 "name": col.path_in_schema.split('.')[0],
-                "type": physical_type,
+                "physical_type": physical_type,
                 "nulls": stats.null_count if stats else None,
                 "min": encode_value(stats.min) if stats else None,
                 "max": encode_value(stats.max) if stats else None,
@@ -77,20 +77,20 @@ def compare(pa, cu):
     for i, (pa_col, cu_rg) in enumerate(zip(pa["columns"], cu["row_groups"][0]["columns"])):
         if pa_col["name"] != cu_rg["name"]:
             diffs.append(f"Col {i} name mismatch: {pa_col['name']} vs {cu_rg['name']}")
-        if pa_col["type"] != cu_rg["type"]:
-            diffs.append(f"Col {i} type mismatch: {pa_col['type']} vs {cu_rg['type']}")
+        if pa_col["physical_type"] != cu_rg["physical_type"]:
+            diffs.append(f"Col {i} type mismatch: {pa_col['physical_type']} vs {cu_rg['physical_type']}")
         if pa_col.get("nulls") != cu_rg.get("null_count"):
             diffs.append(f"Col {i} nulls mismatch: {pa_col.get('nulls')} vs {cu_rg.get('null_count')}")
         
         # Skip min/max comparison for fixed_len_byte_array with decimal logical types
         # We don't decode decimal types yet
-        if cu_rg["type"] == "fixed_len_byte_array" and cu_rg.get("logical_type", "").startswith("decimal"):
+        if cu_rg["physical_type"] == "fixed_len_byte_array" and cu_rg.get("logical_type", "").startswith("decimal"):
             continue
             
         if pa_col.get("min") != cu_rg.get("min"):
-            diffs.append(f"Col {i} min mismatch: `{pa_col.get('min')}` vs `{cu_rg.get('min')}` ({cu_rg['type']})")
+            diffs.append(f"Col {i} min mismatch: `{pa_col.get('min')}` vs `{cu_rg.get('min')}` ({cu_rg['physical_type']})")
         if pa_col.get("max") != cu_rg.get("max"):
-            diffs.append(f"Col {i} max mismatch: `{pa_col.get('max')}` vs `{cu_rg.get('max')}` ({cu_rg['type']})")
+            diffs.append(f"Col {i} max mismatch: `{pa_col.get('max')}` vs `{cu_rg.get('max')}` ({cu_rg['physical_type']})")
     return diffs
 
 def run_one(file: str, iters=100) -> bool:
@@ -134,4 +134,3 @@ def test_compare_arrow_rugo():
 
 if __name__ == "__main__":
     pytest.main([__file__])
-
