@@ -62,7 +62,7 @@ def test_logical_types():
             for col in rg['columns']:
                 if "." not in col["name"]:
                     logical = col.get('logical_type', '')
-                    print(f"    {col['name']:20} | physical={col['type']:12} | logical={logical or '(none)'}")
+                    print(f"    {col['name']:20} | physical={col['physical_type']:12} | logical={logical or '(none)'}")
             break  # Only show first row group
             
 
@@ -89,9 +89,9 @@ def test_comparison_with_pyarrow():
         meta = parquet.read_metadata(file_path)
         print("   schema:")
         for col in meta['row_groups'][0]['columns']:
-            if "." not in col["name"]:
-                logical = col.get('logical_type', '')
-                print(f"    {col['name']:25} | physical={col['type']:17} | logical={logical or '(none)':<17}  | arrow={arrow_types.get(col['name'], '(missing)')}")
+                if "." not in col["name"]:
+                    logical = col.get('logical_type', '')
+                    print(f"    {col['name']:25} | physical={col['physical_type']:17} | logical={logical or '(none)':<17}  | arrow={arrow_types.get(col['name'], '(missing)')}")
                 arrow_type = arrow_types.get(col['name'])
                 assert arrow_type is not None, f"Missing arrow type for {col['name']}"
                 assert _arrow_matches(logical, arrow_type), col['name']

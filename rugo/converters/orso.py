@@ -111,7 +111,7 @@ def _fallback_schema_columns(metadata: Dict[str, Any]) -> Iterable[Dict[str, Any
             continue
 
         logical_type = col_metadata.get("logical_type")
-        physical_type = col_metadata.get("type") or ""
+        physical_type = col_metadata.get("physical_type") or ""
 
         top_name = col_name.split(".", 1)[0]
         if top_name != col_name:

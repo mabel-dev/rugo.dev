@@ -34,7 +34,7 @@ def main():
     print(f"{'-' * 70}")
     
     for i, col in enumerate(rg['columns'][:3], 1):
-        print(f"\n{i}. {col['name']} ({col['type']} → {col['logical_type']})")
+        print(f"\n{i}. {col['name']} ({col['physical_type']} → {col['logical_type']})")
         print(f"   Values: {col.get('num_values', '?')}")
         print(f"   Null count: {col['null_count']}")
         
