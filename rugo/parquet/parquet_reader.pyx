@@ -504,8 +504,8 @@ def decode_column_from_memory(data, str column_name, row_group_stats, int row_gr
         cpp_col.data_page_offset = col.data_page_offset if col.data_page_offset is not None else -1
         cpp_col.index_page_offset = col.index_page_offset if col.index_page_offset is not None else -1
         cpp_col.dictionary_page_offset = col.dictionary_page_offset if col.dictionary_page_offset is not None else -1
-        cpp_col.has_min = col.has_min if hasattr(col, 'has_min') else False
-        cpp_col.has_max = col.has_max if hasattr(col, 'has_max') else False
+        cpp_col.has_min = col.has_min if col.has_min is not None else False
+        cpp_col.has_max = col.has_max if col.has_max is not None else False
         
         # Handle min/max values which can be different types
         if col.min:
@@ -532,7 +532,7 @@ def decode_column_from_memory(data, str column_name, row_group_stats, int row_gr
         cpp_col.distinct_count = col.distinct_count if col.distinct_count is not None else -1
         cpp_col.bloom_offset = col.bloom_offset if col.bloom_offset is not None else -1
         cpp_col.bloom_length = col.bloom_length if col.bloom_length is not None else -1
-        cpp_col.encodings = col.encodings if hasattr(col, 'encodings') else []
+        cpp_col.encodings = col.encodings if col.encodings is not None else []
         cpp_col.codec = col.codec if col.codec is not None else -1
         cpp_row_group.columns.push_back(cpp_col)
 
