@@ -39,7 +39,7 @@ jobs:
           CIBW_TEST_COMMAND: "python -c \"import rugo.parquet; print('Import successful')\""
           CIBW_TEST_SKIP: "*-*linux_{ppc64le,s390x}"
           CIBW_ARCHS_LINUX: "x86_64"
-          CIBW_ARCHS_MACOS: "x86_64 arm64"
+          CIBW_ARCHS_MACOS: "auto"
 
       - uses: actions/upload-artifact@v4
         with:
