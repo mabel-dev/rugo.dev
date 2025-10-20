@@ -43,6 +43,7 @@ pip install -e .
 - A C++17 compatible compiler (clang, gcc, or MSVC)
 - Cython and setuptools for source builds (installed by the commands above)
 - On x86-64 platforms, an assembler capable of compiling `.S` sources (bundled with modern GCC/Clang toolchains)
+- ARM/AArch64 platforms (including Apple Silicon) are fully supported with NEON SIMD optimizations
 
 ## Quickstart
 ```python
