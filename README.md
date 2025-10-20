@@ -4,7 +4,7 @@
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/downloads/)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/rugo?period=total&units=INTERNATIONAL_SYSTEM&left_color=BRIGHTGREEN&right_color=LIGHTGREY&left_text=downloads)](https://pepy.tech/projects/rugo)
 
-`rugo` is a C++17 and Cython powered file reader for Python. It delivers high-throughput reading for both Parquet files (metadata inspection and experimental column reader) and JSON Lines files (with schema inference and projection pushdown). The data-reading API is evolving rapidly and will change in upcoming releases.
+`rugo` is a C++17 and Cython powered file reader for Python. It delivers high-throughput reading for both Parquet files (metadata inspection and experimental column reader) and JSON Lines files (with schema inference, projection pushdown, and SIMD optimizations). The data-reading API is evolving rapidly and will change in upcoming releases.
 
 ## Key Features
 - **Parquet**: Fast metadata extraction backed by an optimized C++17 parser and thin Python bindings.
@@ -430,8 +430,9 @@ rugo/
 ## Status and limitations
 - Active development status (alpha); APIs are evolving and may change between releases.
 - **Parquet**: Metadata APIs are largely stable. The column-reading API is experimental and will change.
-- **JSON Lines**: Newly added experimental reader with basic type support (int64, double, string, boolean).
+- **JSON Lines**: High-performance reader with SIMD optimizations (19% improvement) and basic type support (int64, double, string, boolean).
 - Requires a C++17 compiler when installing from source or editing the Cython bindings.
+- SIMD optimizations (AVX2/SSE2) are automatically enabled on x86-64 platforms.
 - Bloom filter information is exposed via offsets and lengths; higher-level helpers are planned.
 
 ## License
