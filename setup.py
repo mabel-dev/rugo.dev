@@ -85,7 +85,13 @@ def get_extensions():
     )
     extensions.append(parquet_ext)
     
-    # JSON lines reader extension
+    # JSON lines reader extension with SIMD optimizations
+    jsonl_compile_args = extra_compile_args.copy()
+    # Add SIMD flags for x86-64 architecture
+    machine = platform.machine().lower()
+    if machine in ("x86_64", "amd64"):
+        jsonl_compile_args.extend(["-msse4.2", "-mavx2"])
+    
     jsonl_ext = Extension(
         "rugo.jsonl",
         sources=[
@@ -96,7 +102,7 @@ def get_extensions():
             "rugo/jsonl_src",
         ],
         language="c++",
-        extra_compile_args=extra_compile_args,
+        extra_compile_args=jsonl_compile_args,
         extra_link_args=[],
     )
     extensions.append(jsonl_ext)
