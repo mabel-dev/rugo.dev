@@ -79,9 +79,15 @@ jsonl_compile_args.extend(["-msse4.2", "-mavx2"])
 ## SIMD Availability
 
 The code automatically detects available SIMD instructions at compile time:
-- **AVX2**: Processes 32 bytes per iteration (preferred)
-- **SSE2**: Processes 16 bytes per iteration (fallback)
-- **Scalar**: Byte-by-byte processing (fallback for non-x86 architectures)
+- **AVX2**: Processes 32 bytes per iteration (x86-64, preferred)
+- **SSE2**: Processes 16 bytes per iteration (x86-64, fallback)
+- **NEON**: Processes 16 bytes per iteration (ARM/AArch64)
+- **Scalar**: Byte-by-byte processing (fallback for all architectures)
+
+The engine automatically determines which SIMD instruction set to use based on the target architecture:
+- On **x86-64** (Intel/AMD): Uses AVX2 if available, otherwise falls back to SSE2
+- On **ARM/AArch64** (including Apple Silicon): Uses NEON instructions
+- On other architectures or when SIMD is unavailable: Uses scalar fallback
 
 ## Technical Details
 
@@ -101,6 +107,32 @@ while (ptr < avx_end) {
 ```
 
 This processes 32 bytes in parallel, making it significantly faster than byte-by-byte comparison for larger buffers.
+
+### NEON Newline Search Example
+```cpp
+uint8x16_t newline_vec = vdupq_n_u8('\n');
+while (ptr < neon_end) {
+    uint8x16_t chunk = vld1q_u8(reinterpret_cast<const uint8_t*>(ptr));
+    uint8x16_t cmp = vceqq_u8(chunk, newline_vec);
+    
+    // Check if any byte matched
+    uint64x2_t cmp64 = vreinterpretq_u64_u8(cmp);
+    uint64_t low = vgetq_lane_u64(cmp64, 0);
+    uint64_t high = vgetq_lane_u64(cmp64, 1);
+    
+    if (low != 0 || high != 0) {
+        // Found a newline - scan to find exact position
+        for (int i = 0; i < 16; i++) {
+            if (ptr[i] == '\n') {
+                return ptr + i;
+            }
+        }
+    }
+    ptr += 16;
+}
+```
+
+NEON processes 16 bytes in parallel (similar to SSE2), providing comparable performance on ARM architectures including Apple Silicon.
 
 ## Comparison with Opteryx
 

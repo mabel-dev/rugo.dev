@@ -87,10 +87,16 @@ def get_extensions():
     
     # JSON lines reader extension with SIMD optimizations
     jsonl_compile_args = extra_compile_args.copy()
-    # Add SIMD flags for x86-64 architecture
+    # Add SIMD flags based on architecture
     machine = platform.machine().lower()
     if machine in ("x86_64", "amd64"):
+        # x86-64: Add SSE4.2 and AVX2 flags
         jsonl_compile_args.extend(["-msse4.2", "-mavx2"])
+    elif machine in ("arm64", "aarch64"):
+        # ARM: NEON is enabled by default on ARMv8, but we can be explicit
+        # On some ARM systems, we may need to explicitly enable NEON
+        if platform.system() != "Darwin":  # macOS automatically enables NEON
+            jsonl_compile_args.append("-mfpu=neon")
     
     jsonl_ext = Extension(
         "rugo.jsonl",
