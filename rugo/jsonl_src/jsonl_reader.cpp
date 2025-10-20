@@ -1,4 +1,5 @@
 #include "jsonl_reader.hpp"
+#include "simd_helpers.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -111,8 +112,15 @@ private:
     }
     
     void SkipToNextLine() {
-        while (pos_ < size_ && data_[pos_] != '\n') pos_++;
-        if (pos_ < size_) pos_++;  // Skip newline
+        if (pos_ >= size_) return;
+        
+        size_t remaining = size_ - pos_;
+        const char* newline = simd::FindNewline(data_ + pos_, remaining);
+        if (newline) {
+            pos_ = (newline - data_) + 1;  // Skip past the newline
+        } else {
+            pos_ = size_;  // No newline found, go to end
+        }
     }
     
     bool ParseString(std::string& result) {
@@ -121,44 +129,69 @@ private:
         if (pos_ >= size_ || data_[pos_] != '"') return false;
         pos_++;
         
+        size_t start = pos_;
+        
+        // Fast path: scan for end quote or escape without allocating
         while (pos_ < size_) {
             char c = data_[pos_];
             
             if (c == '"') {
+                // Found closing quote - copy the whole string at once
+                result.assign(data_ + start, pos_ - start);
                 pos_++;
                 return true;
             }
             
             if (c == '\\') {
-                pos_++;
-                if (pos_ >= size_) return false;
+                // Hit an escape - need to handle character by character
+                // First, copy everything up to the escape
+                result.assign(data_ + start, pos_ - start);
                 
-                char escaped = data_[pos_];
-                switch (escaped) {
-                    case '"':  result += '"'; break;
-                    case '\\': result += '\\'; break;
-                    case '/':  result += '/'; break;
-                    case 'b':  result += '\b'; break;
-                    case 'f':  result += '\f'; break;
-                    case 'n':  result += '\n'; break;
-                    case 'r':  result += '\r'; break;
-                    case 't':  result += '\t'; break;
-                    case 'u':
-                        // Unicode escape - simplified handling
+                // Now process escapes
+                while (pos_ < size_) {
+                    c = data_[pos_];
+                    
+                    if (c == '"') {
                         pos_++;
-                        if (pos_ + 3 < size_) {
-                            // For simplicity, just skip the 4 hex digits
-                            pos_ += 3;
+                        return true;
+                    }
+                    
+                    if (c == '\\') {
+                        pos_++;
+                        if (pos_ >= size_) return false;
+                        
+                        char escaped = data_[pos_];
+                        switch (escaped) {
+                            case '"':  result += '"'; break;
+                            case '\\': result += '\\'; break;
+                            case '/':  result += '/'; break;
+                            case 'b':  result += '\b'; break;
+                            case 'f':  result += '\f'; break;
+                            case 'n':  result += '\n'; break;
+                            case 'r':  result += '\r'; break;
+                            case 't':  result += '\t'; break;
+                            case 'u':
+                                // Unicode escape - simplified handling
+                                pos_++;
+                                if (pos_ + 3 < size_) {
+                                    // For simplicity, just skip the 4 hex digits
+                                    pos_ += 3;
+                                }
+                                break;
+                            default:
+                                result += escaped;
                         }
-                        break;
-                    default:
-                        result += escaped;
+                        pos_++;
+                    } else {
+                        result += c;
+                        pos_++;
+                    }
                 }
-                pos_++;
-            } else {
-                result += c;
-                pos_++;
+                
+                return false;  // No closing quote found
             }
+            
+            pos_++;
         }
         
         return false;  // No closing quote found
