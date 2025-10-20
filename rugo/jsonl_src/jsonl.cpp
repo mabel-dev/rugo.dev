@@ -8,7 +8,9 @@
         ],
         "extra_compile_args": [
             "-O3",
-            "-std=c++17"
+            "-std=c++17",
+            "-msse4.2",
+            "-mavx2"
         ],
         "include_dirs": [
             "rugo/jsonl_src"
