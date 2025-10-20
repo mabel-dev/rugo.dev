@@ -4,13 +4,15 @@
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/downloads/)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/rugo?period=total&units=INTERNATIONAL_SYSTEM&left_color=BRIGHTGREEN&right_color=LIGHTGREY&left_text=downloads)](https://pepy.tech/projects/rugo)
 
-`rugo` is a C++17 and Cython powered Parquet metadata reader for Python. It delivers high-throughput metadata inspection and now includes an experimental column reader for PLAIN-encoded data with UNCOMPRESSED, SNAPPY, and ZSTD codecs. The data-reading API is evolving rapidly and will change in upcoming releases.
+`rugo` is a C++17 and Cython powered file reader for Python. It delivers high-throughput reading for both Parquet files (metadata inspection and experimental column reader) and JSON Lines files (with schema inference and projection pushdown). The data-reading API is evolving rapidly and will change in upcoming releases.
 
 ## Key Features
-- Fast metadata extraction backed by an optimized C++17 parser and thin Python bindings.
-- Complete schema and row-group details, including encodings, codecs, offsets, bloom filter pointers, and custom key/value metadata (with a stable `type` alias matching each column's physical type).
-- Works with file paths, byte strings, and contiguous memoryviews for zero-copy parsing.
-- **Experimental memory-based data reading** for PLAIN-encoded columns with UNCOMPRESSED, SNAPPY, and ZSTD codecs, plus column selection and multi-row-group support (breaking API changes expected).
+- **Parquet**: Fast metadata extraction backed by an optimized C++17 parser and thin Python bindings.
+- **Parquet**: Complete schema and row-group details, including encodings, codecs, offsets, bloom filter pointers, and custom key/value metadata.
+- **Parquet**: Experimental memory-based data reading for PLAIN-encoded columns with UNCOMPRESSED, SNAPPY, and ZSTD codecs.
+- **JSON Lines**: High-performance columnar reader with schema inference and projection pushdown.
+- **JSON Lines**: Memory-based processing for zero-copy parsing.
+- Works with file paths, byte strings, and contiguous memoryviews.
 - Optional schema conversion helpers for [Orso](https://github.com/mabel-dev/orso).
 - No runtime dependencies beyond the Python standard library.
 
@@ -248,16 +250,108 @@ See `examples/memory_based_api_example.py` and `examples/optional_columns_exampl
 
 **Note:** This decoder is a **prototype** for educational and testing purposes. For production use with full Parquet support, use [PyArrow](https://arrow.apache.org/docs/python/) or [FastParquet](https://github.com/dask/fastparquet).
 
+## JSON Lines Reading (NEW)
+
+`rugo` now includes a high-performance JSON Lines reader with schema inference and projection pushdown capabilities.
+
+### Features
+- ✅ Fast columnar reading with C++17 implementation
+- ✅ Automatic schema inference from JSON data
+- ✅ Projection pushdown (read only needed columns)
+- ✅ Support for int64, double, string, and boolean types
+- ✅ Native null value handling
+- ✅ Memory-based processing (zero-copy parsing)
+- ✅ Orso schema conversion
+
+### Quick Example
+
+```python
+import rugo.jsonl as rj
+
+# Sample JSON Lines data
+data = b'''{"id": 1, "name": "Alice", "age": 30, "salary": 50000.0}
+{"id": 2, "name": "Bob", "age": 25, "salary": 45000.0}
+{"id": 3, "name": "Charlie", "age": 35, "salary": 55000.0}'''
+
+# Get schema
+schema = rj.get_jsonl_schema(data)
+print(f"Columns: {[col['name'] for col in schema]}")
+# Output: Columns: ['id', 'name', 'age', 'salary']
+
+# Read all columns
+result = rj.read_jsonl(data)
+print(f"Read {result['num_rows']} rows with {len(result['columns'])} columns")
+
+# Read with projection (only specific columns)
+result = rj.read_jsonl(data, columns=['name', 'salary'])
+# Only reads 'name' and 'salary' - projection pushdown!
+```
+
+### Working with Files
+
+```python
+import rugo.jsonl as rj
+
+# Load file into memory
+with open("data.jsonl", "rb") as f:
+    jsonl_data = f.read()
+
+# Extract schema
+schema = rj.get_jsonl_schema(jsonl_data, sample_size=1000)
+
+# Read specific columns only
+result = rj.read_jsonl(jsonl_data, columns=['user_id', 'email', 'score'])
+
+# Access columnar data
+for i in range(result['num_rows']):
+    user_id = result['columns'][0][i]
+    email = result['columns'][1][i]
+    score = result['columns'][2][i]
+    print(f"User {user_id}: {email} - Score: {score}")
+```
+
+### Orso Integration
+
+```python
+import rugo.jsonl as rj
+from rugo.converters.orso import jsonl_to_orso_schema
+
+# Get JSON Lines schema
+jsonl_schema = rj.get_jsonl_schema(data)
+
+# Convert to Orso schema
+orso_schema = jsonl_to_orso_schema(jsonl_schema, schema_name="my_table")
+print(f"Schema: {orso_schema.name}")
+for col in orso_schema.columns:
+    print(f"  {col.name}: {col.type}")
+```
+
+### Performance
+
+The JSON Lines reader achieves approximately **1.5M rows/second** on typical data. While PyArrow's JSON reader is faster on very large datasets, rugo's implementation offers:
+- **Projection pushdown**: Only parse columns you need
+- **Memory-based**: No file I/O overhead 
+- **Simple API**: Easy to integrate
+- **Columnar output**: Optimized for data processing
+
+See `examples/read_jsonl.py` for complete demonstrations.
+
 ## Optional Orso conversion
 Install the optional extra (`pip install rugo[orso]`) to enable Orso helpers:
 ```python
-from rugo.converters.orso import extract_schema_only, rugo_to_orso_schema
+from rugo.converters.orso import extract_schema_only, rugo_to_orso_schema, jsonl_to_orso_schema
 
+# Parquet to Orso
 metadata = parquet_meta.read_metadata("example.parquet")
 relation = rugo_to_orso_schema(metadata, "example_table")
 schema_info = extract_schema_only(metadata)
+
+# JSON Lines to Orso
+import rugo.jsonl as rj
+jsonl_schema = rj.get_jsonl_schema(data)
+relation = jsonl_to_orso_schema(jsonl_schema, "jsonl_table")
 ```
-See `examples/orso_conversion.py` for a complete walkthrough.
+See `examples/orso_conversion.py` and `examples/jsonl_orso_conversion.py` for complete walkthroughs.
 
 ## Development
 ```bash
@@ -286,10 +380,17 @@ rugo/
 │   ├── compression.hpp
 │   ├── thrift.hpp
 │   └── vendor/
+├── rugo/jsonl_src/
+│   ├── jsonl.pyx
+│   ├── jsonl.pxd
+│   ├── jsonl_reader.cpp
+│   └── jsonl_reader.hpp
 ├── rugo/converters/orso.py
 ├── examples/
 │   ├── read_parquet_metadata.py
 │   ├── read_parquet_data.py
+│   ├── read_jsonl.py
+│   ├── jsonl_orso_conversion.py
 │   ├── create_test_file.py
 │   └── orso_conversion.py
 ├── scripts/
@@ -300,6 +401,8 @@ rugo/
 │   ├── test_all_metadata_fields.py
 │   ├── test_bloom_filter.py
 │   ├── test_decode.py
+│   ├── test_jsonl.py
+│   ├── test_jsonl_performance.py
 │   ├── test_logical_types.py
 │   ├── test_orso_converter.py
 │   ├── test_statistics.py
@@ -311,8 +414,9 @@ rugo/
 ```
 
 ## Status and limitations
-- Active development status (alpha); metadata APIs are largely stable but the column-reading API will change between releases.
-- Primary focus is metadata inspection; the data decoder remains a prototype with limited capabilities even while the API evolves.
+- Active development status (alpha); APIs are evolving and may change between releases.
+- **Parquet**: Metadata APIs are largely stable. The column-reading API is experimental and will change.
+- **JSON Lines**: Newly added experimental reader with basic type support (int64, double, string, boolean).
 - Requires a C++17 compiler when installing from source or editing the Cython bindings.
 - Bloom filter information is exposed via offsets and lengths; higher-level helpers are planned.
 
