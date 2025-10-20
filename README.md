@@ -344,12 +344,12 @@ The SIMD implementation uses:
 
 #### Comparison with Opteryx
 
-On 50-column datasets, rugo is **2.7-5.6x faster** than Opteryx's JSONL reader:
+On 50-column datasets, rugo is **2.7-5.6x faster** than Opteryx 0.25.1 (release):
 - **Full read**: 2.7-3.1x faster
 - **Projection (10 cols)**: 3.8-5.4x faster
 - **Projection (5 cols)**: 3.9-5.6x faster
 
-**Note**: The comparison is against Opteryx's Python-based JSONL reader (`opteryx.utils.file_decoders.jsonl_decoder`) which uses the csimdjson C/C++ extension for JSON parsing.
+**Note**: These benchmarks compare against Opteryx 0.25.1 (PyPI release) which uses a Python-based decoder with csimdjson. The main branch (0.26.0+) includes a new Cython-based fast decoder with SIMD optimizations that is expected to be significantly faster.
 
 rugo's advantages:
 - ✅ **True projection pushdown**: Only parse columns you need

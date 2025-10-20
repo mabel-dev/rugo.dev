@@ -5,10 +5,12 @@ Performance comparison between rugo and Opteryx JSON Lines readers.
 This benchmark focuses on Python 3.11+ on Linux with 50-column datasets
 to provide direct performance comparisons between the two implementations.
 
-Note: This benchmark compares rugo against Opteryx's Python-based JSONL reader
-(opteryx.utils.file_decoders.jsonl_decoder) which uses the csimdjson C/C++
-extension for JSON parsing. While Opteryx has many Cython-compiled modules 
-for other operations, the JSONL reader itself is not Cython-based.
+Note: This benchmark tests against Opteryx's JSONL reader.
+- Release 0.25.1: Uses Python decoder with csimdjson C/C++ extension
+- Main branch (0.26.0+): Includes Cython-based fast decoder with SIMD optimizations
+
+To test against the latest main branch:
+    pip install git+https://github.com/mabel-dev/opteryx.git
 """
 import json
 import os
@@ -25,9 +27,20 @@ import rugo.jsonl as rj
 # Check if Opteryx is available
 try:
     from opteryx.utils.file_decoders import jsonl_decoder as opteryx_jsonl_decoder
+    import opteryx
     HAS_OPTERYX = True
+    OPTERYX_VERSION = opteryx.__version__ if hasattr(opteryx, '__version__') else "unknown"
+    
+    # Check if Cython decoder is available
+    try:
+        from opteryx.compiled.structures import jsonl_decoder as cython_decoder
+        HAS_CYTHON_DECODER = True
+    except ImportError:
+        HAS_CYTHON_DECODER = False
 except ImportError:
     HAS_OPTERYX = False
+    HAS_CYTHON_DECODER = False
+    OPTERYX_VERSION = None
     print("Warning: Opteryx not available. Install with: pip install opteryx")
 
 
@@ -216,6 +229,10 @@ def print_system_info():
     print(f"Platform: {platform.platform()}")
     print(f"Processor: {platform.processor()}")
     print(f"Architecture: {platform.machine()}")
+    if HAS_OPTERYX:
+        print(f"Opteryx version: {OPTERYX_VERSION}")
+        decoder_type = "Cython-based (fast)" if HAS_CYTHON_DECODER else "Python-based (csimdjson)"
+        print(f"Opteryx decoder: {decoder_type}")
     print()
 
 
