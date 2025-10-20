@@ -8,7 +8,9 @@
         ],
         "extra_compile_args": [
             "-O3",
-            "-std=c++17"
+            "-std=c++17",
+            "-msse4.2",
+            "-mavx2"
         ],
         "include_dirs": [
             "rugo/jsonl_src"
@@ -3693,7 +3695,7 @@ static PyObject *__pyx_pf_4rugo_5jsonl_2read_jsonl(CYTHON_UNUSED PyObject *__pyx
   JsonlColumn *__pyx_v_col;
   PyObject *__pyx_v_col_type = NULL;
   PyObject *__pyx_v_py_list = NULL;
-  std::vector<std::string> ::size_type __pyx_v_j;
+  std::vector<int64_t> ::size_type __pyx_v_j;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_t_1;
@@ -3715,9 +3717,9 @@ static PyObject *__pyx_pf_4rugo_5jsonl_2read_jsonl(CYTHON_UNUSED PyObject *__pyx
   std::vector<JsonlColumn> ::size_type __pyx_t_17;
   std::vector<int64_t> ::size_type __pyx_t_18;
   std::vector<int64_t> ::size_type __pyx_t_19;
-  std::vector<double> ::size_type __pyx_t_20;
+  std::vector<int64_t> ::size_type __pyx_t_20;
   std::vector<double> ::size_type __pyx_t_21;
-  std::vector<std::string> ::size_type __pyx_t_22;
+  std::vector<double> ::size_type __pyx_t_22;
   std::vector<uint8_t> ::size_type __pyx_t_23;
   std::vector<uint8_t> ::size_type __pyx_t_24;
   int __pyx_lineno = 0;
@@ -4286,8 +4288,8 @@ static PyObject *__pyx_pf_4rugo_5jsonl_2read_jsonl(CYTHON_UNUSED PyObject *__pyx
 */
       __pyx_t_18 = __pyx_v_col->int_values.size();
       __pyx_t_19 = __pyx_t_18;
-      for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_19; __pyx_t_13+=1) {
-        __pyx_v_j = __pyx_t_13;
+      for (__pyx_t_20 = 0; __pyx_t_20 < __pyx_t_19; __pyx_t_20+=1) {
+        __pyx_v_j = __pyx_t_20;
 
         /* "rugo/jsonl_src/jsonl.pyx":187
  *             py_list = []
@@ -4382,10 +4384,10 @@ static PyObject *__pyx_pf_4rugo_5jsonl_2read_jsonl(CYTHON_UNUSED PyObject *__pyx
  *                 if col.null_mask[j]:
  *                     py_list.append(None)
 */
-      __pyx_t_20 = __pyx_v_col->double_values.size();
-      __pyx_t_21 = __pyx_t_20;
-      for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_21; __pyx_t_13+=1) {
-        __pyx_v_j = __pyx_t_13;
+      __pyx_t_21 = __pyx_v_col->double_values.size();
+      __pyx_t_22 = __pyx_t_21;
+      for (__pyx_t_18 = 0; __pyx_t_18 < __pyx_t_22; __pyx_t_18+=1) {
+        __pyx_v_j = __pyx_t_18;
 
         /* "rugo/jsonl_src/jsonl.pyx":196
  *             py_list = []
@@ -4482,8 +4484,8 @@ static PyObject *__pyx_pf_4rugo_5jsonl_2read_jsonl(CYTHON_UNUSED PyObject *__pyx
 */
       __pyx_t_13 = __pyx_v_col->string_values.size();
       __pyx_t_14 = __pyx_t_13;
-      for (__pyx_t_22 = 0; __pyx_t_22 < __pyx_t_14; __pyx_t_22+=1) {
-        __pyx_v_j = __pyx_t_22;
+      for (__pyx_t_18 = 0; __pyx_t_18 < __pyx_t_14; __pyx_t_18+=1) {
+        __pyx_v_j = __pyx_t_18;
 
         /* "rugo/jsonl_src/jsonl.pyx":205
  *             py_list = []
@@ -4580,8 +4582,8 @@ static PyObject *__pyx_pf_4rugo_5jsonl_2read_jsonl(CYTHON_UNUSED PyObject *__pyx
 */
       __pyx_t_23 = __pyx_v_col->boolean_values.size();
       __pyx_t_24 = __pyx_t_23;
-      for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_24; __pyx_t_13+=1) {
-        __pyx_v_j = __pyx_t_13;
+      for (__pyx_t_18 = 0; __pyx_t_18 < __pyx_t_24; __pyx_t_18+=1) {
+        __pyx_v_j = __pyx_t_18;
 
         /* "rugo/jsonl_src/jsonl.pyx":214
  *             py_list = []
