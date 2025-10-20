@@ -330,10 +330,11 @@ for col in orso_schema.columns:
 
 ### Performance
 
-The JSON Lines reader achieves approximately **800K-1.7M rows/second** depending on the operation and number of columns. With SIMD optimizations (AVX2/SSE2), the reader delivers:
+The JSON Lines reader achieves approximately **109K-201K rows/second** on wide tables (50 columns), with higher throughput on narrower tables. With SIMD optimizations (AVX2/SSE2), the reader delivers:
 
-- **Full read**: ~800K rows/second (all columns)
-- **Projection (2-3 columns)**: ~1.1-1.7M rows/second
+- **Full read (50 cols)**: ~109K rows/second
+- **Projection (10 cols)**: ~174-191K rows/second
+- **Projection (5 cols)**: ~181-201K rows/second
 - **Performance improvement**: 19% faster with SIMD optimizations
 
 The SIMD implementation uses:
@@ -341,15 +342,22 @@ The SIMD implementation uses:
 - **SSE2**: Processes 16 bytes at once (fallback)
 - **Scalar fallback**: Byte-by-byte processing for non-x86 architectures
 
-While PyArrow's JSON reader is faster on very large datasets, rugo's implementation offers:
-- **Projection pushdown**: Only parse columns you need
-- **Memory-based**: No file I/O overhead 
-- **Simple API**: Easy to integrate
-- **Columnar output**: Optimized for data processing
+#### Comparison with Opteryx
 
-See `JSONL_SIMD_OPTIMIZATIONS.md` for detailed information about the SIMD optimizations.
+On 50-column datasets, rugo is **2.7-5.6x faster** than Opteryx's JSONL reader:
+- **Full read**: 2.7-3.1x faster
+- **Projection (10 cols)**: 3.8-5.4x faster
+- **Projection (5 cols)**: 3.9-5.6x faster
 
-See `examples/read_jsonl.py` for complete demonstrations.
+rugo's advantages:
+- ✅ **True projection pushdown**: Only parse columns you need
+- ✅ **Memory-based**: No file I/O overhead
+- ✅ **Zero-copy design**: Direct memory-to-column conversion
+- ✅ **Consistent performance**: Maintains throughput across dataset sizes
+
+See `PERFORMANCE_COMPARISON.md` for detailed benchmark results and `JSONL_SIMD_OPTIMIZATIONS.md` for SIMD optimization details.
+
+See `examples/read_jsonl.py` and `benchmarks/compare_opteryx_performance.py` for complete demonstrations.
 
 ## Optional Orso conversion
 Install the optional extra (`pip install rugo[orso]`) to enable Orso helpers:
