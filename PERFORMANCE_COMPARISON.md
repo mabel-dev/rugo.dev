@@ -193,6 +193,8 @@ A future benchmark comparing rugo against Opteryx's main branch Cython decoder w
 
 To reproduce these results:
 
+## Running the Benchmark
+
 ```bash
 # Install dependencies
 pip install rugo opteryx pyarrow
@@ -203,6 +205,8 @@ make compile
 # Run benchmark
 python benchmarks/compare_opteryx_performance.py
 ```
+
+**Testing Against Main Branch**: The Opteryx main branch (0.26.0-beta) includes a Cython-based decoder expected to be significantly faster, but it's not yet released on PyPI. See `TESTING_OPTERYX_MAIN.md` for installation details and `OPTERYX_DECODER_ANALYSIS.md` for a detailed technical analysis of the Cython decoder and potential improvements for rugo.
 
 ## Notes
 

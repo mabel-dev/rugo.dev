@@ -357,7 +357,7 @@ rugo's advantages:
 - ✅ **Zero-copy design**: Direct memory-to-column conversion
 - ✅ **Consistent performance**: Maintains throughput across dataset sizes
 
-See `PERFORMANCE_COMPARISON.md` for detailed benchmark results and `JSONL_SIMD_OPTIMIZATIONS.md` for SIMD optimization details.
+See `PERFORMANCE_COMPARISON.md` for detailed benchmark results, `JSONL_SIMD_OPTIMIZATIONS.md` for SIMD optimization details, and `OPTERYX_DECODER_ANALYSIS.md` for a technical analysis of Opteryx's Cython decoder and potential improvements.
 
 See `examples/read_jsonl.py` and `benchmarks/compare_opteryx_performance.py` for complete demonstrations.
 
