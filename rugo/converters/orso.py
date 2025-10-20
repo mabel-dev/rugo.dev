@@ -5,6 +5,7 @@ Convert rugo parquet metadata schemas to orso RelationSchema format.
 from typing import Any
 from typing import Dict
 from typing import Iterable
+from typing import List
 from typing import Optional
 
 from orso.schema import FlatColumn
@@ -213,3 +214,70 @@ def extract_schema_only(
         "columns": column_types,
         "row_count": rugo_metadata.get("num_rows"),
     }
+
+
+def _map_jsonl_type_to_orso(jsonl_type: str) -> str:
+    """
+    Map JSON lines type to orso type.
+
+    Args:
+        jsonl_type: JSON lines type (e.g., "int64", "double", "string", "boolean")
+
+    Returns:
+        Orso type string
+    """
+    type_map = {
+        "int64": OrsoTypes.INTEGER,
+        "double": OrsoTypes.DOUBLE,
+        "string": OrsoTypes.VARCHAR,
+        "boolean": OrsoTypes.BOOLEAN,
+        "null": OrsoTypes.VARCHAR,  # Default null to varchar
+    }
+    return type_map.get(jsonl_type.lower(), OrsoTypes.VARCHAR)
+
+
+def jsonl_to_orso_schema(
+    jsonl_schema: List[Dict[str, Any]], schema_name: str = "jsonl_schema"
+) -> RelationSchema:
+    """
+    Convert JSON lines schema to an orso RelationSchema.
+
+    Args:
+        jsonl_schema: The schema list returned by rugo.jsonl.get_jsonl_schema()
+        schema_name: Name for the resulting schema (default: "jsonl_schema")
+
+    Returns:
+        OrsoRelationSchema object
+
+    Raises:
+        ValueError: If the schema format is invalid
+    """
+    if not isinstance(jsonl_schema, list):
+        raise ValueError("jsonl_schema must be a list")
+
+    if not jsonl_schema:
+        raise ValueError("jsonl_schema cannot be empty")
+
+    columns = []
+    for entry in jsonl_schema:
+        name = entry.get("name")
+        if not name:
+            continue
+
+        jsonl_type = entry.get("type", "string")
+        nullable = bool(entry.get("nullable", True))
+
+        orso_type = _map_jsonl_type_to_orso(jsonl_type)
+        columns.append(FlatColumn(name=name, type=orso_type, nullable=nullable))
+
+    if not columns:
+        raise ValueError("No columns could be derived from jsonl schema")
+
+    # Create and populate the RelationSchema
+    schema = RelationSchema(name=schema_name)
+
+    # Add all columns to the schema
+    schema.columns.extend(columns)
+
+    return schema
+

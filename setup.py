@@ -85,6 +85,22 @@ def get_extensions():
     )
     extensions.append(parquet_ext)
     
+    # JSON lines reader extension
+    jsonl_ext = Extension(
+        "rugo.jsonl",
+        sources=[
+            "rugo/jsonl_src/jsonl.pyx",
+            "rugo/jsonl_src/jsonl_reader.cpp",
+        ],
+        include_dirs=[
+            "rugo/jsonl_src",
+        ],
+        language="c++",
+        extra_compile_args=extra_compile_args,
+        extra_link_args=[],
+    )
+    extensions.append(jsonl_ext)
+    
     return extensions
 
 
