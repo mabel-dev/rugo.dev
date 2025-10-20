@@ -4,13 +4,13 @@
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/downloads/)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/rugo?period=total&units=INTERNATIONAL_SYSTEM&left_color=BRIGHTGREEN&right_color=LIGHTGREY&left_text=downloads)](https://pepy.tech/projects/rugo)
 
-`rugo` is a C++17 and Cython powered file reader for Python. It delivers high-throughput reading for both Parquet files (metadata inspection and experimental column reader) and JSON Lines files (with schema inference and projection pushdown). The data-reading API is evolving rapidly and will change in upcoming releases.
+`rugo` is a C++17 and Cython powered file reader for Python. It delivers high-throughput reading for both Parquet files (metadata inspection and experimental column reader) and JSON Lines files (with schema inference, projection pushdown, and SIMD optimizations). The data-reading API is evolving rapidly and will change in upcoming releases.
 
 ## Key Features
 - **Parquet**: Fast metadata extraction backed by an optimized C++17 parser and thin Python bindings.
 - **Parquet**: Complete schema and row-group details, including encodings, codecs, offsets, bloom filter pointers, and custom key/value metadata.
-- **Parquet**: Experimental memory-based data reading for PLAIN-encoded columns with UNCOMPRESSED, SNAPPY, and ZSTD codecs.
-- **JSON Lines**: High-performance columnar reader with schema inference and projection pushdown.
+- **Parquet**: Experimental memory-based data reading for PLAIN and RLE_DICTIONARY encoded columns with UNCOMPRESSED, SNAPPY, and ZSTD codecs.
+- **JSON Lines**: High-performance columnar reader with schema inference, projection pushdown, and SIMD optimizations (19% faster).
 - **JSON Lines**: Memory-based processing for zero-copy parsing.
 - Works with file paths, byte strings, and contiguous memoryviews.
 - Optional schema conversion helpers for [Orso](https://github.com/mabel-dev/orso).
@@ -147,18 +147,18 @@ from_view = parquet_meta.read_metadata_from_memoryview(memoryview(data))
 ### Supported Features
 - ✅ UNCOMPRESSED, SNAPPY, and ZSTD codecs
 - ✅ PLAIN encoding
-- ✅ RLE_DICTIONARY encoding (partial - implementation complete, testing in progress)
+- ✅ RLE_DICTIONARY encoding
 - ✅ `int32`, `int64`, `float32`, `float64`, `boolean`, and `string` (byte_array) types
 - ✅ Memory-based processing (load once, decode multiple times)
 - ✅ Column selection (decode only the columns you need)
 - ✅ Multi-row-group support
 
 ### Unsupported Features  
-- ❌ Other codecs (GZIP, LZ4, etc.)
+- ❌ Other codecs (GZIP, LZ4, LZO, BROTLI, etc.)
 - ❌ Delta encoding, PLAIN_DICTIONARY, other advanced encodings
 - ❌ Nullable columns with definition levels > 0
-- ❌ Other types (float, boolean, date, timestamp, complex types)
-- ❌ Nullable columns (columns with definition levels)
+- ❌ Other types (int96, fixed_len_byte_array, date, timestamp, complex types)
+- ❌ Nested structures (lists, maps, structs)
 
 ### Primary API: Memory-Based Reading
 
@@ -251,12 +251,13 @@ See `examples/memory_based_api_example.py` and `examples/optional_columns_exampl
 
 **Note:** This decoder is a **prototype** for educational and testing purposes. For production use with full Parquet support, use [PyArrow](https://arrow.apache.org/docs/python/) or [FastParquet](https://github.com/dask/fastparquet).
 
-## JSON Lines Reading (NEW)
+## JSON Lines Reading
 
-`rugo` now includes a high-performance JSON Lines reader with schema inference and projection pushdown capabilities.
+`rugo` includes a high-performance JSON Lines reader with schema inference, projection pushdown, and SIMD optimizations.
 
 ### Features
-- ✅ Fast columnar reading with C++17 implementation
+- ✅ Fast columnar reading with C++17 implementation and SIMD optimizations
+- ✅ **19% performance improvement** from SIMD optimizations (AVX2/SSE2)
 - ✅ Automatic schema inference from JSON data
 - ✅ Projection pushdown (read only needed columns)
 - ✅ Support for int64, double, string, and boolean types
@@ -329,11 +330,24 @@ for col in orso_schema.columns:
 
 ### Performance
 
-The JSON Lines reader achieves approximately **1.5M rows/second** on typical data. While PyArrow's JSON reader is faster on very large datasets, rugo's implementation offers:
+The JSON Lines reader achieves approximately **800K-1.7M rows/second** depending on the operation and number of columns. With SIMD optimizations (AVX2/SSE2), the reader delivers:
+
+- **Full read**: ~800K rows/second (all columns)
+- **Projection (2-3 columns)**: ~1.1-1.7M rows/second
+- **Performance improvement**: 19% faster with SIMD optimizations
+
+The SIMD implementation uses:
+- **AVX2**: Processes 32 bytes at once for newline detection and text parsing (preferred)
+- **SSE2**: Processes 16 bytes at once (fallback)
+- **Scalar fallback**: Byte-by-byte processing for non-x86 architectures
+
+While PyArrow's JSON reader is faster on very large datasets, rugo's implementation offers:
 - **Projection pushdown**: Only parse columns you need
 - **Memory-based**: No file I/O overhead 
 - **Simple API**: Easy to integrate
 - **Columnar output**: Optimized for data processing
+
+See `JSONL_SIMD_OPTIMIZATIONS.md` for detailed information about the SIMD optimizations.
 
 See `examples/read_jsonl.py` for complete demonstrations.
 
@@ -417,8 +431,9 @@ rugo/
 ## Status and limitations
 - Active development status (alpha); APIs are evolving and may change between releases.
 - **Parquet**: Metadata APIs are largely stable. The column-reading API is experimental and will change.
-- **JSON Lines**: Newly added experimental reader with basic type support (int64, double, string, boolean).
+- **JSON Lines**: High-performance reader with SIMD optimizations (19% improvement) and basic type support (int64, double, string, boolean).
 - Requires a C++17 compiler when installing from source or editing the Cython bindings.
+- SIMD optimizations (AVX2/SSE2) are automatically enabled on x86-64 platforms.
 - Bloom filter information is exposed via offsets and lengths; higher-level helpers are planned.
 
 ## License
