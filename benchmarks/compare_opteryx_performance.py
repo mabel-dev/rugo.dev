@@ -4,6 +4,11 @@ Performance comparison between rugo and Opteryx JSON Lines readers.
 
 This benchmark focuses on Python 3.11+ on Linux with 50-column datasets
 to provide direct performance comparisons between the two implementations.
+
+Note: This benchmark compares rugo against Opteryx's Python-based JSONL reader
+(opteryx.utils.file_decoders.jsonl_decoder) which uses the csimdjson C/C++
+extension for JSON parsing. While Opteryx has many Cython-compiled modules 
+for other operations, the JSONL reader itself is not Cython-based.
 """
 import json
 import os

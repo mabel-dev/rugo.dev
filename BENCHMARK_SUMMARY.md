@@ -4,6 +4,8 @@
 
 Performance benchmarking on 50-column JSONL datasets shows that **rugo is 2.7-5.6x faster** than Opteryx for JSONL reading operations on Linux x86_64.
 
+**Note**: This comparison is against Opteryx's Python-based JSONL reader (`opteryx.utils.file_decoders.jsonl_decoder`) which uses the csimdjson C/C++ extension for JSON parsing. While Opteryx has many Cython-compiled modules for other operations, the JSONL reader itself is not Cython-based.
+
 ## Test Configuration
 
 - **Platform**: Linux x86_64 (Ubuntu/Azure)
@@ -38,9 +40,11 @@ Performance benchmarking on 50-column JSONL datasets shows that **rugo is 2.7-5.
 
 ### Opteryx
 - ❌ No projection pushdown (parses all columns)
-- ✅ Uses csimdjson library for parsing
+- ✅ Uses csimdjson (C/C++ extension wrapping simdjson)
 - ❌ Converts to PyArrow after parsing
 - ❌ Creates intermediate Python objects
+
+**Implementation**: The Opteryx JSONL reader is a Python function that uses csimdjson (a C/C++ extension) for parsing. It's not a Cython-based reader.
 
 ## Performance Trend
 

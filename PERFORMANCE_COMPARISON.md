@@ -4,6 +4,12 @@
 
 This document presents a comprehensive performance comparison between rugo's JSONL reader and Opteryx's JSONL reader on a 50-column dataset. The comparison focuses on Linux x86_64 architecture with Python 3.12 (closest available to requested Python 3.11).
 
+## Important Note on Opteryx Implementation
+
+The Opteryx JSONL reader compared in this benchmark is the **Python-based reader** (`opteryx.utils.file_decoders.jsonl_decoder`) that uses the **csimdjson** library (a C/C++ extension wrapping the simdjson library) for JSON parsing. 
+
+While Opteryx contains many Cython-compiled modules for other operations (joins, aggregations, table operations, etc.), the JSONL reader itself is implemented in Python with calls to the csimdjson extension for parsing individual JSON objects. This architectural choice prioritizes flexibility and maintainability over raw performance for the file reading layer.
+
 ## Test Environment
 
 - **Platform**: Linux-6.11.0-1018-azure-x86_64 with glibc2.39
@@ -32,11 +38,13 @@ This distribution represents realistic business data with mixed types commonly f
 - **SIMD Operations**: Custom AVX2/SSE2 for newline detection and text scanning
 
 ### Opteryx
-- **Implementation**: Python with csimdjson library
+- **Implementation**: Python with csimdjson (C/C++ extension wrapping simdjson)
 - **Projection Pushdown**: ❌ No - Parses all columns, then filters
 - **Memory Model**: Reads full JSON, converts to PyArrow
-- **String Parsing**: Uses simdjson parser
+- **String Parsing**: Uses simdjson parser (C++ library via csimdjson binding)
 - **SIMD Operations**: Via simdjson library for JSON parsing
+
+**Note**: Opteryx's JSONL reader is a Python function (`opteryx.utils.file_decoders.jsonl_decoder`) that uses the csimdjson C/C++ extension for JSON parsing. While Opteryx has many Cython-compiled modules for other operations (joins, aggregations, etc.), the JSONL reader itself is not Cython-based.
 
 ## Benchmark Results
 

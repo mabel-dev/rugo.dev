@@ -349,6 +349,8 @@ On 50-column datasets, rugo is **2.7-5.6x faster** than Opteryx's JSONL reader:
 - **Projection (10 cols)**: 3.8-5.4x faster
 - **Projection (5 cols)**: 3.9-5.6x faster
 
+**Note**: The comparison is against Opteryx's Python-based JSONL reader (`opteryx.utils.file_decoders.jsonl_decoder`) which uses the csimdjson C/C++ extension for JSON parsing.
+
 rugo's advantages:
 - ✅ **True projection pushdown**: Only parse columns you need
 - ✅ **Memory-based**: No file I/O overhead
