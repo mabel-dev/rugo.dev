@@ -4,6 +4,7 @@
 #include <vector>
 #include <unordered_map>
 #include <variant>
+#include <string_view>
 
 // JSON value types that we support
 enum class JsonType {
@@ -26,6 +27,9 @@ struct JsonlColumn {
     std::vector<int64_t> int_values;
     std::vector<double> double_values;
     std::vector<std::string> string_values;
+    // For fast-path non-escaped strings we can store slices pointing into
+    // the original input buffer and materialize them later if needed.
+    std::vector<std::pair<const char*, size_t>> string_slices;
     std::vector<uint8_t> boolean_values;
     std::vector<uint8_t> null_mask;  // 1 = null, 0 = not null
     std::string type;  // "int64", "double", "string", "boolean"
