@@ -1,5 +1,6 @@
-#include "jsonl_reader.hpp"
-#include "simd_helpers.hpp"
+// Full JSONL decoder implementation migrated from jsonl_src/jsonl_reader.cpp
+#include "decode.hpp"
+#include "text_search.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -11,9 +12,9 @@
 // Fast JSON parser optimized for JSON lines format
 class JsonParser {
 public:
-    JsonParser(const uint8_t* data, size_t size) 
-        : data_(reinterpret_cast<const char*>(data)), 
-          size_(size), 
+    JsonParser(const uint8_t* data, size_t size)
+        : data_(reinterpret_cast<const char*>(data)),
+          size_(size),
           pos_(0) {}
 
     // Parse a single JSON line and return key/value slices to avoid allocations.
@@ -460,27 +461,11 @@ private:
 
         return false;
     }
-    
+
     const char* data_;
     size_t size_;
     size_t pos_;
 };
-
-// Infer the type from multiple values (used for schema detection)
-static JsonType InferType(JsonType type1, JsonType type2) {
-    if (type1 == JsonType::Null) return type2;
-    if (type2 == JsonType::Null) return type1;
-    if (type1 == type2) return type1;
-    
-    // Integer can be promoted to Double
-    if ((type1 == JsonType::Integer && type2 == JsonType::Double) ||
-        (type1 == JsonType::Double && type2 == JsonType::Integer)) {
-        return JsonType::Double;
-    }
-    
-    // Everything else becomes String
-    return JsonType::String;
-}
 
 // Fast integer parsing without string allocation (2-3x faster than std::stoll)
 // Based on Opteryx's fast_atoll implementation
@@ -521,6 +506,19 @@ static inline double FastParseDouble(const char* str, size_t len) {
         return std::stod(std::string(str, len));
     }
     return result;
+}
+
+// Infer a combined type when observing a new type for an existing column
+static JsonType InferType(JsonType a, JsonType b) {
+    if (a == b) return a;
+    // If either is Null, return the other
+    if (a == JsonType::Null) return b;
+    if (b == JsonType::Null) return a;
+    // Integer + Double -> Double
+    if ((a == JsonType::Integer && b == JsonType::Double) ||
+        (a == JsonType::Double && b == JsonType::Integer)) return JsonType::Double;
+    // Mixed types fallback to String
+    return JsonType::String;
 }
 
 std::vector<ColumnSchema> GetJsonlSchema(const uint8_t* data, size_t size, size_t sample_size) {

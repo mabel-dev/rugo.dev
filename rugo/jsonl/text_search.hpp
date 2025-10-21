@@ -1,3 +1,6 @@
+// Copied from jsonl_src/simd_helpers.hpp
+#pragma once
+
 #pragma once
 
 #include <cstddef>

@@ -1,3 +1,4 @@
+// Copied from jsonl_src/jsonl_reader.hpp
 #pragma once
 #include <cstdint>
 #include <string>

@@ -105,11 +105,11 @@ def get_extensions():
     jsonl_ext = Extension(
         "rugo.jsonl",
         sources=[
-            "rugo/jsonl_src/jsonl.pyx",
-            "rugo/jsonl_src/jsonl_reader.cpp",
+            "rugo/jsonl/jsonl_reader.pyx",
+            "rugo/jsonl/decode.cpp",
         ],
         include_dirs=[
-            "rugo/jsonl_src",
+            "rugo/jsonl",
         ],
         language="c++",
         extra_compile_args=jsonl_compile_args,
