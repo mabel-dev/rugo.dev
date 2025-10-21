@@ -1,4 +1,4 @@
-"""Cython wrapper for JSONL reader (new name `jsonl_reader`)."""
+"""Cython wrapper for reading JSONL files."""
 
 # distutils: language = c++
 # cython: language_level=3
@@ -38,6 +38,24 @@ cdef extern from "decode.hpp":
     JsonlTable ReadJsonl(const uint8_t* data, size_t size) except +
 
 def get_jsonl_schema(data, sample_size=1000):
+    """
+    Infer the schema of a JSONL dataset from a sample of the data.
+
+    Parameters
+    ----------
+    data : bytes or object supporting the buffer protocol
+        The JSONL data to analyze.
+    sample_size : int, optional
+        The number of rows to sample for schema inference (default: 1000).
+
+    Returns
+    -------
+    list of dict
+        A list of dictionaries, each describing a column with keys:
+        - 'name': str, the column name
+        - 'type': str, the inferred type ('null', 'boolean', 'int64', 'double', 'string')
+        - 'nullable': bool, whether the column can contain null values
+    """
     cdef const uint8_t* data_ptr
     cdef size_t data_size
     cdef bytes data_bytes
@@ -82,6 +100,25 @@ def get_jsonl_schema(data, sample_size=1000):
 
 
 def read_jsonl(data, columns=None):
+    """
+    Reads a JSONL (JSON Lines) dataset and returns its contents in a columnar format.
+
+    Parameters
+    ----------
+    data : bytes or object supporting buffer protocol
+        The JSONL data to read. Can be a bytes object or any object supporting the buffer protocol.
+    columns : list of str, optional
+        List of column names to read. If None, all columns are read.
+
+    Returns
+    -------
+    dict
+        A dictionary with the following keys:
+            - 'success': bool, True if reading was successful.
+            - 'column_names': list of str, names of the columns.
+            - 'num_rows': int, number of rows in the dataset.
+            - 'columns': list, each element is a list of values for a column (with None for nulls), or None if the column failed to read.
+    """
     cdef const uint8_t* data_ptr
     cdef size_t data_size
     cdef bytes data_bytes
