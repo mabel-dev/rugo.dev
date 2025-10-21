@@ -9,6 +9,7 @@
 from libc.stdint cimport uint8_t, int64_t
 from libcpp.string cimport string
 from libcpp.vector cimport vector
+from cpython.buffer cimport PyBUF_CONTIG_RO, PyObject_GetBuffer, PyBuffer_Release, Py_buffer
 
 cdef extern from "jsonl_reader.hpp":
     # Forward declaration of enum
@@ -62,22 +63,24 @@ def get_jsonl_schema(data, sample_size=1000):
     cdef const uint8_t* data_ptr
     cdef size_t data_size
     cdef bytes data_bytes
+    cdef Py_buffer view
+    cdef bint have_view = False
     
     if isinstance(data, bytes):
         data_bytes = <bytes>data
         data_ptr = <const uint8_t*>(<char*>data_bytes)
         data_size = len(data_bytes)
-    elif isinstance(data, memoryview):
-        # Get C pointer from memoryview
-        mv = <memoryview>data
-        if not mv.c_contiguous:
-            raise ValueError("memoryview must be C-contiguous")
-        data_ptr = <const uint8_t*>mv.view.buf
-        data_size = mv.view.len
     else:
-        raise TypeError("data must be bytes or memoryview")
+        # Try to acquire a contiguous read-only buffer from the object
+        if PyObject_GetBuffer(data, &view, PyBUF_CONTIG_RO) == -1:
+            raise TypeError("object does not support contiguous buffer interface")
+        have_view = True
+        data_ptr = <const uint8_t*>view.buf
+        data_size = <size_t>view.len
     
     cdef vector[ColumnSchema] schema = GetJsonlSchema(data_ptr, data_size, sample_size)
+    if have_view:
+        PyBuffer_Release(&view)
     
     # Convert to Python list of dicts
     result = []
@@ -129,19 +132,20 @@ def read_jsonl(data, columns=None):
     cdef const uint8_t* data_ptr
     cdef size_t data_size
     cdef bytes data_bytes
+    cdef Py_buffer view
+    cdef bint have_view = False
     
     if isinstance(data, bytes):
         data_bytes = <bytes>data
         data_ptr = <const uint8_t*>(<char*>data_bytes)
         data_size = len(data_bytes)
-    elif isinstance(data, memoryview):
-        mv = <memoryview>data
-        if not mv.c_contiguous:
-            raise ValueError("memoryview must be C-contiguous")
-        data_ptr = <const uint8_t*>mv.view.buf
-        data_size = mv.view.len
     else:
-        raise TypeError("data must be bytes or memoryview")
+        # Try to acquire a contiguous read-only buffer from the object
+        if PyObject_GetBuffer(data, &view, PyBUF_CONTIG_RO) == -1:
+            raise TypeError("object does not support contiguous buffer interface")
+        have_view = True
+        data_ptr = <const uint8_t*>view.buf
+        data_size = <size_t>view.len
     
     cdef vector[string] column_names_vec
     cdef JsonlTable table
@@ -153,6 +157,8 @@ def read_jsonl(data, columns=None):
         for col_name in columns:
             column_names_vec.push_back(col_name.encode('utf-8'))
         table = ReadJsonl(data_ptr, data_size, column_names_vec)
+    if have_view:
+        PyBuffer_Release(&view)
     
     if not table.success:
         return {

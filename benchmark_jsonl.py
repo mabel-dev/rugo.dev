@@ -2,12 +2,14 @@
 """
 Benchmark script to measure JSON lines reader performance improvements.
 """
+import json
 import sys
 import time
-import json
-sys.path.insert(0, '/home/runner/work/rugo/rugo')
 
 import rugo.jsonl as rj
+
+sys.path.insert(0, '/home/runner/work/rugo/rugo')
+
 
 
 def generate_test_data(num_rows=100000):
@@ -80,26 +82,26 @@ def main():
         
         # Full read
         avg_time, throughput = benchmark_full_read(data, iterations=5)
-        print(f"Full read (all 8 columns):")
+        print("Full read (all 8 columns):")
         print(f"  Time: {avg_time:.4f}s")
         print(f"  Throughput: {throughput:,.0f} rows/sec")
         print(f"  Data size: {len(data) / 1024 / 1024:.2f} MB")
         
         # Projection: 3 columns
         avg_time, throughput = benchmark_projection(data, ['id', 'name', 'salary'], iterations=5)
-        print(f"\nProjection (3 columns: id, name, salary):")
+        print("\nProjection (3 columns: id, name, salary):")
         print(f"  Time: {avg_time:.4f}s")
         print(f"  Throughput: {throughput:,.0f} rows/sec")
         
         # Projection: 2 columns
         avg_time, throughput = benchmark_projection(data, ['id', 'email'], iterations=5)
-        print(f"\nProjection (2 columns: id, email):")
+        print("\nProjection (2 columns: id, email):")
         print(f"  Time: {avg_time:.4f}s")
         print(f"  Throughput: {throughput:,.0f} rows/sec")
         
         # Schema extraction
         avg_time = benchmark_schema(data, iterations=10)
-        print(f"\nSchema extraction:")
+        print("\nSchema extraction:")
         print(f"  Time: {avg_time:.6f}s")
     
     print("\n" + "=" * 70)

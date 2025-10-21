@@ -217,3 +217,4 @@ tests/data/hits_51.parquet
 rugo/.DS_Store
 rugo/parquet/parquet_reader.cpp
 settings.json
+rugo/jsonl_src/jsonl.cpp

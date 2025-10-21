@@ -280,4 +280,3 @@ def jsonl_to_orso_schema(
     schema.columns.extend(columns)
 
     return schema
-

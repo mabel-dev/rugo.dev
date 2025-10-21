@@ -16,14 +16,15 @@ public:
           size_(size), 
           pos_(0) {}
 
-    // Parse a single JSON line and return key-value pairs
-    bool ParseLine(std::unordered_map<std::string, std::pair<JsonType, std::string>>& result) {
-        result.clear();
-        
+    // Parse a single JSON line and return key/value slices to avoid allocations.
+    // Each entry: key_start, key_len, value_start, value_len, JsonType, has_escape
+    bool ParseLineKV(std::vector<std::tuple<const char*, size_t, const char*, size_t, JsonType, bool>>& out_kvs) {
+        out_kvs.clear();
+
         // Skip whitespace to start of object
         SkipWhitespace();
         if (pos_ >= size_) return false;
-        
+
         // Expect '{'
         if (data_[pos_] != '{') {
             // Skip to end of line and try next
@@ -32,63 +33,66 @@ public:
             return false;
         }
         pos_++;
-        
+
         SkipWhitespace();
-        
+
         // Empty object
         if (pos_ < size_ && data_[pos_] == '}') {
             pos_++;
             SkipToNextLine();
             return true;
         }
-        
+
         // Parse key-value pairs
         while (pos_ < size_) {
             SkipWhitespace();
-            
+
             // End of object
             if (data_[pos_] == '}') {
                 pos_++;
                 SkipToNextLine();
                 return true;
             }
-            
+
             // Parse key (must be a string)
-            std::string key;
-            if (!ParseString(key)) {
+            size_t key_start = 0;
+            size_t key_len = 0;
+            if (!ParseStringSlice(key_start, key_len)) {
                 SkipToNextLine();
                 return false;
             }
-            
+
             SkipWhitespace();
-            
+
             // Expect ':'
             if (pos_ >= size_ || data_[pos_] != ':') {
                 SkipToNextLine();
                 return false;
             }
             pos_++;
-            
+
             SkipWhitespace();
-            
+
             // Parse value
             JsonType type;
-            std::string value;
-            if (!ParseValue(type, value)) {
+            size_t value_start = 0;
+            size_t value_len = 0;
+            bool has_escape = false;
+            if (!ParseValueSlice(type, value_start, value_len, has_escape)) {
                 SkipToNextLine();
                 return false;
             }
-            
-            result[key] = {type, value};
-            
+
+            out_kvs.emplace_back(data_ + key_start, key_len, data_ + value_start, value_len, type, has_escape);
+
             SkipWhitespace();
-            
+
             // Check for comma or end of object
             if (pos_ >= size_) {
                 SkipToNextLine();
                 return false;
             }
-            
+
             if (data_[pos_] == ',') {
                 pos_++;
             } else if (data_[pos_] == '}') {
@@ -100,7 +104,7 @@ public:
                 return false;
             }
         }
-        
+
         return false;
     }
 
@@ -195,6 +199,43 @@ private:
             pos_++;
         }
         
+        return false;  // No closing quote found
+    }
+
+    // Parse string but return slice offsets instead of allocating
+    bool ParseStringSlice(size_t& out_start, size_t& out_len) {
+        out_start = 0;
+        out_len = 0;
+
+        if (pos_ >= size_ || data_[pos_] != '"') return false;
+        pos_++;
+
+        size_t start = pos_;
+        bool saw_escape = false;
+
+        while (pos_ < size_) {
+            char c = data_[pos_];
+
+            if (c == '"') {
+                // Found closing quote
+                out_start = start;
+                out_len = pos_ - start;
+                pos_++;
+                return true;
+            }
+
+            if (c == '\\') {
+                saw_escape = true;
+                // We still need to advance to find the closing quote; caller will
+                // be signalled via has_escape in ParseValueSlice.
+                pos_++; // move to escaped char
+                if (pos_ < size_) pos_++;
+                continue;
+            }
+
+            pos_++;
+        }
+
         return false;  // No closing quote found
     }
     
@@ -299,6 +340,126 @@ private:
         
         return false;
     }
+
+    // Parse value but return slice offsets and whether there are escapes for strings
+    bool ParseValueSlice(JsonType& type, size_t& out_start, size_t& out_len, bool& out_has_escape) {
+        out_start = 0;
+        out_len = 0;
+        out_has_escape = false;
+
+        if (pos_ >= size_) return false;
+
+        char c = data_[pos_];
+
+        // Null - using memcmp for faster comparison
+        if (c == 'n' && pos_ + 4 <= size_ && 
+            memcmp(data_ + pos_, "null", 4) == 0) {
+            type = JsonType::Null;
+            out_start = 0; out_len = 0;
+            pos_ += 4;
+            return true;
+        }
+
+        // Boolean true
+        if (c == 't' && pos_ + 4 <= size_ &&
+            memcmp(data_ + pos_, "true", 4) == 0) {
+            type = JsonType::Boolean;
+            out_start = data_ + pos_ - data_; out_len = 4;
+            pos_ += 4;
+            return true;
+        }
+
+        // Boolean false
+        if (c == 'f' && pos_ + 5 <= size_ &&
+            memcmp(data_ + pos_, "false", 5) == 0) {
+            type = JsonType::Boolean;
+            out_start = data_ + pos_ - data_; out_len = 5;
+            pos_ += 5;
+            return true;
+        }
+
+        // String
+        if (c == '"') {
+            type = JsonType::String;
+            size_t s_start = 0, s_len = 0;
+            size_t saved_pos = pos_;
+            // Try to parse slice; note ParseStringSlice advances pos_
+            bool ok = ParseStringSlice(s_start, s_len);
+            if (!ok) return false;
+            // Check if this slice contains any escape sequences (simple scan)
+            out_has_escape = false;
+            for (size_t i = 0; i < s_len; ++i) {
+                if (data_[s_start + i] == '\\') { out_has_escape = true; break; }
+            }
+            out_start = s_start;
+            out_len = s_len;
+            return true;
+        }
+
+        // Number (integer or double)
+        if (c == '-' || c == '+' || (c >= '0' && c <= '9')) {
+            size_t start = pos_;
+            bool is_double = false;
+
+            // Sign
+            if (c == '-' || c == '+') pos_++;
+
+            // Digits
+            while (pos_ < size_ && data_[pos_] >= '0' && data_[pos_] <= '9') {
+                pos_++;
+            }
+
+            // Decimal point
+            if (pos_ < size_ && data_[pos_] == '.') {
+                is_double = true;
+                pos_++;
+                while (pos_ < size_ && data_[pos_] >= '0' && data_[pos_] <= '9') {
+                    pos_++;
+                }
+            }
+
+            // Exponent
+            if (pos_ < size_ && (data_[pos_] == 'e' || data_[pos_] == 'E')) {
+                is_double = true;
+                pos_++;
+                if (pos_ < size_ && (data_[pos_] == '+' || data_[pos_] == '-')) {
+                    pos_++;
+                }
+                while (pos_ < size_ && data_[pos_] >= '0' && data_[pos_] <= '9') {
+                    pos_++;
+                }
+            }
+
+            out_start = start;
+            out_len = pos_ - start;
+            type = is_double ? JsonType::Double : JsonType::Integer;
+            return true;
+        }
+
+        // Skip arrays and objects for now (not supported in columnar format)
+        if (c == '[' || c == '{') {
+            int depth = 0;
+            char open = c;
+            char close = (c == '[') ? ']' : '}';
+
+            while (pos_ < size_) {
+                if (data_[pos_] == open) depth++;
+                else if (data_[pos_] == close) {
+                    depth--;
+                    if (depth == 0) {
+                        pos_++;
+                        type = JsonType::Null;  // Treat nested structures as null
+                        out_start = 0; out_len = 0;
+                        return true;
+                    }
+                }
+                pos_++;
+            }
+            return false;
+        }
+
+        return false;
+    }
     
     const char* data_;
     size_t size_;
@@ -364,20 +525,23 @@ static inline double FastParseDouble(const char* str, size_t len) {
 
 std::vector<ColumnSchema> GetJsonlSchema(const uint8_t* data, size_t size, size_t sample_size) {
     JsonParser parser(data, size);
-    std::unordered_map<std::string, std::pair<JsonType, std::string>> row;
     std::unordered_map<std::string, JsonType> schema;
     std::vector<std::string> column_order;
-    
+
     size_t lines_read = 0;
-    
-    while (lines_read < sample_size && parser.ParseLine(row)) {
-        for (const auto& [key, value_pair] : row) {
+    std::vector<std::tuple<const char*, size_t, const char*, size_t, JsonType, bool>> kvs;
+
+    while (lines_read < sample_size && parser.ParseLineKV(kvs)) {
+        for (const auto &ent : kvs) {
+            const char* key_ptr; size_t key_len; const char* val_ptr; size_t val_len; JsonType type; bool has_escape;
+            std::tie(key_ptr, key_len, val_ptr, val_len, type, has_escape) = ent;
+            std::string key(key_ptr, key_len);
             auto it = schema.find(key);
             if (it == schema.end()) {
-                schema[key] = value_pair.first;
+                schema[key] = type;
                 column_order.push_back(key);
             } else {
-                it->second = InferType(it->second, value_pair.first);
+                it->second = InferType(it->second, type);
             }
         }
         lines_read++;
@@ -472,51 +636,135 @@ JsonlTable ReadJsonl(const uint8_t* data, size_t size, const std::vector<std::st
             col.success = false;
         }
     }
-    
-    // Parse all lines and populate columns
+    // Build name -> index map for requested columns for O(1) lookup
+    std::unordered_map<std::string, size_t> name_to_idx;
+    for (size_t i = 0; i < table.column_names.size(); ++i) {
+        name_to_idx[table.column_names[i]] = i;
+    }
+
+    // Parse all lines and populate columns directly using KV slices
     JsonParser parser(data, size);
-    std::unordered_map<std::string, std::pair<JsonType, std::string>> row;
-    
-    while (parser.ParseLine(row)) {
-        for (size_t i = 0; i < table.column_names.size(); i++) {
-            const auto& col_name = table.column_names[i];
-            auto& col = table.columns[i];
-            
-            if (!col.success) continue;
-            
-            auto it = row.find(col_name);
-            if (it == row.end() || it->second.first == JsonType::Null) {
-                // Null value
+    std::vector<std::tuple<const char*, size_t, const char*, size_t, JsonType, bool>> kvs;
+
+    while (parser.ParseLineKV(kvs)) {
+        // Prepare row: mark which columns were seen to append nulls later
+        std::vector<char> seen(table.columns.size(), 0);
+
+        for (const auto &ent : kvs) {
+            const char* key_ptr; size_t key_len; const char* val_ptr; size_t val_len; JsonType type; bool has_escape;
+            std::tie(key_ptr, key_len, val_ptr, val_len, type, has_escape) = ent;
+
+            std::string key(key_ptr, key_len);
+            auto it = name_to_idx.find(key);
+            if (it == name_to_idx.end()) {
+                continue; // column not requested
+            }
+
+            size_t col_idx = it->second;
+            auto &col = table.columns[col_idx];
+            seen[col_idx] = 1;
+
+            // Handle explicit JSON null values separately
+            if (type == JsonType::Null) {
+                // Mark as null and push placeholders so vectors remain aligned
                 col.null_mask.push_back(1);
-                
-                // Add placeholder value
-                if (col.type == "int64") {
-                    col.int_values.push_back(0);
-                } else if (col.type == "double") {
-                    col.double_values.push_back(0.0);
-                } else if (col.type == "string") {
-                    col.string_values.push_back("");
-                } else if (col.type == "boolean") {
-                    col.boolean_values.push_back(0);
-                }
+                if (col.type == "int64") col.int_values.push_back(0);
+                else if (col.type == "double") col.double_values.push_back(0.0);
+                else if (col.type == "string") {
+                    col.string_values.emplace_back();
+                    col.string_slices.emplace_back(nullptr, 0);
+                } else if (col.type == "boolean") col.boolean_values.push_back(0);
             } else {
-                // Non-null value
+                // Non-null
                 col.null_mask.push_back(0);
-                
-                const auto& [type, value] = it->second;
-                
+
                 if (col.type == "int64") {
-                    col.int_values.push_back(FastParseInt(value.data(), value.size()));
+                    // Parse int directly from slice
+                    col.int_values.push_back(FastParseInt(val_ptr, val_len));
                 } else if (col.type == "double") {
-                    col.double_values.push_back(FastParseDouble(value.data(), value.size()));
+                    col.double_values.push_back(FastParseDouble(val_ptr, val_len));
                 } else if (col.type == "string") {
-                    col.string_values.push_back(value);
+                    if (!has_escape) {
+                        // Fast path: store slice pointer & len; materialize later if needed
+                        col.string_slices.emplace_back(val_ptr, val_len);
+                        // maintain placeholder in string_values for count consistency if needed
+                        col.string_values.emplace_back();
+                    } else {
+                        // Need to unescape and copy now
+                        std::string s(val_ptr, val_len);
+                        // Basic unescape pass (handles common escapes), this is simplified
+                        std::string out;
+                        out.reserve(s.size());
+                        for (size_t i = 0; i < s.size(); ++i) {
+                            if (s[i] == '\\' && i + 1 < s.size()) {
+                                ++i;
+                                char esc = s[i];
+                                switch (esc) {
+                                    case '"': out.push_back('"'); break;
+                                    case '\\': out.push_back('\\'); break;
+                                    case '/': out.push_back('/'); break;
+                                    case 'b': out.push_back('\b'); break;
+                                    case 'f': out.push_back('\f'); break;
+                                    case 'n': out.push_back('\n'); break;
+                                    case 'r': out.push_back('\r'); break;
+                                    case 't': out.push_back('\t'); break;
+                                    default: out.push_back(esc); break;
+                                }
+                            } else {
+                                out.push_back(s[i]);
+                            }
+                        }
+                        col.string_values.push_back(std::move(out));
+                        // maintain slice vector length parity
+                        col.string_slices.emplace_back(nullptr, 0);
+                    }
                 } else if (col.type == "boolean") {
-                    col.boolean_values.push_back(value == "true" ? 1 : 0);
+                    // compare first letter
+                    if (val_len > 0 && val_ptr[0] == 't') col.boolean_values.push_back(1);
+                    else col.boolean_values.push_back(0);
                 }
             }
         }
+
+        // For columns not seen add nulls/placeholder
+        for (size_t i = 0; i < table.columns.size(); ++i) {
+            if (!table.columns[i].success) continue;
+            if (!seen[i]) {
+                auto &col = table.columns[i];
+                col.null_mask.push_back(1);
+                if (col.type == "int64") col.int_values.push_back(0);
+                else if (col.type == "double") col.double_values.push_back(0.0);
+                else if (col.type == "string") {
+                    col.string_values.emplace_back();
+                    col.string_slices.emplace_back(nullptr, 0);
+                } else if (col.type == "boolean") col.boolean_values.push_back(0);
+            }
+        }
+
         table.num_rows++;
+    }
+
+    // Materialize any string slices into string_values so the public API
+    // (which expects vector<string>) remains consistent.
+    for (size_t ci = 0; ci < table.columns.size(); ++ci) {
+        auto &col = table.columns[ci];
+        if (col.type != "string") continue;
+        // Ensure vectors have same length
+        size_t n = col.null_mask.size();
+        // If string_values already has entries for escaped ones and empty placeholders
+        // fill from string_slices where applicable
+        for (size_t i = 0; i < n; ++i) {
+            if (i < col.string_values.size() && !col.string_values[i].empty()) continue;
+            if (i < col.string_slices.size() && col.string_slices[i].first != nullptr) {
+                const char* ptr = col.string_slices[i].first;
+                size_t len = col.string_slices[i].second;
+                col.string_values[i].assign(ptr, len);
+            } else {
+                // leave empty string for nulls or placeholders
+            }
+        }
+        // Clear slices to free any incidental references (not owning though)
+        col.string_slices.clear();
     }
     
     table.success = true;
