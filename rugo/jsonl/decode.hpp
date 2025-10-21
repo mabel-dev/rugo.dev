@@ -46,7 +46,7 @@ struct JsonlTable {
 };
 
 // Get schema from JSON lines data
-std::vector<ColumnSchema> GetJsonlSchema(const uint8_t* data, size_t size, size_t sample_size = 1000);
+std::vector<ColumnSchema> GetJsonlSchema(const uint8_t* data, size_t size, size_t sample_size = 25);
 
 // Read JSON lines data with optional column projection
 JsonlTable ReadJsonl(const uint8_t* data, size_t size, const std::vector<std::string>& column_names);

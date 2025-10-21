@@ -37,7 +37,7 @@ cdef extern from "decode.hpp":
     JsonlTable ReadJsonl(const uint8_t* data, size_t size, const vector[string]& column_names) except +
     JsonlTable ReadJsonl(const uint8_t* data, size_t size) except +
 
-def get_jsonl_schema(data, sample_size=1000):
+def get_jsonl_schema(data, sample_size=25):
     """
     Infer the schema of a JSONL dataset from a sample of the data.
 
@@ -46,7 +46,7 @@ def get_jsonl_schema(data, sample_size=1000):
     data : bytes or object supporting the buffer protocol
         The JSONL data to analyze.
     sample_size : int, optional
-        The number of rows to sample for schema inference (default: 1000).
+        The number of rows to sample for schema inference (default: 25).
 
     Returns
     -------
