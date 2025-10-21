@@ -664,53 +664,65 @@ JsonlTable ReadJsonl(const uint8_t* data, size_t size, const std::vector<std::st
             auto &col = table.columns[col_idx];
             seen[col_idx] = 1;
 
-            // Non-null
-            col.null_mask.push_back(0);
-
-            if (col.type == "int64") {
-                // Parse int directly from slice
-                col.int_values.push_back(FastParseInt(val_ptr, val_len));
-            } else if (col.type == "double") {
-                col.double_values.push_back(FastParseDouble(val_ptr, val_len));
-            } else if (col.type == "string") {
-                if (!has_escape) {
-                    // Fast path: store slice pointer & len; materialize later if needed
-                    col.string_slices.emplace_back(val_ptr, val_len);
-                    // maintain placeholder in string_values for count consistency if needed
+            // Handle explicit JSON null values separately
+            if (type == JsonType::Null) {
+                // Mark as null and push placeholders so vectors remain aligned
+                col.null_mask.push_back(1);
+                if (col.type == "int64") col.int_values.push_back(0);
+                else if (col.type == "double") col.double_values.push_back(0.0);
+                else if (col.type == "string") {
                     col.string_values.emplace_back();
-                } else {
-                    // Need to unescape and copy now
-                    std::string s(val_ptr, val_len);
-                    // Basic unescape pass (handles common escapes), this is simplified
-                    std::string out;
-                    out.reserve(s.size());
-                    for (size_t i = 0; i < s.size(); ++i) {
-                        if (s[i] == '\\' && i + 1 < s.size()) {
-                            ++i;
-                            char esc = s[i];
-                            switch (esc) {
-                                case '"': out.push_back('"'); break;
-                                case '\\': out.push_back('\\'); break;
-                                case '/': out.push_back('/'); break;
-                                case 'b': out.push_back('\b'); break;
-                                case 'f': out.push_back('\f'); break;
-                                case 'n': out.push_back('\n'); break;
-                                case 'r': out.push_back('\r'); break;
-                                case 't': out.push_back('\t'); break;
-                                default: out.push_back(esc); break;
-                            }
-                        } else {
-                            out.push_back(s[i]);
-                        }
-                    }
-                    col.string_values.push_back(std::move(out));
-                    // maintain slice vector length parity
                     col.string_slices.emplace_back(nullptr, 0);
+                } else if (col.type == "boolean") col.boolean_values.push_back(0);
+            } else {
+                // Non-null
+                col.null_mask.push_back(0);
+
+                if (col.type == "int64") {
+                    // Parse int directly from slice
+                    col.int_values.push_back(FastParseInt(val_ptr, val_len));
+                } else if (col.type == "double") {
+                    col.double_values.push_back(FastParseDouble(val_ptr, val_len));
+                } else if (col.type == "string") {
+                    if (!has_escape) {
+                        // Fast path: store slice pointer & len; materialize later if needed
+                        col.string_slices.emplace_back(val_ptr, val_len);
+                        // maintain placeholder in string_values for count consistency if needed
+                        col.string_values.emplace_back();
+                    } else {
+                        // Need to unescape and copy now
+                        std::string s(val_ptr, val_len);
+                        // Basic unescape pass (handles common escapes), this is simplified
+                        std::string out;
+                        out.reserve(s.size());
+                        for (size_t i = 0; i < s.size(); ++i) {
+                            if (s[i] == '\\' && i + 1 < s.size()) {
+                                ++i;
+                                char esc = s[i];
+                                switch (esc) {
+                                    case '"': out.push_back('"'); break;
+                                    case '\\': out.push_back('\\'); break;
+                                    case '/': out.push_back('/'); break;
+                                    case 'b': out.push_back('\b'); break;
+                                    case 'f': out.push_back('\f'); break;
+                                    case 'n': out.push_back('\n'); break;
+                                    case 'r': out.push_back('\r'); break;
+                                    case 't': out.push_back('\t'); break;
+                                    default: out.push_back(esc); break;
+                                }
+                            } else {
+                                out.push_back(s[i]);
+                            }
+                        }
+                        col.string_values.push_back(std::move(out));
+                        // maintain slice vector length parity
+                        col.string_slices.emplace_back(nullptr, 0);
+                    }
+                } else if (col.type == "boolean") {
+                    // compare first letter
+                    if (val_len > 0 && val_ptr[0] == 't') col.boolean_values.push_back(1);
+                    else col.boolean_values.push_back(0);
                 }
-            } else if (col.type == "boolean") {
-                // compare first letter
-                if (val_len > 0 && val_ptr[0] == 't') col.boolean_values.push_back(1);
-                else col.boolean_values.push_back(0);
             }
         }
 
