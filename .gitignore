@@ -218,3 +218,4 @@ rugo/.DS_Store
 rugo/parquet/parquet_reader.cpp
 settings.json
 rugo/jsonl_src/jsonl.cpp
+rugo/jsonl/jsonl_reader.cpp
