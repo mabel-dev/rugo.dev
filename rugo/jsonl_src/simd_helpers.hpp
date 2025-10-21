@@ -434,4 +434,73 @@ inline const char* FindChar(const char* data, size_t size, char target) {
     return nullptr;
 }
 
+// Fast newline counting using SIMD for memory pre-allocation
+inline size_t CountNewlines(const char* data, size_t size) {
+    const char* ptr = data;
+    const char* end = data + size;
+    size_t count = 0;
+
+#ifdef HAVE_AVX2
+    // AVX2: Process 32 bytes at a time
+    if (size >= 32) {
+        __m256i newline_vec = _mm256_set1_epi8('\n');
+        const char* avx_end = end - 31;
+        
+        while (ptr < avx_end) {
+            __m256i chunk = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(ptr));
+            __m256i cmp = _mm256_cmpeq_epi8(chunk, newline_vec);
+            int mask = _mm256_movemask_epi8(cmp);
+            
+            // Count set bits in mask
+            count += __builtin_popcount(mask);
+            ptr += 32;
+        }
+    }
+#elif defined(HAVE_SSE2)
+    // SSE2: Process 16 bytes at a time
+    if (size >= 16) {
+        __m128i newline_vec = _mm_set1_epi8('\n');
+        const char* sse_end = end - 15;
+        
+        while (ptr < sse_end) {
+            __m128i chunk = _mm_loadu_si128(reinterpret_cast<const __m128i*>(ptr));
+            __m128i cmp = _mm_cmpeq_epi8(chunk, newline_vec);
+            int mask = _mm_movemask_epi8(cmp);
+            
+            // Count set bits in mask
+            count += __builtin_popcount(mask);
+            ptr += 16;
+        }
+    }
+#elif defined(HAVE_NEON)
+    // NEON: Process 16 bytes at a time
+    if (size >= 16) {
+        uint8x16_t newline_vec = vdupq_n_u8('\n');
+        const char* neon_end = end - 15;
+        
+        while (ptr < neon_end) {
+            uint8x16_t chunk = vld1q_u8(reinterpret_cast<const uint8_t*>(ptr));
+            uint8x16_t cmp = vceqq_u8(chunk, newline_vec);
+            
+            // Count matching bytes
+            // Sum up the comparison results (0xFF for match, 0x00 for no match)
+            uint64x2_t cmp64 = vpaddlq_u32(vpaddlq_u16(vpaddlq_u8(cmp)));
+            count += (vgetq_lane_u64(cmp64, 0) + vgetq_lane_u64(cmp64, 1)) / 255;
+            
+            ptr += 16;
+        }
+    }
+#endif
+
+    // Scalar fallback for remaining bytes
+    while (ptr < end) {
+        if (*ptr == '\n') {
+            count++;
+        }
+        ptr++;
+    }
+    
+    return count;
+}
+
 } // namespace simd

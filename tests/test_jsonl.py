@@ -167,5 +167,73 @@ def test_malformed_json():
     assert isinstance(result, dict)
 
 
+def test_fast_integer_parsing():
+    """Test fast integer parsing with various edge cases."""
+    data = b'''{"pos": 123, "neg": -456, "zero": 0, "large": 9223372036854775807}
+{"pos": 1, "neg": -1, "zero": 0, "large": 1000000000000}'''
+    
+    result = rj.read_jsonl(data, columns=['pos', 'neg', 'zero', 'large'])
+    
+    assert result['success']
+    assert result['num_rows'] == 2
+    
+    pos = result['columns'][0]
+    neg = result['columns'][1]
+    zero = result['columns'][2]
+    large = result['columns'][3]
+    
+    assert pos == [123, 1]
+    assert neg == [-456, -1]
+    assert zero == [0, 0]
+    assert large == [9223372036854775807, 1000000000000]
+
+
+def test_fast_float_parsing():
+    """Test fast float parsing with various formats."""
+    data = b'''{"simple": 1.5, "scientific": 1.23e10, "negative": -3.14159, "zero": 0.0}
+{"simple": 2.5, "scientific": 4.56e-5, "negative": -2.71828, "zero": 0.0}'''
+    
+    result = rj.read_jsonl(data, columns=['simple', 'scientific', 'negative', 'zero'])
+    
+    assert result['success']
+    assert result['num_rows'] == 2
+    
+    simple = result['columns'][0]
+    scientific = result['columns'][1]
+    negative = result['columns'][2]
+    zero = result['columns'][3]
+    
+    assert simple == [1.5, 2.5]
+    assert abs(scientific[0] - 1.23e10) < 1e5
+    assert abs(scientific[1] - 4.56e-5) < 1e-10
+    assert abs(negative[0] - (-3.14159)) < 1e-5
+    assert abs(negative[1] - (-2.71828)) < 1e-5
+    assert zero == [0.0, 0.0]
+
+
+def test_large_dataset_preallocation():
+    """Test memory pre-allocation with larger datasets."""
+    # Create a dataset with 1000 rows
+    lines = []
+    for i in range(1000):
+        lines.append(f'{{"id": {i}, "value": {i * 1.5}, "name": "item_{i}"}}'.encode())
+    data = b'\n'.join(lines)
+    
+    result = rj.read_jsonl(data, columns=['id', 'value'])
+    
+    assert result['success']
+    assert result['num_rows'] == 1000
+    
+    ids = result['columns'][0]
+    values = result['columns'][1]
+    
+    assert len(ids) == 1000
+    assert len(values) == 1000
+    assert ids[0] == 0
+    assert ids[999] == 999
+    assert abs(values[0] - 0.0) < 1e-10
+    assert abs(values[999] - 1498.5) < 1e-10
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
