@@ -1,0 +1,46 @@
+name: Debug macOS cibuildwheel
+
+on:
+  workflow_dispatch:
+
+jobs:
+  mac_debug:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show runner info and environment
+        run: |
+          echo "Runner: $(uname -a)"
+          echo "Python: $(python3 --version)"
+          clang++ --version || g++ --version
+          env | sort
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install cibuildwheel and deps
+        run: |
+          pip install -U pip setuptools wheel Cython
+          pip install cibuildwheel==2.16.2
+
+      - name: Build wheels (mac only, arm64)
+        env:
+          # Force a concrete mac arch for debugging (avoid 'auto')
+          CIBW_ARCHS_MACOS: "arm64"
+          CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-* cp313-*"
+          CIBW_SKIP: "pp* *-manylinux_i686"
+          CIBW_BEFORE_BUILD: "pip install -U pip setuptools wheel Cython"
+          CIBW_TEST_COMMAND: "python -c \"import rugo.parquet; print('Import successful')\""
+          CIBW_TEST_SKIP: "*-*linux_{ppc64le,s390x}"
+        run: |
+          echo "CIBW_ARCHS_MACOS=$CIBW_ARCHS_MACOS"
+          python -m cibuildwheel --output-dir wheelhouse
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-wheels-macos
+          path: wheelhouse/*.whl

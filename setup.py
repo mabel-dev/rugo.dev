@@ -15,8 +15,12 @@ extra_compile_args = ["-O3", "-std=c++17"]
 if platform.system() == "Darwin":
     # Use native architecture by default, or environment variable if set
     default_arch = platform.machine()  # Will be 'arm64' on Apple Silicon, 'x86_64' on Intel
+    # CIBW_ARCHS_MACOS may be set to 'auto' by cibuildwheel; skip placeholder
     archs = os.environ.get("CIBW_ARCHS_MACOS", default_arch).split()
     for arch in archs:
+        # Ignore non-concrete arch specifiers (common placeholders)
+        if not arch or arch.lower() in ("auto", "native", "none"):
+            continue
         extra_compile_args.extend(["-arch", arch])
 
 def get_vendor_sources():
