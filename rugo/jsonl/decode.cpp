@@ -520,7 +520,14 @@ private:
                         pos_++; // include closing bracket
                         out_start = start;
                         out_len = pos_ - start;
-                        type = JsonType::String;
+                        // For slices that are arrays or objects, return the
+                        // appropriate JsonType so schema inference can record
+                        // Array/Object instead of falling back to String.
+                        if (open == '[') {
+                            type = JsonType::Array;
+                        } else {
+                            type = JsonType::Object;
+                        }
                         out_has_escape = false; // leave as raw JSON slice
                         // Debug: print short preview of slice
                         size_t preview_len = out_len < 64 ? out_len : 64;
@@ -620,8 +627,10 @@ std::vector<ColumnSchema> GetJsonlSchema(const uint8_t* data, size_t size, size_
             // If this value is an array, attempt a quick element type inference
             if (type == JsonType::Array) {
                 // Simple heuristic: look at the first non-whitespace char after '['
-                size_t idx = 0;
-                while (idx < val_len && (val_ptr[idx] == ' ' || val_ptr[idx] == '\t' || val_ptr[idx] == '\r' || val_ptr[idx] == '\n')) idx++;
+                    size_t idx = 0;
+                    // Skip the opening '[' if present
+                    if (idx < val_len && val_ptr[idx] == '[') idx++;
+                    while (idx < val_len && (val_ptr[idx] == ' ' || val_ptr[idx] == '\t' || val_ptr[idx] == '\r' || val_ptr[idx] == '\n')) idx++;
                 if (idx < val_len) {
                     char fc = val_ptr[idx];
                     JsonType elem = JsonType::Null;
