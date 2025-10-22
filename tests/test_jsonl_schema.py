@@ -59,14 +59,14 @@ def test_how_nonexistent_values_are_handled():
     print(schema)
 
     for col in schema:
-       if col['name'] == 'id':
-           assert col['type'] == 'int64', f"Expected 'int64' for 'id', got {col['type']}"
-       elif col['name'] == 'dict':
-           assert col['type'] == 'object', f"Expected 'object' for 'dict', got {col['type']}"
-       elif col['name'] == 'nested':
-           assert col['type'] == 'object', f"Expected 'object' for 'nested', got {col['type']}"
-       else:
-           pytest.fail(f"Unexpected column name: {col['name']}")
+        if col['name'] == 'id':
+            assert col['type'] == 'int64', f"Expected 'int64' for 'id', got {col['type']}"
+        elif col['name'] == 'dict':
+            assert col['type'] == 'object', f"Expected 'object' for 'dict', got {col['type']}"
+        elif col['name'] == 'nested':
+            assert col['type'] == 'object', f"Expected 'object' for 'nested', got {col['type']}"
+        else:
+            pytest.fail(f"Unexpected column name: {col['name']}")
 
 if __name__ == "__main__":    
     pytest.main([__file__, "-v"])
