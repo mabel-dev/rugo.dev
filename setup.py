@@ -107,9 +107,12 @@ def get_extensions():
         sources=[
             "rugo/jsonl/jsonl_reader.pyx",
             "rugo/jsonl/decode.cpp",
+            "rugo/jsonl/simdjson_wrapper.cpp",
         ],
         include_dirs=[
             "rugo/jsonl",
+            "rugo/jsonl/vendor/simdjson/include",
+            "rugo/jsonl/vendor/simdjson",
         ],
         language="c++",
         extra_compile_args=jsonl_compile_args,

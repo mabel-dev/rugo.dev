@@ -7,7 +7,6 @@ import tempfile
 import os
 
 try:
-    import pyarrow as pa
     import pyarrow.json as paj
     HAS_PYARROW = True
 except ImportError:
@@ -115,7 +114,7 @@ def test_comparison():
     # Rugo performance
     print("Rugo (projection pushdown):")
     start = time.time()
-    result = rj.read_jsonl(data, columns=['id', 'name', 'salary'])
+    rj.read_jsonl(data, columns=['id', 'name', 'salary'])
     rugo_time = time.time() - start
     print(f"  Time: {rugo_time:.4f}s ({num_rows/rugo_time:.0f} rows/sec)")
     
@@ -128,7 +127,7 @@ def test_comparison():
         print("PyArrow (read all + select):")
         start = time.time()
         table = paj.read_json(temp_file)
-        selected = table.select(['id', 'name', 'salary'])
+        table.select(['id', 'name', 'salary'])
         pyarrow_time = time.time() - start
         print(f"  Time: {pyarrow_time:.4f}s ({num_rows/pyarrow_time:.0f} rows/sec)")
         

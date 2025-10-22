@@ -1,5 +1,6 @@
 // Copied from jsonl_src/jsonl_reader.hpp
 #pragma once
+#include <Python.h>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -13,7 +14,9 @@ enum class JsonType {
     Boolean,
     Integer,
     Double,
-    String
+    String,
+    Array,
+    Object
 };
 
 // Schema information for a column
@@ -21,6 +24,9 @@ struct ColumnSchema {
     std::string name;
     JsonType type;
     bool nullable = true;
+    // For array columns, the element_type holds the inferred element type
+    // (JsonType::Integer, JsonType::Double, JsonType::String, JsonType::Object, ...)
+    JsonType element_type = JsonType::Null;
 };
 
 // Structure to hold decoded column data (similar to parquet decoder)
@@ -53,3 +59,7 @@ JsonlTable ReadJsonl(const uint8_t* data, size_t size, const std::vector<std::st
 
 // Overload that reads all columns
 JsonlTable ReadJsonl(const uint8_t* data, size_t size);
+
+// Parse a JSON slice into a new Python object. Returns a new reference PyObject*
+// NOTE: returns a new reference; caller owns the object.
+extern "C" PyObject* ParseJsonSliceToPyObject(const uint8_t* data, size_t len, bool parse_objects);

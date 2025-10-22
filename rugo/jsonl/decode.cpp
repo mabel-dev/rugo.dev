@@ -1,6 +1,7 @@
 // Full JSONL decoder implementation migrated from jsonl_src/jsonl_reader.cpp
 #include "decode.hpp"
 #include "text_search.hpp"
+#include <cstdio>
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -22,87 +23,110 @@ public:
     bool ParseLineKV(std::vector<std::tuple<const char*, size_t, const char*, size_t, JsonType, bool>>& out_kvs) {
         out_kvs.clear();
 
-        // Skip whitespace to start of object
-        SkipWhitespace();
-        if (pos_ >= size_) return false;
-
-        // Expect '{'
-        if (data_[pos_] != '{') {
-            // Skip to end of line and try next
-            while (pos_ < size_ && data_[pos_] != '\n') pos_++;
-            if (pos_ < size_) pos_++;  // Skip newline
-            return false;
-        }
-        pos_++;
-
-        SkipWhitespace();
-
-        // Empty object
-        if (pos_ < size_ && data_[pos_] == '}') {
-            pos_++;
-            SkipToNextLine();
-            return true;
-        }
-
-        // Parse key-value pairs
+        // Keep scanning lines until we either successfully parse a JSON object
+        // or reach EOF. On malformed lines we advance to the next line and
+        // continue parsing so callers (like ReadJsonl) can process all rows.
         while (pos_ < size_) {
             SkipWhitespace();
+            size_t line_start = pos_;
+            if (pos_ >= size_) return false;
 
-            // End of object
-            if (data_[pos_] == '}') {
-                pos_++;
+            // Expect '{'
+            if (data_[pos_] != '{') {
+                // Skip to end of line and continue
                 SkipToNextLine();
-                return true;
-            }
-
-            // Parse key (must be a string)
-            size_t key_start = 0;
-            size_t key_len = 0;
-            if (!ParseStringSlice(key_start, key_len)) {
-                SkipToNextLine();
-                return false;
-            }
-
-            SkipWhitespace();
-
-            // Expect ':'
-            if (pos_ >= size_ || data_[pos_] != ':') {
-                SkipToNextLine();
-                return false;
+                continue;
             }
             pos_++;
 
             SkipWhitespace();
 
-            // Parse value
-            JsonType type;
-            size_t value_start = 0;
-            size_t value_len = 0;
-            bool has_escape = false;
-            if (!ParseValueSlice(type, value_start, value_len, has_escape)) {
-                SkipToNextLine();
-                return false;
-            }
-
-            out_kvs.emplace_back(data_ + key_start, key_len, data_ + value_start, value_len, type, has_escape);
-
-            SkipWhitespace();
-
-            // Check for comma or end of object
-            if (pos_ >= size_) {
-                SkipToNextLine();
-                return false;
-            }
-
-            if (data_[pos_] == ',') {
-                pos_++;
-            } else if (data_[pos_] == '}') {
+            // Empty object
+            if (pos_ < size_ && data_[pos_] == '}') {
                 pos_++;
                 SkipToNextLine();
                 return true;
-            } else {
+            }
+
+            bool failed = false;
+
+            // Parse key-value pairs
+            while (pos_ < size_) {
+                SkipWhitespace();
+
+                // End of object
+                if (data_[pos_] == '}') {
+                    pos_++;
+                    SkipToNextLine();
+                    return true;
+                }
+
+                // Parse key (must be a string)
+                size_t key_start = 0;
+                size_t key_len = 0;
+                if (!ParseStringSlice(key_start, key_len)) {
+                    failed = true;
+                    break;
+                }
+
+                SkipWhitespace();
+
+                // Expect ':'
+                if (pos_ >= size_ || data_[pos_] != ':') {
+                    failed = true;
+                    break;
+                }
+                pos_++;
+
+                SkipWhitespace();
+
+                // Parse value
+                JsonType type;
+                size_t value_start = 0;
+                size_t value_len = 0;
+                bool has_escape = false;
+                if (!ParseValueSlice(type, value_start, value_len, has_escape)) {
+                    // Fallback: value parsing failed (e.g., unterminated array/object).
+                    // Capture the rest of the line as a raw JSON slice so the
+                    // high-level reader can fall back to a safe representation.
+                    size_t vstart = pos_;
+                    // find newline
+                    const char* nl = simd::FindNewline(data_ + pos_, size_ - pos_);
+                    size_t vend = nl ? (nl - data_) : size_;
+                    size_t vlen = vend > vstart ? vend - vstart : 0;
+                    out_kvs.emplace_back(data_ + key_start, key_len, data_ + vstart, vlen, JsonType::String, false);
+                    // advance to next line and return success for this (partial) row
+                    SkipToNextLine();
+                    return true;
+                }
+
+                out_kvs.emplace_back(data_ + key_start, key_len, data_ + value_start, value_len, type, has_escape);
+
+                SkipWhitespace();
+
+                // Check for comma or end of object
+                if (pos_ >= size_) {
+                    failed = true;
+                    break;
+                }
+
+                if (data_[pos_] == ',') {
+                    pos_++;
+                    continue;
+                } else if (data_[pos_] == '}') {
+                    pos_++;
+                    SkipToNextLine();
+                    return true;
+                } else {
+                    failed = true;
+                    break;
+                }
+            }
+
+            if (failed) {
+                // Skip malformed line and continue to next
                 SkipToNextLine();
-                return false;
+                continue;
             }
         }
 
@@ -317,27 +341,53 @@ private:
             return true;
         }
         
-        // Skip arrays and objects for now (not supported in columnar format)
-        if (c == '[' || c == '{') {
-            int depth = 0;
-            char open = c;
-            char close = (c == '[') ? ']' : '}';
-            
-            while (pos_ < size_) {
-                if (data_[pos_] == open) depth++;
-                else if (data_[pos_] == close) {
-                    depth--;
-                    if (depth == 0) {
+        // Arrays and objects: capture the full JSON slice and treat as String
+                if (c == '[' || c == '{') {
+                    char open = c;
+                    char close = (c == '[') ? ']' : '}';
+                    size_t start = pos_;
+                    int depth = 0;
+
+                    while (pos_ < size_) {
+                        char ch = data_[pos_];
+                        // Handle entering a quoted string so that brackets inside strings
+                        // are not treated as structural characters
+                        if (ch == '"') {
+                            pos_++;
+                            while (pos_ < size_) {
+                                if (data_[pos_] == '\\') {
+                                    // skip escaped char
+                                    pos_ += 2;
+                                } else if (data_[pos_] == '"') {
+                                    pos_++;
+                                    break;
+                                } else {
+                                    pos_++;
+                                }
+                            }
+                            continue;
+                        }
+
+                        if (ch == open) {
+                            depth++;
+                        } else if (ch == close) {
+                            depth--;
+                            if (depth == 0) {
+                                pos_++; // include closing bracket
+                                // Return the whole slice as an Array or Object
+                                if (open == '[') {
+                                    type = JsonType::Array;
+                                } else {
+                                    type = JsonType::Object;
+                                }
+                                value = std::string(data_ + start, pos_ - start);
+                                return true;
+                            }
+                        }
                         pos_++;
-                        type = JsonType::Null;  // Treat nested structures as null
-                        value = "";
-                        return true;
                     }
+                    return false;
                 }
-                pos_++;
-            }
-            return false;
-        }
         
         return false;
     }
@@ -437,20 +487,44 @@ private:
             return true;
         }
 
-        // Skip arrays and objects for now (not supported in columnar format)
+        // Arrays and objects: return the slice as a String type
         if (c == '[' || c == '{') {
-            int depth = 0;
             char open = c;
             char close = (c == '[') ? ']' : '}';
+            size_t start = pos_;
+            int depth = 0;
 
             while (pos_ < size_) {
-                if (data_[pos_] == open) depth++;
-                else if (data_[pos_] == close) {
+                char ch = data_[pos_];
+                if (ch == '"') {
+                    // skip over quoted strings and their escapes
+                    pos_++;
+                    while (pos_ < size_) {
+                        if (data_[pos_] == '\\') {
+                            pos_ += 2;
+                        } else if (data_[pos_] == '"') {
+                            pos_++;
+                            break;
+                        } else {
+                            pos_++;
+                        }
+                    }
+                    continue;
+                }
+
+                if (ch == open) {
+                    depth++;
+                } else if (ch == close) {
                     depth--;
                     if (depth == 0) {
-                        pos_++;
-                        type = JsonType::Null;  // Treat nested structures as null
-                        out_start = 0; out_len = 0;
+                        pos_++; // include closing bracket
+                        out_start = start;
+                        out_len = pos_ - start;
+                        type = JsonType::String;
+                        out_has_escape = false; // leave as raw JSON slice
+                        // Debug: print short preview of slice
+                        size_t preview_len = out_len < 64 ? out_len : 64;
+                        // parsed slice instrument removed
                         return true;
                     }
                 }
@@ -524,6 +598,8 @@ static JsonType InferType(JsonType a, JsonType b) {
 std::vector<ColumnSchema> GetJsonlSchema(const uint8_t* data, size_t size, size_t sample_size) {
     JsonParser parser(data, size);
     std::unordered_map<std::string, JsonType> schema;
+    // Track element types for array columns observed in the sample
+    std::unordered_map<std::string, JsonType> elem_types;
     std::vector<std::string> column_order;
 
     size_t lines_read = 0;
@@ -541,6 +617,35 @@ std::vector<ColumnSchema> GetJsonlSchema(const uint8_t* data, size_t size, size_
             } else {
                 it->second = InferType(it->second, type);
             }
+            // If this value is an array, attempt a quick element type inference
+            if (type == JsonType::Array) {
+                // Simple heuristic: look at the first non-whitespace char after '['
+                size_t idx = 0;
+                while (idx < val_len && (val_ptr[idx] == ' ' || val_ptr[idx] == '\t' || val_ptr[idx] == '\r' || val_ptr[idx] == '\n')) idx++;
+                if (idx < val_len) {
+                    char fc = val_ptr[idx];
+                    JsonType elem = JsonType::Null;
+                    if (fc == '"') elem = JsonType::String;
+                    else if (fc == '{') elem = JsonType::Object;
+                    else if (fc == '[') elem = JsonType::Array;
+                    else if (fc == 't' || fc == 'f') elem = JsonType::Boolean;
+                    else if (fc == 'n') elem = JsonType::Null;
+                    else if ((fc >= '0' && fc <= '9') || fc == '-' || fc == '+') {
+                        // treat as integer or double based on presence of '.' or 'e'
+                        bool is_double = false;
+                        for (size_t k = idx; k < val_len; ++k) {
+                            if (val_ptr[k] == '.' || val_ptr[k] == 'e' || val_ptr[k] == 'E') { is_double = true; break; }
+                        }
+                        elem = is_double ? JsonType::Double : JsonType::Integer;
+                    }
+                    auto eit = elem_types.find(key);
+                    if (eit == elem_types.end()) {
+                        elem_types[key] = elem;
+                    } else {
+                        eit->second = InferType(eit->second, elem);
+                    }
+                }
+            }
         }
         lines_read++;
     }
@@ -554,6 +659,8 @@ std::vector<ColumnSchema> GetJsonlSchema(const uint8_t* data, size_t size, size_
         cs.name = col;
         cs.type = schema[col];
         cs.nullable = true;  // JSON lines are always nullable
+        auto eit = elem_types.find(col);
+        if (eit != elem_types.end()) cs.element_type = eit->second;
         result.push_back(cs);
     }
     
@@ -652,6 +759,21 @@ JsonlTable ReadJsonl(const uint8_t* data, size_t size, const std::vector<std::st
             const char* key_ptr; size_t key_len; const char* val_ptr; size_t val_len; JsonType type; bool has_escape;
             std::tie(key_ptr, key_len, val_ptr, val_len, type, has_escape) = ent;
 
+            // Debug: log key and detected type and a short preview of the value slice
+            {
+                std::string key(key_ptr, key_len);
+                size_t preview_len = val_len < 64 ? val_len : 64;
+                const char* type_str = "UNKNOWN";
+                switch (type) {
+                    case JsonType::Null: type_str = "Null"; break;
+                    case JsonType::Boolean: type_str = "Boolean"; break;
+                    case JsonType::Integer: type_str = "Integer"; break;
+                    case JsonType::Double: type_str = "Double"; break;
+                    case JsonType::String: type_str = "String"; break;
+                }
+                // KV instrumentation removed
+            }
+
             std::string key(key_ptr, key_len);
             auto it = name_to_idx.find(key);
             if (it == name_to_idx.end()) {
@@ -666,6 +788,7 @@ JsonlTable ReadJsonl(const uint8_t* data, size_t size, const std::vector<std::st
             if (type == JsonType::Null) {
                 // Mark as null and push placeholders so vectors remain aligned
                 col.null_mask.push_back(1);
+                // null push instrumentation removed
                 if (col.type == "int64") col.int_values.push_back(0);
                 else if (col.type == "double") col.double_values.push_back(0.0);
                 else if (col.type == "string") {
@@ -675,6 +798,9 @@ JsonlTable ReadJsonl(const uint8_t* data, size_t size, const std::vector<std::st
             } else {
                 // Non-null
                 col.null_mask.push_back(0);
+                // Log non-null push and a short preview of slice
+                size_t preview_len = val_len < 64 ? val_len : 64;
+                // non-null push instrumentation removed
 
                 if (col.type == "int64") {
                     // Parse int directly from slice

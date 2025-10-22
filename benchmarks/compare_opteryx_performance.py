@@ -23,13 +23,15 @@ from io import BytesIO
 from typing import List
 from typing import Tuple
 
+import pyarrow.json as paj
+
+
 # Add rugo to path if running from source
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(1, os.path.join(sys.path[0], "../opteryx"))
 
 import opteryx
 import rugo.jsonl as rj
-
 
 # Check if Opteryx is available
 try:
@@ -38,22 +40,14 @@ try:
     HAS_OPTERYX = True
     OPTERYX_VERSION = opteryx.__version__ if hasattr(opteryx, '__version__') else "unknown"
     
-    # Check if Cython decoder is available
-    try:
-        from opteryx.compiled.structures import jsonl_decoder as cython_decoder
-        HAS_CYTHON_DECODER = True
-    except ImportError:
-        HAS_CYTHON_DECODER = False
 except ImportError:
     HAS_OPTERYX = False
-    HAS_CYTHON_DECODER = False
     OPTERYX_VERSION = None
     print("Warning: Opteryx not available. Install with: pip install opteryx")
 
 # Check if PyArrow is available
 try:
     import pyarrow as pa
-    import pyarrow.json as paj
     HAS_PYARROW = True
     PYARROW_VERSION = pa.__version__
 except ImportError:
@@ -182,7 +176,6 @@ def benchmark_opteryx_full_read(data: bytes, iterations: int = 5) -> Tuple[float
         return None, None
     
     times = []
-    result = None
     
     for _ in range(iterations):
         start = time.perf_counter()
@@ -206,7 +199,6 @@ def benchmark_opteryx_projection(data: bytes, columns: List[str], iterations: in
         return None, None
     
     times = []
-    result = None
     
     # Opteryx reads all columns then selects, so we'll measure full read + select
     # to be fair in comparison
@@ -238,7 +230,7 @@ def benchmark_pyarrow_full_read(data: bytes, iterations: int = 5) -> Tuple[float
     for _ in range(iterations):
         # PyArrow requires a file-like object
         start = time.perf_counter()
-        result = pa.json.read_json(BytesIO(data))
+        result = paj.read_json(BytesIO(data))
         elapsed = time.perf_counter() - start
         times.append(elapsed)
     
@@ -300,7 +292,7 @@ def print_system_info():
     print(f"Architecture: {platform.machine()}")
     if HAS_OPTERYX:
         print(f"Opteryx version: {OPTERYX_VERSION}")
-        decoder_type = "Cython-based (fast)" if HAS_CYTHON_DECODER else "Python-based (csimdjson)"
+        decoder_type = "Cython-based (fast)"
         print(f"Opteryx decoder: {decoder_type}")
     if HAS_PYARROW:
         print(f"PyArrow version: {PYARROW_VERSION}")
