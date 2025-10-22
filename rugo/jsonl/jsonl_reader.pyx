@@ -197,6 +197,7 @@ cdef extern from "decode.hpp":
         string name
         JsonType type
         bint nullable
+        JsonType element_type
     cdef cppclass JsonlColumn:
         vector[int64_t] int_values
         vector[double] double_values

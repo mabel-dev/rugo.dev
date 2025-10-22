@@ -25,7 +25,6 @@ from typing import Tuple
 
 import pyarrow.json as paj
 
-
 # Add rugo to path if running from source
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(1, os.path.join(sys.path[0], "../opteryx"))
@@ -184,7 +183,15 @@ def benchmark_opteryx_full_read(data: bytes, iterations: int = 5) -> Tuple[float
         times.append(elapsed)
     
     avg_time = sum(times) / len(times)
-    return avg_time, rows
+    # Determine a reliable row count: prefer the returned table length if available
+    rows_count = rows
+    try:
+        if table is not None:
+            # pyarrow.Table supports len(table)
+            rows_count = len(table)
+    except Exception:
+        pass
+    return avg_time, rows_count
 
 
 def benchmark_opteryx_projection(data: bytes, columns: List[str], iterations: int = 5) -> Tuple[float, int]:
@@ -216,7 +223,14 @@ def benchmark_opteryx_projection(data: bytes, columns: List[str], iterations: in
         times.append(elapsed)
     
     avg_time = sum(times) / len(times)
-    return avg_time, rows
+    # Prefer the table length if available (more reliable than decoder 'rows')
+    rows_count = rows
+    try:
+        if table is not None:
+            rows_count = len(table)
+    except Exception:
+        pass
+    return avg_time, rows_count
 
 
 def benchmark_pyarrow_full_read(data: bytes, iterations: int = 5) -> Tuple[float, int]:

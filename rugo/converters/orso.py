@@ -233,7 +233,47 @@ def _map_jsonl_type_to_orso(jsonl_type: str) -> str:
         "boolean": OrsoTypes.BOOLEAN,
         "null": OrsoTypes.VARCHAR,  # Default null to varchar
     }
-    return type_map.get(jsonl_type.lower(), OrsoTypes.VARCHAR)
+
+    jt = jsonl_type.lower()
+    # Direct simple types
+    if jt in type_map:
+        return type_map[jt]
+
+    # object -> map to JSONB
+    if jt == "object":
+        return OrsoTypes.JSONB
+
+    # array or array<elem> -> use OrsoTypes.from_name to parse element type
+    if jt.startswith("array"):
+        # Normalize inner element type names so OrsoTypes.from_name accepts them
+        # supports forms like 'array<int64>' produced by get_jsonl_schema
+        if jt.startswith("array<") and jt.endswith(">"):
+            inner = jt[jt.find("<") + 1 : -1].strip()
+            inner_map = {
+                'int64': 'integer',
+                'int32': 'integer',
+                'int16': 'integer',
+                'int8': 'integer',
+                'integer': 'integer',
+                'double': 'double',
+                'float': 'double',
+                'string': 'varchar',
+                'varchar': 'varchar',
+                'boolean': 'boolean',
+                'object': 'jsonb',
+            }
+            normalized_inner = inner_map.get(inner.lower(), inner.lower())
+            normalized = f"array<{normalized_inner}>"
+        else:
+            normalized = jt
+
+        try:
+            _type, _length, _precision, _scale, _element_type = OrsoTypes.from_name(normalized)
+            return _type
+        except ValueError:
+            return OrsoTypes.VARCHAR
+
+    return OrsoTypes.VARCHAR
 
 
 def jsonl_to_orso_schema(
