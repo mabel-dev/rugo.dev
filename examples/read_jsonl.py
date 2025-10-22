@@ -7,6 +7,8 @@ from pathlib import Path
 # Add current directory to path for running from repo
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import tempfile
+import os
 import rugo.jsonl as rj
 
 # Sample JSON Lines data
@@ -66,8 +68,6 @@ for i in range(result['num_rows']):
 # 5. Working with file data
 print("\n5. Reading from File:")
 print("-" * 60)
-import tempfile
-import os
 
 # Write sample data to a file
 with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.jsonl') as f:

@@ -12,6 +12,183 @@ from libc.stdint cimport uint8_t, int64_t
 from libcpp.string cimport string
 from libcpp.vector cimport vector
 from cpython.buffer cimport PyBUF_CONTIG_RO, PyObject_GetBuffer, PyBuffer_Release, Py_buffer
+import json
+from cpython.ref cimport PyObject, Py_INCREF, Py_DECREF
+from cpython.exc cimport PyErr_Occurred
+from cpython.list cimport PyList_Append
+from cpython.exc cimport PyErr_Clear
+
+# Internal fast array parser (no runtime deps). Parses a JSON array encoded
+# in UTF-8 bytes into Python lists. Objects found inside arrays are returned
+# as raw bytes; strings are unescaped to Python str; numbers become int/float;
+# null -> None, true/false -> bool.
+
+
+# (removed unused fast whitespace skip function)
+
+
+def _parse_array_from_bytes(bytes b):
+    cdef Py_ssize_t i = 0
+    cdef Py_ssize_t n = len(b)
+
+    def parse_value():
+        nonlocal i
+        # skip whitespace
+        while i < n and b[i] in (32,9,10,13):
+            i += 1
+        if i >= n:
+            raise ValueError('unexpected end')
+        c = b[i]
+        # string
+        if c == 34:  # '"'
+            i += 1
+            chars = []
+            while i < n:
+                ch = b[i]
+                if ch == 34:
+                    i += 1
+                    return ''.join(chars)
+                if ch == 92:  # backslash
+                    i += 1
+                    if i >= n:
+                        raise ValueError('unterminated escape')
+                    esc = b[i]
+                    i += 1
+                    if esc == 34: chars.append('"')
+                    elif esc == 92: chars.append('\\')
+                    elif esc == 47: chars.append('/')
+                    elif esc == 98: chars.append('\b')
+                    elif esc == 102: chars.append('\f')
+                    elif esc == 110: chars.append('\n')
+                    elif esc == 114: chars.append('\r')
+                    elif esc == 116: chars.append('\t')
+                    elif esc == 117:
+                        # unicode escape \uXXXX
+                        if i + 4 <= n:
+                            hex_s = b[i:i+4].decode('ascii')
+                            try:
+                                cp = int(hex_s, 16)
+                                chars.append(chr(cp))
+                            except Exception:
+                                chars.append('\\u' + hex_s)
+                            i += 4
+                        else:
+                            raise ValueError('invalid unicode escape')
+                    else:
+                        # unknown escape, keep char
+                        chars.append(chr(esc))
+                else:
+                    # append raw utf-8 byte; accumulate then decode at end
+                    # to support multi-byte UTF-8 sequences, collect bytes
+                    start = i
+                    # collect consecutive non-escape non-quote bytes
+                    while i < n and b[i] != 34 and b[i] != 92:
+                        i += 1
+                    # decode slice
+                    chars.append(b[start:i].decode('utf-8'))
+            raise ValueError('unterminated string')
+
+        # null
+        if c == 110 and i + 4 <= n and b[i:i+4] == b'null':
+            i += 4
+            return None
+
+        # true/false
+        if c == 116 and i + 4 <= n and b[i:i+4] == b'true':
+            i += 4
+            return True
+        if c == 102 and i + 5 <= n and b[i:i+5] == b'false':
+            i += 5
+            return False
+
+        # number
+        if c == 45 or (48 <= c <= 57):
+            start = i
+            if c == 45:
+                i += 1
+            while i < n and 48 <= b[i] <= 57:
+                i += 1
+            if i < n and b[i] == 46:
+                i += 1
+                while i < n and 48 <= b[i] <= 57:
+                    i += 1
+            if i < n and (b[i] == 101 or b[i] == 69):
+                i += 1
+                if i < n and (b[i] == 43 or b[i] == 45):
+                    i += 1
+                while i < n and 48 <= b[i] <= 57:
+                    i += 1
+                return float(b[start:i].decode('ascii'))
+            s = b[start:i].decode('ascii')
+            if '.' in s or 'e' in s or 'E' in s:
+                return float(s)
+            else:
+                try:
+                    return int(s)
+                except Exception:
+                    return float(s)
+
+        # array
+        if c == 91:  # '['
+            # parse nested array
+            i += 1
+            res = []
+            # skip whitespace
+            while i < n and b[i] in (32,9,10,13): i += 1
+            if i < n and b[i] == 93:
+                i += 1
+                return res
+            while True:
+                val = parse_value()
+                res.append(val)
+                while i < n and b[i] in (32,9,10,13): i += 1
+                if i >= n:
+                    raise ValueError('unterminated array')
+                if b[i] == 44:
+                    i += 1
+                    continue
+                elif b[i] == 93:
+                    i += 1
+                    break
+                else:
+                    raise ValueError('invalid array separator')
+            return res
+
+        # object: return raw bytes slice for object
+        if c == 123:  # '{'
+            start = i
+            depth = 0
+            while i < n:
+                ch = b[i]
+                if ch == 34:
+                    # skip string
+                    i += 1
+                    while i < n:
+                        if b[i] == 92:
+                            i += 2
+                        elif b[i] == 34:
+                            i += 1
+                            break
+                        else:
+                            i += 1
+                    continue
+                if ch == 123:
+                    depth += 1
+                elif ch == 125:
+                    depth -= 1
+                    if depth == 0:
+                        i += 1
+                        return b[start:i]
+                i += 1
+            raise ValueError('unterminated object')
+
+        raise ValueError('unexpected token at %d' % i)
+
+    # top-level: expect '['
+    while i < n and b[i] in (32,9,10,13): i += 1
+    if i >= n or b[i] != 91:
+        raise ValueError('not an array')
+    return parse_value()
 
 cdef extern from "decode.hpp":
     cdef enum JsonType:
@@ -36,6 +213,7 @@ cdef extern from "decode.hpp":
     vector[ColumnSchema] GetJsonlSchema(const uint8_t* data, size_t size, size_t sample_size) except +
     JsonlTable ReadJsonl(const uint8_t* data, size_t size, const vector[string]& column_names) except +
     JsonlTable ReadJsonl(const uint8_t* data, size_t size) except +
+    PyObject* ParseJsonSliceToPyObject(const uint8_t* data, size_t len, bint parse_objects)
 
 def get_jsonl_schema(data, sample_size=25):
     """
@@ -81,6 +259,7 @@ def get_jsonl_schema(data, sample_size=25):
         col = schema[i]
         type_val = <int>col.type
         type_str = "string"
+        # JsonType enum: Null=0, Boolean=1, Integer=2, Double=3, String=4, Array=5, Object=6
         if type_val == 0:
             type_str = "null"
         elif type_val == 1:
@@ -91,6 +270,19 @@ def get_jsonl_schema(data, sample_size=25):
             type_str = "double"
         elif type_val == 4:
             type_str = "string"
+        elif type_val == 5:
+            # array: include element type if available
+            elem_val = <int>col.element_type
+            if elem_val == 2:
+                type_str = "array<int64>"
+            elif elem_val == 3:
+                type_str = "array<double>"
+            elif elem_val == 4:
+                type_str = "array<string>"
+            else:
+                type_str = "array"
+        elif type_val == 6:
+            type_str = "object"
         result.append({
             'name': col.name.decode('utf-8'),
             'type': type_str,
@@ -99,7 +291,7 @@ def get_jsonl_schema(data, sample_size=25):
     return result
 
 
-def read_jsonl(data, columns=None):
+def read_jsonl(data, columns=None, parse_arrays=True, parse_objects=True):
     """
     Reads a JSONL (JSON Lines) dataset and returns its contents in a columnar format.
 
@@ -156,6 +348,9 @@ def read_jsonl(data, columns=None):
     for i in range(table.column_names.size()):
         py_column_names.append(table.column_names[i].decode('utf-8'))
     py_columns = []
+    # Python-level temporary for simdjson results
+    o = None
+    cdef PyObject* o_ptr
     cdef JsonlColumn* col
     for i in range(table.columns.size()):
         col = &table.columns[i]
@@ -180,12 +375,64 @@ def read_jsonl(data, columns=None):
                     py_list.append(col.double_values[j])
             py_columns.append(py_list)
         elif col_type == 'string':
+            # instrumentation removed
             py_list = []
             for j in range(col.string_values.size()):
                 if col.null_mask[j]:
                     py_list.append(None)
+                    continue
+
+                # col.string_values[j] is exposed as Python bytes; inspect first byte
+                raw = col.string_values[j]
+                # libcpp.string: check size()
+                if raw.size() == 0:
+                    py_list.append("")
+                    continue
+
+                first = raw[0]
+                # '[' -> JSON array: parse into Python list if enabled
+                if first == '[' and parse_arrays:
+                    # Call the C wrapper and check for NULL ourselves to avoid Cython
+                    # automatically turning a NULL into a SystemError when no
+                    # Python exception is set.
+                    o_ptr = ParseJsonSliceToPyObject(<const uint8_t*>raw.data(), raw.size(), True)
+                    if o_ptr != NULL:
+                        # wrapper returns a new reference on success
+                        o = <object>o_ptr
+                        py_list.append(o)
+                        # ownership transferred to Python object 'o'
+                    else:
+                        # wrapper returned NULL -> fall back
+                        # If there's a Python-level error, clear it and fallback
+                        if PyErr_Occurred():
+                            PyErr_Clear()
+                        try:
+                            parsed = _parse_array_from_bytes(raw)
+                            py_list.append(parsed)
+                        except Exception:
+                            py_list.append(raw.decode('utf-8').encode('utf-8'))
+                # '{' -> parse into dict if enabled, otherwise return raw bytes
+                elif first == '{':
+                    if parse_objects:
+                        o_ptr = ParseJsonSliceToPyObject(<const uint8_t*>raw.data(), raw.size(), True)
+                        if o_ptr != NULL:
+                            o = <object>o_ptr
+                            py_list.append(o)
+                        else:
+                            # wrapper returned NULL -> fall back
+                            if PyErr_Occurred():
+                                PyErr_Clear()
+                            # fallback to json.loads on Python side
+                            try:
+                                parsed = json.loads(raw.decode('utf-8'))
+                                py_list.append(parsed)
+                            except Exception:
+                                py_list.append(raw.decode('utf-8').encode('utf-8'))
+                    else:
+                        py_list.append(raw.decode('utf-8').encode('utf-8'))
                 else:
-                    py_list.append(col.string_values[j].decode('utf-8'))
+                    # regular string value: decode to Python str
+                    py_list.append(raw.decode('utf-8'))
             py_columns.append(py_list)
         elif col_type == 'boolean':
             py_list = []

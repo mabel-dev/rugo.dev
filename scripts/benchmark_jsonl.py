@@ -63,7 +63,7 @@ def benchmark_schema(data, iterations=10):
     times = []
     for _ in range(iterations):
         start = time.perf_counter()
-        schema = rj.get_jsonl_schema(data)
+        rj.get_jsonl_schema(data)
         elapsed = time.perf_counter() - start
         times.append(elapsed)
     
