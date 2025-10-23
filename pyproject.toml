@@ -52,7 +52,7 @@ Repository = "https://github.com/mabel-dev/rugo"
 Issues = "https://github.com/mabel-dev/rugo/issues"
 
 [tool.setuptools]
-packages = ["rugo", "rugo.parquet", "rugo.converters"]
+packages = ["rugo", "rugo.parquet", "rugo.jsonl", "rugo.csv", "rugo.converters"]
 
 [tool.setuptools.package-data]
 "*" = ["*.pyx", "*.pxd", "*.pxi"]
