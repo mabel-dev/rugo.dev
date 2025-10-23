@@ -438,6 +438,16 @@ rugo/
 └── README.md
 ```
 
+## Future Format Considerations
+
+Rugo focuses on formats where we can deliver meaningful performance improvements through columnar optimizations and SIMD acceleration. We currently support Parquet and JSON Lines because we believe we can outperform general-purpose readers for columnar workloads.
+
+For analysis of additional file formats that could benefit from similar optimizations, see [FORMAT_CONSIDERATIONS.md](docs/FORMAT_CONSIDERATIONS.md). Top candidates include:
+- **Apache Arrow IPC / Feather**: Zero-copy columnar format with excellent optimization potential
+- **CSV/TSV**: Ubiquitous format with strong SIMD optimization opportunities
+
+Community feedback and use cases are welcome to help prioritize future format support.
+
 ## Status and limitations
 - Active development status (alpha); APIs are evolving and may change between releases.
 - **Parquet**: Metadata APIs are largely stable. The column-reading API is experimental and will change.
