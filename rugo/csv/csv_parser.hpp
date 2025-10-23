@@ -59,6 +59,18 @@ std::vector<CsvColumnSchema> GetCsvSchema(
     size_t sample_size = 100
 );
 
+// Get schema using already-parsed header names. This avoids reparsing the header
+// when the caller has already consumed it. 'data' should point to the start of
+// the rows (i.e. immediately after the header) and 'size' should be the remaining
+// size.
+std::vector<CsvColumnSchema> GetCsvSchema(
+    const uint8_t* data,
+    size_t size,
+    const CsvDialect& dialect,
+    const std::vector<std::string>& column_names,
+    size_t sample_size = 100
+);
+
 // Read CSV data with optional column projection
 CsvTable ReadCsv(
     const uint8_t* data, 

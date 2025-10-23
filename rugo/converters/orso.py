@@ -229,9 +229,9 @@ def _map_jsonl_type_to_orso(jsonl_type: str) -> str:
     type_map = {
         "int64": OrsoTypes.INTEGER,
         "double": OrsoTypes.DOUBLE,
-        "string": OrsoTypes.VARCHAR,
+        "bytes": OrsoTypes.BLOB,
         "boolean": OrsoTypes.BOOLEAN,
-        "null": OrsoTypes.VARCHAR,  # Default null to varchar
+        "null": OrsoTypes.BLOB,  # Default null to varchar
     }
 
     jt = jsonl_type.lower()
@@ -250,17 +250,18 @@ def _map_jsonl_type_to_orso(jsonl_type: str) -> str:
         if jt.startswith("array<") and jt.endswith(">"):
             inner = jt[jt.find("<") + 1 : -1].strip()
             inner_map = {
-                'int64': 'integer',
-                'int32': 'integer',
-                'int16': 'integer',
-                'int8': 'integer',
-                'integer': 'integer',
-                'double': 'double',
-                'float': 'double',
-                'string': 'varchar',
-                'varchar': 'varchar',
-                'boolean': 'boolean',
-                'object': 'jsonb',
+                "int64": "integer",
+                "int32": "integer",
+                "int16": "integer",
+                "int8": "integer",
+                "integer": "integer",
+                "double": "double",
+                "float": "double",
+                "bytes": "blob",
+                "string": "blob",
+                "varchar": "blob",
+                "boolean": "boolean",
+                "object": "jsonb",
             }
             normalized_inner = inner_map.get(inner.lower(), inner.lower())
             normalized = f"array<{normalized_inner}>"
@@ -268,12 +269,14 @@ def _map_jsonl_type_to_orso(jsonl_type: str) -> str:
             normalized = jt
 
         try:
-            _type, _length, _precision, _scale, _element_type = OrsoTypes.from_name(normalized)
+            _type, _length, _precision, _scale, _element_type = OrsoTypes.from_name(
+                normalized
+            )
             return _type
         except ValueError:
-            return OrsoTypes.VARCHAR
+            return OrsoTypes.BLOB
 
-    return OrsoTypes.VARCHAR
+    return OrsoTypes.BLOB
 
 
 def jsonl_to_orso_schema(

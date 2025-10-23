@@ -255,33 +255,68 @@ def read_csv(data, columns=None, delimiter=',', quote_char='"', has_header=True)
     # Column data
     for i in range(table.columns.size()):
         col_type = table.columns[i].type.decode('utf-8')
-        col_data = []
-        
+        # Pre-allocate list for faster assignment and fewer resizes
         if col_type == "int64":
-            for j in range(table.columns[i].int_values.size()):
-                if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:
-                    col_data.append(None)
+            n = table.columns[i].int_values.size()
+            nm = table.columns[i].null_mask.size()
+            col_data = [None] * n
+            for j in range(n):
+                if nm == n:
+                    if table.columns[i].null_mask[j]:
+                        col_data[j] = None
+                    else:
+                        col_data[j] = table.columns[i].int_values[j]
                 else:
-                    col_data.append(table.columns[i].int_values[j])
+                    if j < nm and table.columns[i].null_mask[j]:
+                        col_data[j] = None
+                    else:
+                        col_data[j] = table.columns[i].int_values[j]
         elif col_type == "double":
-            for j in range(table.columns[i].double_values.size()):
-                if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:
-                    col_data.append(None)
+            n = table.columns[i].double_values.size()
+            nm = table.columns[i].null_mask.size()
+            col_data = [None] * n
+            for j in range(n):
+                if nm == n:
+                    if table.columns[i].null_mask[j]:
+                        col_data[j] = None
+                    else:
+                        col_data[j] = table.columns[i].double_values[j]
                 else:
-                    col_data.append(table.columns[i].double_values[j])
+                    if j < nm and table.columns[i].null_mask[j]:
+                        col_data[j] = None
+                    else:
+                        col_data[j] = table.columns[i].double_values[j]
         elif col_type == "boolean":
-            for j in range(table.columns[i].boolean_values.size()):
-                if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:
-                    col_data.append(None)
+            n = table.columns[i].boolean_values.size()
+            nm = table.columns[i].null_mask.size()
+            col_data = [None] * n
+            for j in range(n):
+                if nm == n:
+                    if table.columns[i].null_mask[j]:
+                        col_data[j] = None
+                    else:
+                        col_data[j] = bool(table.columns[i].boolean_values[j])
                 else:
-                    col_data.append(bool(table.columns[i].boolean_values[j]))
+                    if j < nm and table.columns[i].null_mask[j]:
+                        col_data[j] = None
+                    else:
+                        col_data[j] = bool(table.columns[i].boolean_values[j])
         else:  # string
-            for j in range(table.columns[i].string_values.size()):
-                if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:
-                    col_data.append(None)
+            n = table.columns[i].string_values.size()
+            nm = table.columns[i].null_mask.size()
+            col_data = [None] * n
+            for j in range(n):
+                if nm == n:
+                    if table.columns[i].null_mask[j]:
+                        col_data[j] = None
+                    else:
+                        col_data[j] = table.columns[i].string_values[j].decode('utf-8')
                 else:
-                    col_data.append(table.columns[i].string_values[j].decode('utf-8'))
-        
+                    if j < nm and table.columns[i].null_mask[j]:
+                        col_data[j] = None
+                    else:
+                        col_data[j] = table.columns[i].string_values[j].decode('utf-8')
+
         result['columns'].append(col_data)
     
     return result

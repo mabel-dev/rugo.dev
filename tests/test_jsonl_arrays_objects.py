@@ -23,10 +23,13 @@ def test_default_parses_arrays_and_objects():
     # inner object inside array should be a dict or bytes depending on parser; accept either
     assert isinstance(values[0][2], (dict, bytes, bytearray, str))
 
-    # second row: parsed object -> dict
-    assert isinstance(values[1], dict)
-    assert values[1].get('a') == 10
-    assert isinstance(values[1].get('b'), list)
+    # second row: parsed object -> bytes (JSONB format)
+    assert isinstance(values[1], (bytes, bytearray))
+    # Can verify it's valid JSON if needed
+    import json
+    obj = json.loads(values[1])
+    assert obj.get('a') == 10
+    assert isinstance(obj.get('b'), list)
 
 
 def test_parse_objects_false_returns_bytes_for_objects():
@@ -49,8 +52,8 @@ def test_parse_arrays_false_returns_raw_strings():
     values = res['columns'][1]
     # first row: arrays not parsed => string
     assert isinstance(values[0], str)
-    # second row: objects parsed => dict
-    assert isinstance(values[1], dict)
+    # second row: objects parsed => bytes (JSONB format)
+    assert isinstance(values[1], (bytes, bytearray))
 
 
 def test_parse_arrays_and_objects_false_returns_str_and_bytes():
@@ -62,3 +65,10 @@ def test_parse_arrays_and_objects_false_returns_str_and_bytes():
     assert isinstance(values[0], str)
     # object not parsed -> bytes (or str, depending on fallback path)
     assert isinstance(values[1], (bytes, bytearray, str))
+
+if __name__ == "__main__":
+    test_default_parses_arrays_and_objects()
+    test_parse_objects_false_returns_bytes_for_objects()
+    test_parse_arrays_false_returns_raw_strings()
+    test_parse_arrays_and_objects_false_returns_str_and_bytes()
+    print("All tests passed!")

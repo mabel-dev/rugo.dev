@@ -8,6 +8,9 @@
 #include <unordered_map>
 #include <unordered_set>
 
+// Reuse SIMD text search helpers from jsonl module
+#include "../jsonl/text_search.hpp"
+
 // SIMD includes for x86-64
 #if defined(__x86_64__) || defined(_M_X64)
 #include <immintrin.h>
@@ -16,56 +19,8 @@
 
 namespace {
 
-// Fast SIMD-optimized search for delimiter, quote, or newline
-inline const char* FindDelimiterOrNewline(const char* data, size_t size, char delimiter, char quote_char) {
-#if defined(HAS_SIMD) && defined(__AVX2__)
-    // AVX2 implementation - process 32 bytes at a time
-    if (size >= 32) {
-        __m256i delim_vec = _mm256_set1_epi8(delimiter);
-        __m256i quote_vec = _mm256_set1_epi8(quote_char);
-        __m256i newline_vec = _mm256_set1_epi8('\n');
-        __m256i cr_vec = _mm256_set1_epi8('\r');
-        
-        const char* end = data + (size & ~31);
-        const char* p = data;
-        
-        while (p < end) {
-            __m256i chunk = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(p));
-            __m256i cmp_delim = _mm256_cmpeq_epi8(chunk, delim_vec);
-            __m256i cmp_quote = _mm256_cmpeq_epi8(chunk, quote_vec);
-            __m256i cmp_newline = _mm256_cmpeq_epi8(chunk, newline_vec);
-            __m256i cmp_cr = _mm256_cmpeq_epi8(chunk, cr_vec);
-            
-            __m256i combined = _mm256_or_si256(_mm256_or_si256(cmp_delim, cmp_quote),
-                                              _mm256_or_si256(cmp_newline, cmp_cr));
-            
-            unsigned int mask = _mm256_movemask_epi8(combined);
-            if (mask != 0) {
-                return p + __builtin_ctz(mask);
-            }
-            p += 32;
-        }
-        
-        // Handle remaining bytes
-        while (p < data + size) {
-            char c = *p;
-            if (c == delimiter || c == quote_char || c == '\n' || c == '\r') {
-                return p;
-            }
-            p++;
-        }
-    }
-#endif
-    
-    // Scalar fallback
-    for (size_t i = 0; i < size; i++) {
-        char c = data[i];
-        if (c == delimiter || c == quote_char || c == '\n' || c == '\r') {
-            return data + i;
-        }
-    }
-    return nullptr;
-}
+// We reuse simd::FindChar/FindQuote/FindNewline from `rugo/jsonl/text_search.hpp`
+// No local FindDelimiterOrNewline implementation.
 
 // Parse a CSV field, handling quotes and escapes
 bool ParseField(const char*& pos, const char* end, const CsvDialect& dialect,
@@ -87,55 +42,77 @@ bool ParseField(const char*& pos, const char* end, const CsvDialect& dialect,
         is_quoted = true;
         pos++; // Skip opening quote
         
-        // Parse quoted field
+        // Parse quoted field using SIMD helpers where available.
         while (pos < end) {
-            char c = *pos;
-            
+            // Try to find the next quote or backslash quickly
+            const char* next = simd::FindQuote(pos, end - pos);
+            if (!next) {
+                // No quote found in remaining data: append rest and return
+                out_value.append(pos, end - pos);
+                pos = end;
+                return true;
+            }
+
+            // Append chunk before the special char
+            if (next > pos) {
+                out_value.append(pos, next - pos);
+            }
+
+            // Inspect the special character
+            char c = *next;
+            pos = next + 1; // advance past this char for further processing
+
             if (c == dialect.quote_char) {
-                pos++;
-                // Check for escaped quote (double quote or escape char)
-                if (pos < end) {
-                    if (dialect.double_quote && *pos == dialect.quote_char) {
-                        // Double quote - add single quote to output
-                        out_value += dialect.quote_char;
-                        pos++;
-                        continue;
-                    } else if (*pos == dialect.delimiter || *pos == '\n' || *pos == '\r') {
-                        // End of quoted field
-                        return true;
-                    } else if (pos >= end) {
-                        // End of data after closing quote
-                        return true;
-                    }
+                // If double-quote escaping is enabled and next char is a quote, add one quote
+                if (dialect.double_quote && pos < end && *pos == dialect.quote_char) {
+                    out_value.push_back(dialect.quote_char);
+                    pos++; // consume the escaped quote
+                    continue;
                 }
-                // Closing quote
+
+                // Check if the quote is followed by delimiter or newline (end of quoted field)
+                if (pos >= end) {
+                    return true; // end of data after closing quote
+                }
+                if (*pos == dialect.delimiter || *pos == '\n' || *pos == '\r') {
+                    return true; // end of field
+                }
+                // Otherwise, treat as closing quote; the calling code will handle next char
                 return true;
             } else if (c == dialect.escape_char && !dialect.double_quote) {
-                // Escape sequence
-                pos++;
+                // Escape char: append next char literally if present
                 if (pos < end) {
-                    out_value += *pos;
+                    out_value.push_back(*pos);
                     pos++;
                 } else {
-                    return false; // Incomplete escape at end of data
+                    return false; // incomplete escape
                 }
-            } else {
-                out_value += c;
-                pos++;
             }
         }
-        return true; // End of data in quoted field
+        return true; // reached end of data inside quoted field
     } else {
         // Parse unquoted field
         const char* field_start = pos;
-        while (pos < end) {
-            char c = *pos;
-            if (c == dialect.delimiter || c == '\n' || c == '\r') {
-                break;
-            }
-            pos++;
+        // Use SIMD helpers to find delimiter or newline faster when available
+        const char* next_delim = simd::FindChar(pos, end - pos, dialect.delimiter);
+        const char* next_newline = simd::FindNewline(pos, end - pos);
+        const char* next_pos = nullptr;
+        if (next_delim && next_newline) {
+            next_pos = (next_delim < next_newline) ? next_delim : next_newline;
+        } else if (next_delim) {
+            next_pos = next_delim;
+        } else if (next_newline) {
+            next_pos = next_newline;
         }
-        out_value = std::string(field_start, pos - field_start);
+
+        if (next_pos) {
+            out_value = std::string(field_start, next_pos - field_start);
+            pos = next_pos;
+        } else {
+            // No delimiter/newline found: take rest of buffer
+            out_value = std::string(field_start, end - field_start);
+            pos = end;
+        }
         
         // Trim trailing whitespace from unquoted field (optional)
         while (!out_value.empty() && (out_value.back() == ' ' || out_value.back() == '\t')) {
@@ -351,6 +328,90 @@ std::vector<CsvColumnSchema> GetCsvSchema(
     return schema;
 }
 
+// Overload that uses already-parsed column names (header removed from data)
+std::vector<CsvColumnSchema> GetCsvSchema(
+    const uint8_t* data,
+    size_t size,
+    const CsvDialect& dialect,
+    const std::vector<std::string>& column_names,
+    size_t sample_size) {
+
+    std::vector<CsvColumnSchema> schema;
+    if (column_names.empty()) return schema;
+
+    // Initialize schema with unknown types
+    for (const auto& name : column_names) {
+        CsvColumnSchema col_schema;
+        col_schema.name = name;
+        col_schema.type = CsvType::String; // Default to string
+        col_schema.nullable = true;
+        schema.push_back(col_schema);
+    }
+
+    const char* pos = reinterpret_cast<const char*>(data);
+    const char* end = pos + size;
+
+    std::vector<std::unordered_set<CsvType>> type_candidates(column_names.size());
+    for (size_t i = 0; i < column_names.size(); i++) {
+        type_candidates[i].insert(CsvType::Null);
+    }
+
+    std::string field;
+    bool is_quoted;
+    size_t rows_sampled = 0;
+
+    while (pos < end && rows_sampled < sample_size) {
+        size_t col_idx = 0;
+        while (pos < end && col_idx < column_names.size()) {
+            if (!ParseField(pos, end, dialect, field, is_quoted)) {
+                break;
+            }
+
+            bool is_null;
+            CsvType inferred_type = InferType(field, is_null);
+            if (!is_null || field.empty()) {
+                type_candidates[col_idx].insert(inferred_type);
+            }
+
+            col_idx++;
+
+            if (pos < end && *pos == dialect.delimiter) {
+                pos++; // Skip delimiter
+            } else if (pos < end && (*pos == '\n' || *pos == '\r')) {
+                if (*pos == '\r' && pos + 1 < end && pos[1] == '\n') {
+                    pos += 2; // Skip \r\n
+                } else {
+                    pos++; // Skip \n or \r
+                }
+                break;
+            } else if (pos >= end) {
+                break;
+            }
+        }
+        rows_sampled++;
+    }
+
+    // Determine final types
+    for (size_t i = 0; i < schema.size(); i++) {
+        const auto& candidates = type_candidates[i];
+        if (candidates.empty() || (candidates.size() == 1 && candidates.count(CsvType::Null))) {
+            schema[i].type = CsvType::String;
+        } else if (candidates.count(CsvType::String)) {
+            schema[i].type = CsvType::String;
+        } else if (candidates.count(CsvType::Double)) {
+            schema[i].type = CsvType::Double;
+        } else if (candidates.count(CsvType::Integer)) {
+            schema[i].type = CsvType::Integer;
+        } else if (candidates.count(CsvType::Boolean)) {
+            schema[i].type = CsvType::Boolean;
+        } else {
+            schema[i].type = CsvType::String;
+        }
+    }
+
+    return schema;
+}
+
 // Read CSV with all columns
 CsvTable ReadCsv(const uint8_t* data, size_t size, const CsvDialect& dialect) {
     return ReadCsv(data, size, dialect, {});
@@ -422,12 +483,33 @@ CsvTable ReadCsv(
     }
     
     // Get schema for selected columns
-    auto schema = GetCsvSchema(data, size, dialect, 100);
+    // We have already parsed the header into all_column_names; call the
+    // overload that avoids reparsing the header. Also, estimate remaining rows
+    // by counting newlines and reserve capacity on per-column vectors to reduce
+    // reallocations.
+    // Find start of data after the header: 'pos' currently points after header
+    const char* data_start = pos;
+    size_t remaining_size = (data_start < end) ? (end - data_start) : 0;
+
+    // Estimate row count by counting newlines in the remaining data
+    size_t estimated_rows = 0;
+    for (const char* p = data_start; p < end; ++p) {
+        if (*p == '\n') estimated_rows++;
+    }
+
+    auto schema = GetCsvSchema((const uint8_t*)data_start, remaining_size, dialect, all_column_names, 100);
     
     // Initialize columns
     table.column_names = selected_columns;
     table.columns.resize(selected_columns.size());
-    
+    // Reserve capacity for each column based on estimated rows to avoid frequent reallocations
+    for (size_t i = 0; i < table.columns.size(); ++i) {
+        table.columns[i].int_values.reserve(estimated_rows);
+        table.columns[i].double_values.reserve(estimated_rows);
+        table.columns[i].string_values.reserve(estimated_rows);
+        table.columns[i].boolean_values.reserve(estimated_rows);
+        table.columns[i].null_mask.reserve(estimated_rows);
+    }
     for (size_t i = 0; i < selected_columns.size(); i++) {
         size_t col_idx = column_indices[i];
         if (col_idx < schema.size()) {

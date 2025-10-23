@@ -1,5 +1,10 @@
 """Basic tests for CSV reader"""
 import pytest
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 try:
     import rugo.csv as rc
@@ -185,3 +190,6 @@ def test_read_csv_with_memoryview():
     assert result['success'] is True
     assert result['num_rows'] == 2
     assert result['columns'][0] == ['Alice', 'Bob']
+
+if __name__ == "__main__":
+    pytest.main([__file__])

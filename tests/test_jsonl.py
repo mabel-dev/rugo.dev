@@ -59,7 +59,7 @@ def test_read_with_projection():
     names = result['columns'][0]
     salaries = result['columns'][1]
     
-    assert names == ['Alice', 'Bob', 'Charlie']
+    assert names == [b'Alice', b'Bob', b'Charlie']
     assert salaries == [50000.0, 45000.0, 55000.0]
 
 
@@ -90,9 +90,9 @@ def test_read_string_column():
     assert result['success']
     names = result['columns'][0]
     cities = result['columns'][1]
-    
-    assert names == ['Alice', 'Bob', 'Charlie']
-    assert cities == ['NYC', 'LA', 'SF']
+
+    assert names == [b'Alice', b'Bob', b'Charlie']
+    assert cities == [b'NYC', b'LA', b'SF']
 
 
 def test_read_double_column():
@@ -141,7 +141,7 @@ def test_read_with_nulls():
     ages = result['columns'][2]
     
     assert ids == [1, 2, 3]
-    assert names == ['Alice', None, 'Charlie']
+    assert names == [b'Alice', None, b'Charlie']
     assert ages == [30, 25, None]
 
 

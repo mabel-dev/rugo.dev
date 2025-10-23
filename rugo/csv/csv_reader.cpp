@@ -9,8 +9,8 @@
         "extra_compile_args": [
             "-O3",
             "-std=c++17",
-            "-msse4.2",
-            "-mavx2"
+            "-arch",
+            "arm64"
         ],
         "include_dirs": [
             "rugo/csv"
@@ -1995,6 +1995,16 @@ static PyObject *__Pyx_PyDict_GetItem(PyObject *d, PyObject* key);
 #define __Pyx_PyObject_Dict_GetItem(obj, name)  PyObject_GetItem(obj, name)
 #endif
 
+/* SetItemInt.proto */
+#define __Pyx_SetItemInt(o, i, v, type, is_signed, to_py_func, is_list, wraparound, boundscheck, has_gil)\
+    (__Pyx_fits_Py_ssize_t(i, type, is_signed) ?\
+    __Pyx_SetItemInt_Fast(o, (Py_ssize_t)i, v, is_list, wraparound, boundscheck) :\
+    (is_list ? (PyErr_SetString(PyExc_IndexError, "list assignment index out of range"), -1) :\
+               __Pyx_SetItemInt_Generic(o, to_py_func(i), v)))
+static int __Pyx_SetItemInt_Generic(PyObject *o, PyObject *j, PyObject *v);
+static CYTHON_INLINE int __Pyx_SetItemInt_Fast(PyObject *o, Py_ssize_t i, PyObject *v,
+                                               int is_list, int wraparound, int boundscheck);
+
 /* PyDictVersioning.proto */
 #if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS
 #define __PYX_DICT_VERSION_INIT  ((PY_UINT64_T) -1)
@@ -2283,10 +2293,10 @@ static CYTHON_INLINE PyObject* __Pyx_PyLong_From_long(long value);
 static CYTHON_INLINE size_t __Pyx_PyLong_As_size_t(PyObject *);
 
 /* CIntToPy.proto */
-static CYTHON_INLINE PyObject* __Pyx_PyLong_From_uint8_t(uint8_t value);
+static CYTHON_INLINE PyObject* __Pyx_PyLong_From_PY_LONG_LONG(PY_LONG_LONG value);
 
 /* CIntToPy.proto */
-static CYTHON_INLINE PyObject* __Pyx_PyLong_From_PY_LONG_LONG(PY_LONG_LONG value);
+static CYTHON_INLINE PyObject* __Pyx_PyLong_From_uint8_t(uint8_t value);
 
 /* FormatTypeName.proto */
 #if CYTHON_COMPILING_IN_LIMITED_API
@@ -2425,9 +2435,11 @@ static const char __pyx_k_[] = ",";
 static const char __pyx_k_A[] = "\320\000\031\230\021\360$\000\005\014\210>\230\021\230&\240\n\250&\260\014\270A";
 static const char __pyx_k_i[] = "i";
 static const char __pyx_k_j[] = "j";
+static const char __pyx_k_n[] = "n";
 static const char __pyx_k__2[] = "\"";
 static const char __pyx_k__3[] = "\t";
 static const char __pyx_k__4[] = "?";
+static const char __pyx_k_nm[] = "nm";
 static const char __pyx_k_col[] = "col";
 static const char __pyx_k_obj[] = "obj";
 static const char __pyx_k_pop[] = "pop";
@@ -2482,14 +2494,14 @@ static const char __pyx_k_get_csv_schema[] = "get_csv_schema";
 static const char __pyx_k_get_tsv_schema[] = "get_tsv_schema";
 static const char __pyx_k_column_names_cpp[] = "column_names_cpp";
 static const char __pyx_k_read_csv_line_158[] = "read_csv (line 158)";
-static const char __pyx_k_read_tsv_line_347[] = "read_tsv (line 347)";
+static const char __pyx_k_read_tsv_line_382[] = "read_tsv (line 382)";
 static const char __pyx_k_asyncio_coroutines[] = "asyncio.coroutines";
 static const char __pyx_k_cline_in_traceback[] = "cline_in_traceback";
 static const char __pyx_k_detect_csv_dialect[] = "detect_csv_dialect";
 static const char __pyx_k_get_csv_schema_line_65[] = "get_csv_schema (line 65)";
 static const char __pyx_k_rugo_csv_csv_reader_pyx[] = "rugo/csv/csv_reader.pyx";
-static const char __pyx_k_detect_csv_dialect_line_290[] = "detect_csv_dialect (line 290)";
-static const char __pyx_k_0_X_1_z_4vQfA_4q_D_A_1F_Q_7_Cq[] = "\320\000\023\220>\240\037\3200@\300\001\360X\001\000\005\034\2301\360\006\000\005\010\200z\220\021\220&\230\001\330\010\032\230!\2304\230v\240Q\240f\250A\330\010\023\320\023#\2404\240q\330\010\024\220D\230\001\330\010\024\220A\330\t\023\2201\220F\230!\330\010\025\220Q\330\010\023\320\023#\2407\250!\330\010\024\220C\220q\230\001\340\010\016\210i\220q\230\002\320\032@\300\004\300A\300Q\360\010\000\005\014\210=\230\003\2301\230I\240Q\240g\320-@\300\001\330\004\013\210>\230\023\230A\230Z\240q\250\007\320/C\3001\330\004\013\320\013\035\230Q\230a\330\004\013\320\013\033\2301\330\004\013\210>\230\021\360\010\000\005\010\200x\210w\220a\330\010\014\210G\2201\330\014\034\230J\240a\240s\250'\260\021\260!\360\010\000\005\010\200x\210s\220!\330\010\020\220\007\220q\230\n\240+\250Q\340\010\020\220\007\220q\230\n\240+\250Y\260a\340\004\007\200q\330\010\030\230\001\230\021\230!\360\006\000\005\006\330\010\023\2205\230\001\330\010\024\220E\230\021\330\010\030\230\001\330\010\023\2201\360\014\000\005\t\210\005\210U\220!\2205\230\r\240U\250!\330\010\016\210a\210\177\230g\240Q\240e\250=\270\001\270\022\2707\300!\3001\360\006\000\005\t\210\005\210U\220!\2205\230\010\240\005\240Q\330\010\023\2205\230\010\240\001\240\022\2405\250\007\250q\260\001\330\010\023\2201\340\010\013\2109\220C\220q\330\014\020\220\005\220U\230!\2305\240\010\250\001\250\022\250;\260e\2701\330\020\023\2202\220R\220u\230H\240A\240R\240z\260\025\260c\270\024\270U\300(\310!\3102\310Z\320WX\320XY\330\024\034\230G\2401\240A\340\024\034\230G\2401\240E\250\030\260\021\260\"\260K\270q\300\001\330\r\026\220c\230\021\330\014\020\220\005\220U\230!\2305\240\010\250\001\250\022\250>\270\025\270a\330\020\023\2202\220R\220u\230H\240A\240R\240z\260\025\260c\270\024\270U\300(\310!\3102\310Z\320WX\320XY\330\024\034\230G\2401\240A\340\024\034\230G\2401\240E\250\030\260\021\260\"\260N\300!\3001\330\r\026\220c\230\021\330\014\020\220\005\220U\230!\2305\240\010\250\001\250\022\250?\270%\270q\330\020\023\2202\220R\220u\230H\240A\240R\240z""\260\025\260c\270\024\270U\300(\310!\3102\310Z\320WX\320XY\330\024\034\230G\2401\240A\340\024\034\230G\2401\240D\250\001\250\025\250h\260a\260r\270\037\310\001\310\021\340\014\020\220\005\220U\230!\2305\240\010\250\001\250\022\250>\270\025\270a\330\020\023\2202\220R\220u\230H\240A\240R\240z\260\025\260c\270\024\270U\300(\310!\3102\310Z\320WX\320XY\330\024\034\230G\2401\240A\340\024\034\230G\2401\240E\250\030\260\021\260\"\260N\300!\3002\300W\310A\310Q\340\010\016\210a\210z\230\027\240\001\240\021\340\004\013\2101";
+static const char __pyx_k_detect_csv_dialect_line_325[] = "detect_csv_dialect (line 325)";
+static const char __pyx_k_0_X_1_z_4vQfA_4q_D_A_1F_Q_7_Cq[] = "\320\000\023\220>\240\037\3200@\300\001\360X\001\000\005\034\2301\360\006\000\005\010\200z\220\021\220&\230\001\330\010\032\230!\2304\230v\240Q\240f\250A\330\010\023\320\023#\2404\240q\330\010\024\220D\230\001\330\010\024\220A\330\t\023\2201\220F\230!\330\010\025\220Q\330\010\023\320\023#\2407\250!\330\010\024\220C\220q\230\001\340\010\016\210i\220q\230\002\320\032@\300\004\300A\300Q\360\010\000\005\014\210=\230\003\2301\230I\240Q\240g\320-@\300\001\330\004\013\210>\230\023\230A\230Z\240q\250\007\320/C\3001\330\004\013\320\013\035\230Q\230a\330\004\013\320\013\033\2301\330\004\013\210>\230\021\360\010\000\005\010\200x\210w\220a\330\010\014\210G\2201\330\014\034\230J\240a\240s\250'\260\021\260!\360\010\000\005\010\200x\210s\220!\330\010\020\220\007\220q\230\n\240+\250Q\340\010\020\220\007\220q\230\n\240+\250Y\260a\340\004\007\200q\330\010\030\230\001\230\021\230!\360\006\000\005\006\330\010\023\2205\230\001\330\010\024\220E\230\021\330\010\030\230\001\330\010\023\2201\360\014\000\005\t\210\005\210U\220!\2205\230\r\240U\250!\330\010\016\210a\210\177\230g\240Q\240e\250=\270\001\270\022\2707\300!\3001\360\006\000\005\t\210\005\210U\220!\2205\230\010\240\005\240Q\330\010\023\2205\230\010\240\001\240\022\2405\250\007\250q\260\001\340\010\013\2109\220C\220q\330\014\020\220\005\220X\230Q\230b\240\013\2505\260\001\330\014\021\220\025\220h\230a\230r\240\032\2505\260\001\330\014\027\220q\230\006\230b\240\001\330\014\020\220\005\220U\230!\2301\330\020\023\2203\220c\230\021\330\024\027\220u\230H\240A\240R\240z\260\021\260!\330\030 \240\001\240\025\240a\340\030 \240\001\240\025\240e\2508\2601\260B\260k\300\021\300!\340\024\027\220r\230\022\2303\230d\240%\240x\250q\260\002\260*\270A\270Q\330\030 \240\001\240\025\240a\340\030 \240\001\240\025\240e\2508\2601\260B\260k\300\021\300!\330\r\026\220c\230\021\330\014\020\220\005\220X\230Q\230b\240\016\250e\2601\330\014\021\220\025\220h\230a\230r\240\032\2505\260\001\330\014\027\220q\230\006\230b\240\001\330\014\020\220\005\220U\230!\2301""\330\020\023\2203\220c\230\021\330\024\027\220u\230H\240A\240R\240z\260\021\260!\330\030 \240\001\240\025\240a\340\030 \240\001\240\025\240e\2508\2601\260B\260n\300A\300Q\340\024\027\220r\230\022\2303\230d\240%\240x\250q\260\002\260*\270A\270Q\330\030 \240\001\240\025\240a\340\030 \240\001\240\025\240e\2508\2601\260B\260n\300A\300Q\330\r\026\220c\230\021\330\014\020\220\005\220X\230Q\230b\240\017\250u\260A\330\014\021\220\025\220h\230a\230r\240\032\2505\260\001\330\014\027\220q\230\006\230b\240\001\330\014\020\220\005\220U\230!\2301\330\020\023\2203\220c\230\021\330\024\027\220u\230H\240A\240R\240z\260\021\260!\330\030 \240\001\240\025\240a\340\030 \240\001\240\025\240d\250!\2505\260\010\270\001\270\022\270?\310!\3101\340\024\027\220r\230\022\2303\230d\240%\240x\250q\260\002\260*\270A\270Q\330\030 \240\001\240\025\240a\340\030 \240\001\240\025\240d\250!\2505\260\010\270\001\270\022\270?\310!\3101\340\014\020\220\005\220X\230Q\230b\240\016\250e\2601\330\014\021\220\025\220h\230a\230r\240\032\2505\260\001\330\014\027\220q\230\006\230b\240\001\330\014\020\220\005\220U\230!\2301\330\020\023\2203\220c\230\021\330\024\027\220u\230H\240A\240R\240z\260\021\260!\330\030 \240\001\240\025\240a\340\030 \240\001\240\025\240e\2508\2601\260B\260n\300A\300R\300w\310a\310q\340\024\027\220r\230\022\2303\230d\240%\240x\250q\260\002\260*\270A\270Q\330\030 \240\001\240\025\240a\340\030 \240\001\240\025\240e\2508\2601\260B\260n\300A\300R\300w\310a\310q\340\010\016\210a\210z\230\027\240\001\240\021\340\004\013\2101";
 static const char __pyx_k_88I_H_1_z_4vQfA_4q_D_A_1F_Q_7_C[] = "\320\000\031\230\037\320(8\3208I\310\021\360H\001\000\005\034\2301\360\006\000\005\010\200z\220\021\220&\230\001\330\010\032\230!\2304\230v\240Q\240f\250A\330\010\023\320\023#\2404\240q\330\010\024\220D\230\001\330\010\024\220A\330\t\023\2201\220F\230!\330\010\025\220Q\330\010\023\320\023#\2407\250!\330\010\024\220C\220q\230\001\340\010\016\210i\220q\230\002\320\032@\300\004\300A\300Q\360\010\000\005\014\210=\230\003\2301\230I\240Q\240g\320-@\300\001\330\004\013\210>\230\023\230A\230Z\240q\250\007\320/C\3001\330\004\013\320\013\035\230Q\230a\330\004\013\320\013\033\2301\330\004\013\210>\230\021\360\006\000\005+\250,\260a\260z\300\033\310I\320UV\340\004\007\200q\330\010\030\230\001\230\021\230!\360\006\000\005\016\210Q\360\010\000\005\t\210\005\210U\220!\2206\230\025\230a\330\010\023\2205\230\006\230a\230r\240\021\340\010\013\2109\220C\220|\2401\330\014\027\220q\330\r\026\220c\230\034\240Q\330\014\027\220q\330\r\026\220c\230\034\240Q\330\014\027\220q\330\r\026\220c\230\034\240Q\330\014\027\220q\340\014\027\220q\340\010\016\210g\220Q\330\014\024\220F\230!\2302\230U\240'\250\021\250!\330\014\024\220A\330\014\030\230\006\230a\230r\240\021\360\006\000\005\014\2101";
 static const char __pyx_k_Auto_detect_CSV_dialect_delimit[] = "\n    Auto-detect CSV dialect (delimiter, quote character).\n    \n    Parameters\n    ----------\n    data : bytes or memoryview\n        The CSV data to analyze\n    sample_size : int, default 100\n        Number of rows to sample for detection\n    \n    Returns\n    -------\n    dict\n        Dictionary with detected dialect parameters:\n        - delimiter: str - Detected delimiter character\n        - quote_char: str - Quote character\n        \n    Examples\n    --------\n    >>> data = b'name\\tage\\tsalary\\nAlice\\t30\\t50000'\n    >>> dialect = detect_csv_dialect(data)\n    >>> print(dialect['delimiter'])\n    '\t'\n    ";
 static const char __pyx_k_Extract_schema_information_from[] = "\n    Extract schema information from CSV data.\n    \n    Parameters\n    ----------\n    data : bytes or memoryview\n        The CSV data to analyze\n    delimiter : str, default ','\n        Field delimiter character (use '\\t' for TSV)\n    quote_char : str, default '\"'\n        Quote character for fields\n    sample_size : int, default 100\n        Number of rows to sample for type inference\n    has_header : bool, default True\n        Whether the first line contains column names\n    \n    Returns\n    -------\n    list of dict\n        List of column schemas with keys: name, type, nullable\n        \n    Examples\n    --------\n    >>> data = b'name,age,salary\\nAlice,30,50000\\nBob,25,45000'\n    >>> schema = get_csv_schema(data)\n    >>> for col in schema:\n    ...     print(f\"{col['name']}: {col['type']}\")\n    name: string\n    age: int64\n    salary: int64\n    ";
@@ -2545,7 +2557,7 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_pop;
   PyObject *__pyx_tuple[4];
   PyObject *__pyx_codeobj_tab[5];
-  PyObject *__pyx_string_tab[71];
+  PyObject *__pyx_string_tab[73];
   PyObject *__pyx_int_100;
 /* #### Code section: module_state_contents ### */
 /* CommonTypesMetaclass.module_state_decls */
@@ -2611,7 +2623,7 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_data_size __pyx_string_tab[24]
 #define __pyx_n_u_delimiter __pyx_string_tab[25]
 #define __pyx_n_u_detect_csv_dialect __pyx_string_tab[26]
-#define __pyx_kp_u_detect_csv_dialect_line_290 __pyx_string_tab[27]
+#define __pyx_kp_u_detect_csv_dialect_line_325 __pyx_string_tab[27]
 #define __pyx_n_u_dialect __pyx_string_tab[28]
 #define __pyx_n_u_double __pyx_string_tab[29]
 #define __pyx_n_u_encode __pyx_string_tab[30]
@@ -2627,34 +2639,36 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_j __pyx_string_tab[40]
 #define __pyx_n_u_main __pyx_string_tab[41]
 #define __pyx_n_u_module __pyx_string_tab[42]
-#define __pyx_n_u_name __pyx_string_tab[43]
-#define __pyx_n_u_name_2 __pyx_string_tab[44]
-#define __pyx_n_u_nullable __pyx_string_tab[45]
-#define __pyx_n_u_num_rows __pyx_string_tab[46]
-#define __pyx_n_u_obj __pyx_string_tab[47]
-#define __pyx_n_u_pop __pyx_string_tab[48]
-#define __pyx_n_u_qualname __pyx_string_tab[49]
-#define __pyx_n_u_quote_char __pyx_string_tab[50]
-#define __pyx_n_u_range __pyx_string_tab[51]
-#define __pyx_n_u_read_csv __pyx_string_tab[52]
-#define __pyx_kp_u_read_csv_line_158 __pyx_string_tab[53]
-#define __pyx_n_u_read_tsv __pyx_string_tab[54]
-#define __pyx_kp_u_read_tsv_line_347 __pyx_string_tab[55]
-#define __pyx_n_u_result __pyx_string_tab[56]
-#define __pyx_n_u_rugo_csv __pyx_string_tab[57]
-#define __pyx_kp_u_rugo_csv_csv_reader_pyx __pyx_string_tab[58]
-#define __pyx_n_u_sample_size __pyx_string_tab[59]
-#define __pyx_n_u_schema __pyx_string_tab[60]
-#define __pyx_n_u_set_name __pyx_string_tab[61]
-#define __pyx_n_u_string __pyx_string_tab[62]
-#define __pyx_n_u_success __pyx_string_tab[63]
-#define __pyx_n_u_table __pyx_string_tab[64]
-#define __pyx_n_u_test __pyx_string_tab[65]
-#define __pyx_n_u_type __pyx_string_tab[66]
-#define __pyx_n_u_type_str __pyx_string_tab[67]
-#define __pyx_n_u_type_val __pyx_string_tab[68]
-#define __pyx_kp_u_utf_8 __pyx_string_tab[69]
-#define __pyx_n_u_view __pyx_string_tab[70]
+#define __pyx_n_u_n __pyx_string_tab[43]
+#define __pyx_n_u_name __pyx_string_tab[44]
+#define __pyx_n_u_name_2 __pyx_string_tab[45]
+#define __pyx_n_u_nm __pyx_string_tab[46]
+#define __pyx_n_u_nullable __pyx_string_tab[47]
+#define __pyx_n_u_num_rows __pyx_string_tab[48]
+#define __pyx_n_u_obj __pyx_string_tab[49]
+#define __pyx_n_u_pop __pyx_string_tab[50]
+#define __pyx_n_u_qualname __pyx_string_tab[51]
+#define __pyx_n_u_quote_char __pyx_string_tab[52]
+#define __pyx_n_u_range __pyx_string_tab[53]
+#define __pyx_n_u_read_csv __pyx_string_tab[54]
+#define __pyx_kp_u_read_csv_line_158 __pyx_string_tab[55]
+#define __pyx_n_u_read_tsv __pyx_string_tab[56]
+#define __pyx_kp_u_read_tsv_line_382 __pyx_string_tab[57]
+#define __pyx_n_u_result __pyx_string_tab[58]
+#define __pyx_n_u_rugo_csv __pyx_string_tab[59]
+#define __pyx_kp_u_rugo_csv_csv_reader_pyx __pyx_string_tab[60]
+#define __pyx_n_u_sample_size __pyx_string_tab[61]
+#define __pyx_n_u_schema __pyx_string_tab[62]
+#define __pyx_n_u_set_name __pyx_string_tab[63]
+#define __pyx_n_u_string __pyx_string_tab[64]
+#define __pyx_n_u_success __pyx_string_tab[65]
+#define __pyx_n_u_table __pyx_string_tab[66]
+#define __pyx_n_u_test __pyx_string_tab[67]
+#define __pyx_n_u_type __pyx_string_tab[68]
+#define __pyx_n_u_type_str __pyx_string_tab[69]
+#define __pyx_n_u_type_val __pyx_string_tab[70]
+#define __pyx_kp_u_utf_8 __pyx_string_tab[71]
+#define __pyx_n_u_view __pyx_string_tab[72]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -2677,7 +2691,7 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   #endif
   for (int i=0; i<4; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
   for (int i=0; i<5; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<71; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<73; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
   Py_CLEAR(clear_module_state->__pyx_int_100);
   return 0;
 }
@@ -2701,7 +2715,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   #endif
   for (int i=0; i<4; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
   for (int i=0; i<5; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<71; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<73; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_100);
   return 0;
 }
@@ -3947,6 +3961,8 @@ static PyObject *__pyx_pf_4rugo_3csv_2read_csv(CYTHON_UNUSED PyObject *__pyx_sel
   size_t __pyx_v_i;
   size_t __pyx_v_j;
   PyObject *__pyx_v_col_type = NULL;
+  std::vector<uint8_t> ::size_type __pyx_v_n;
+  std::vector<uint8_t> ::size_type __pyx_v_nm;
   PyObject *__pyx_v_col_data = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -3970,14 +3986,10 @@ static PyObject *__pyx_pf_4rugo_3csv_2read_csv(CYTHON_UNUSED PyObject *__pyx_sel
   int __pyx_t_18;
   std::vector<CsvColumn> ::size_type __pyx_t_19;
   std::vector<CsvColumn> ::size_type __pyx_t_20;
-  std::vector<PY_LONG_LONG> ::size_type __pyx_t_21;
-  std::vector<PY_LONG_LONG> ::size_type __pyx_t_22;
+  std::vector<uint8_t> ::size_type __pyx_t_21;
+  std::vector<uint8_t> ::size_type __pyx_t_22;
   size_t __pyx_t_23;
   int __pyx_t_24;
-  std::vector<double> ::size_type __pyx_t_25;
-  std::vector<double> ::size_type __pyx_t_26;
-  std::vector<uint8_t> ::size_type __pyx_t_27;
-  std::vector<uint8_t> ::size_type __pyx_t_28;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -4479,7 +4491,7 @@ static PyObject *__pyx_pf_4rugo_3csv_2read_csv(CYTHON_UNUSED PyObject *__pyx_sel
  *     # Column data
  *     for i in range(table.columns.size()):             # <<<<<<<<<<<<<<
  *         col_type = table.columns[i].type.decode('utf-8')
- *         col_data = []
+ *         # Pre-allocate list for faster assignment and fewer resizes
 */
   __pyx_t_19 = __pyx_v_table.columns.size();
   __pyx_t_20 = __pyx_t_19;
@@ -4490,367 +4502,775 @@ static PyObject *__pyx_pf_4rugo_3csv_2read_csv(CYTHON_UNUSED PyObject *__pyx_sel
  *     # Column data
  *     for i in range(table.columns.size()):
  *         col_type = table.columns[i].type.decode('utf-8')             # <<<<<<<<<<<<<<
- *         col_data = []
- * 
+ *         # Pre-allocate list for faster assignment and fewer resizes
+ *         if col_type == "int64":
 */
     __pyx_t_7 = __Pyx_decode_cpp_string((__pyx_v_table.columns[__pyx_v_i]).type, 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 257, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_XDECREF_SET(__pyx_v_col_type, __pyx_t_7);
     __pyx_t_7 = 0;
 
-    /* "rugo/csv/csv_reader.pyx":258
- *     for i in range(table.columns.size()):
+    /* "rugo/csv/csv_reader.pyx":259
  *         col_type = table.columns[i].type.decode('utf-8')
- *         col_data = []             # <<<<<<<<<<<<<<
- * 
- *         if col_type == "int64":
-*/
-    __pyx_t_7 = PyList_New(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 258, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_7);
-    __Pyx_XDECREF_SET(__pyx_v_col_data, ((PyObject*)__pyx_t_7));
-    __pyx_t_7 = 0;
-
-    /* "rugo/csv/csv_reader.pyx":260
- *         col_data = []
- * 
+ *         # Pre-allocate list for faster assignment and fewer resizes
  *         if col_type == "int64":             # <<<<<<<<<<<<<<
- *             for j in range(table.columns[i].int_values.size()):
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:
+ *             n = table.columns[i].int_values.size()
+ *             nm = table.columns[i].null_mask.size()
 */
-    __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_col_type, __pyx_mstate_global->__pyx_n_u_int64, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 260, __pyx_L1_error)
+    __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_col_type, __pyx_mstate_global->__pyx_n_u_int64, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 259, __pyx_L1_error)
     if (__pyx_t_1) {
 
-      /* "rugo/csv/csv_reader.pyx":261
- * 
+      /* "rugo/csv/csv_reader.pyx":260
+ *         # Pre-allocate list for faster assignment and fewer resizes
  *         if col_type == "int64":
- *             for j in range(table.columns[i].int_values.size()):             # <<<<<<<<<<<<<<
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:
- *                     col_data.append(None)
+ *             n = table.columns[i].int_values.size()             # <<<<<<<<<<<<<<
+ *             nm = table.columns[i].null_mask.size()
+ *             col_data = [None] * n
 */
-      __pyx_t_21 = (__pyx_v_table.columns[__pyx_v_i]).int_values.size();
+      __pyx_v_n = (__pyx_v_table.columns[__pyx_v_i]).int_values.size();
+
+      /* "rugo/csv/csv_reader.pyx":261
+ *         if col_type == "int64":
+ *             n = table.columns[i].int_values.size()
+ *             nm = table.columns[i].null_mask.size()             # <<<<<<<<<<<<<<
+ *             col_data = [None] * n
+ *             for j in range(n):
+*/
+      __pyx_v_nm = (__pyx_v_table.columns[__pyx_v_i]).null_mask.size();
+
+      /* "rugo/csv/csv_reader.pyx":262
+ *             n = table.columns[i].int_values.size()
+ *             nm = table.columns[i].null_mask.size()
+ *             col_data = [None] * n             # <<<<<<<<<<<<<<
+ *             for j in range(n):
+ *                 if nm == n:
+*/
+      __pyx_t_7 = PyList_New(1 * (__pyx_v_n)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 262, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_7);
+      { Py_ssize_t __pyx_temp;
+        for (__pyx_temp=0; __pyx_temp < __pyx_v_n; __pyx_temp++) {
+          __Pyx_INCREF(Py_None);
+          __Pyx_GIVEREF(Py_None);
+          if (__Pyx_PyList_SET_ITEM(__pyx_t_7, __pyx_temp, Py_None) != (0)) __PYX_ERR(0, 262, __pyx_L1_error);
+        }
+      }
+      __Pyx_XDECREF_SET(__pyx_v_col_data, ((PyObject*)__pyx_t_7));
+      __pyx_t_7 = 0;
+
+      /* "rugo/csv/csv_reader.pyx":263
+ *             nm = table.columns[i].null_mask.size()
+ *             col_data = [None] * n
+ *             for j in range(n):             # <<<<<<<<<<<<<<
+ *                 if nm == n:
+ *                     if table.columns[i].null_mask[j]:
+*/
+      __pyx_t_21 = __pyx_v_n;
       __pyx_t_22 = __pyx_t_21;
       for (__pyx_t_23 = 0; __pyx_t_23 < __pyx_t_22; __pyx_t_23+=1) {
         __pyx_v_j = __pyx_t_23;
 
-        /* "rugo/csv/csv_reader.pyx":262
- *         if col_type == "int64":
- *             for j in range(table.columns[i].int_values.size()):
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
- *                     col_data.append(None)
- *                 else:
+        /* "rugo/csv/csv_reader.pyx":264
+ *             col_data = [None] * n
+ *             for j in range(n):
+ *                 if nm == n:             # <<<<<<<<<<<<<<
+ *                     if table.columns[i].null_mask[j]:
+ *                         col_data[j] = None
 */
-        __pyx_t_24 = (__pyx_v_j < (__pyx_v_table.columns[__pyx_v_i]).null_mask.size());
-        if (__pyx_t_24) {
-        } else {
-          __pyx_t_1 = __pyx_t_24;
-          goto __pyx_L18_bool_binop_done;
-        }
-        __pyx_t_24 = (((__pyx_v_table.columns[__pyx_v_i]).null_mask[__pyx_v_j]) != 0);
-        __pyx_t_1 = __pyx_t_24;
-        __pyx_L18_bool_binop_done:;
+        __pyx_t_1 = (__pyx_v_nm == __pyx_v_n);
         if (__pyx_t_1) {
 
-          /* "rugo/csv/csv_reader.pyx":263
- *             for j in range(table.columns[i].int_values.size()):
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:
- *                     col_data.append(None)             # <<<<<<<<<<<<<<
- *                 else:
- *                     col_data.append(table.columns[i].int_values[j])
+          /* "rugo/csv/csv_reader.pyx":265
+ *             for j in range(n):
+ *                 if nm == n:
+ *                     if table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
+ *                         col_data[j] = None
+ *                     else:
 */
-          __pyx_t_18 = __Pyx_PyList_Append(__pyx_v_col_data, Py_None); if (unlikely(__pyx_t_18 == ((int)-1))) __PYX_ERR(0, 263, __pyx_L1_error)
+          __pyx_t_1 = (((__pyx_v_table.columns[__pyx_v_i]).null_mask[__pyx_v_j]) != 0);
+          if (__pyx_t_1) {
 
-          /* "rugo/csv/csv_reader.pyx":262
- *         if col_type == "int64":
- *             for j in range(table.columns[i].int_values.size()):
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
- *                     col_data.append(None)
+            /* "rugo/csv/csv_reader.pyx":266
+ *                 if nm == n:
+ *                     if table.columns[i].null_mask[j]:
+ *                         col_data[j] = None             # <<<<<<<<<<<<<<
+ *                     else:
+ *                         col_data[j] = table.columns[i].int_values[j]
+*/
+            if (unlikely((__Pyx_SetItemInt(__pyx_v_col_data, __pyx_v_j, Py_None, size_t, 0, __Pyx_PyLong_FromSize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 266, __pyx_L1_error)
+
+            /* "rugo/csv/csv_reader.pyx":265
+ *             for j in range(n):
+ *                 if nm == n:
+ *                     if table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
+ *                         col_data[j] = None
+ *                     else:
+*/
+            goto __pyx_L18;
+          }
+
+          /* "rugo/csv/csv_reader.pyx":268
+ *                         col_data[j] = None
+ *                     else:
+ *                         col_data[j] = table.columns[i].int_values[j]             # <<<<<<<<<<<<<<
  *                 else:
+ *                     if j < nm and table.columns[i].null_mask[j]:
+*/
+          /*else*/ {
+            __pyx_t_7 = __Pyx_PyLong_From_PY_LONG_LONG(((__pyx_v_table.columns[__pyx_v_i]).int_values[__pyx_v_j])); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 268, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_7);
+            if (unlikely((__Pyx_SetItemInt(__pyx_v_col_data, __pyx_v_j, __pyx_t_7, size_t, 0, __Pyx_PyLong_FromSize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 268, __pyx_L1_error)
+            __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+          }
+          __pyx_L18:;
+
+          /* "rugo/csv/csv_reader.pyx":264
+ *             col_data = [None] * n
+ *             for j in range(n):
+ *                 if nm == n:             # <<<<<<<<<<<<<<
+ *                     if table.columns[i].null_mask[j]:
+ *                         col_data[j] = None
 */
           goto __pyx_L17;
         }
 
-        /* "rugo/csv/csv_reader.pyx":265
- *                     col_data.append(None)
+        /* "rugo/csv/csv_reader.pyx":270
+ *                         col_data[j] = table.columns[i].int_values[j]
  *                 else:
- *                     col_data.append(table.columns[i].int_values[j])             # <<<<<<<<<<<<<<
- *         elif col_type == "double":
- *             for j in range(table.columns[i].double_values.size()):
+ *                     if j < nm and table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
+ *                         col_data[j] = None
+ *                     else:
 */
         /*else*/ {
-          __pyx_t_7 = __Pyx_PyLong_From_PY_LONG_LONG(((__pyx_v_table.columns[__pyx_v_i]).int_values[__pyx_v_j])); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 265, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_7);
-          __pyx_t_18 = __Pyx_PyList_Append(__pyx_v_col_data, __pyx_t_7); if (unlikely(__pyx_t_18 == ((int)-1))) __PYX_ERR(0, 265, __pyx_L1_error)
-          __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+          __pyx_t_24 = (__pyx_v_j < __pyx_v_nm);
+          if (__pyx_t_24) {
+          } else {
+            __pyx_t_1 = __pyx_t_24;
+            goto __pyx_L20_bool_binop_done;
+          }
+          __pyx_t_24 = (((__pyx_v_table.columns[__pyx_v_i]).null_mask[__pyx_v_j]) != 0);
+          __pyx_t_1 = __pyx_t_24;
+          __pyx_L20_bool_binop_done:;
+          if (__pyx_t_1) {
+
+            /* "rugo/csv/csv_reader.pyx":271
+ *                 else:
+ *                     if j < nm and table.columns[i].null_mask[j]:
+ *                         col_data[j] = None             # <<<<<<<<<<<<<<
+ *                     else:
+ *                         col_data[j] = table.columns[i].int_values[j]
+*/
+            if (unlikely((__Pyx_SetItemInt(__pyx_v_col_data, __pyx_v_j, Py_None, size_t, 0, __Pyx_PyLong_FromSize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 271, __pyx_L1_error)
+
+            /* "rugo/csv/csv_reader.pyx":270
+ *                         col_data[j] = table.columns[i].int_values[j]
+ *                 else:
+ *                     if j < nm and table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
+ *                         col_data[j] = None
+ *                     else:
+*/
+            goto __pyx_L19;
+          }
+
+          /* "rugo/csv/csv_reader.pyx":273
+ *                         col_data[j] = None
+ *                     else:
+ *                         col_data[j] = table.columns[i].int_values[j]             # <<<<<<<<<<<<<<
+ *         elif col_type == "double":
+ *             n = table.columns[i].double_values.size()
+*/
+          /*else*/ {
+            __pyx_t_7 = __Pyx_PyLong_From_PY_LONG_LONG(((__pyx_v_table.columns[__pyx_v_i]).int_values[__pyx_v_j])); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 273, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_7);
+            if (unlikely((__Pyx_SetItemInt(__pyx_v_col_data, __pyx_v_j, __pyx_t_7, size_t, 0, __Pyx_PyLong_FromSize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 273, __pyx_L1_error)
+            __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+          }
+          __pyx_L19:;
         }
         __pyx_L17:;
       }
 
-      /* "rugo/csv/csv_reader.pyx":260
- *         col_data = []
- * 
+      /* "rugo/csv/csv_reader.pyx":259
+ *         col_type = table.columns[i].type.decode('utf-8')
+ *         # Pre-allocate list for faster assignment and fewer resizes
  *         if col_type == "int64":             # <<<<<<<<<<<<<<
- *             for j in range(table.columns[i].int_values.size()):
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:
+ *             n = table.columns[i].int_values.size()
+ *             nm = table.columns[i].null_mask.size()
 */
       goto __pyx_L14;
     }
 
-    /* "rugo/csv/csv_reader.pyx":266
- *                 else:
- *                     col_data.append(table.columns[i].int_values[j])
+    /* "rugo/csv/csv_reader.pyx":274
+ *                     else:
+ *                         col_data[j] = table.columns[i].int_values[j]
  *         elif col_type == "double":             # <<<<<<<<<<<<<<
- *             for j in range(table.columns[i].double_values.size()):
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:
+ *             n = table.columns[i].double_values.size()
+ *             nm = table.columns[i].null_mask.size()
 */
-    __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_col_type, __pyx_mstate_global->__pyx_n_u_double, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 266, __pyx_L1_error)
+    __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_col_type, __pyx_mstate_global->__pyx_n_u_double, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 274, __pyx_L1_error)
     if (__pyx_t_1) {
 
-      /* "rugo/csv/csv_reader.pyx":267
- *                     col_data.append(table.columns[i].int_values[j])
+      /* "rugo/csv/csv_reader.pyx":275
+ *                         col_data[j] = table.columns[i].int_values[j]
  *         elif col_type == "double":
- *             for j in range(table.columns[i].double_values.size()):             # <<<<<<<<<<<<<<
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:
- *                     col_data.append(None)
+ *             n = table.columns[i].double_values.size()             # <<<<<<<<<<<<<<
+ *             nm = table.columns[i].null_mask.size()
+ *             col_data = [None] * n
 */
-      __pyx_t_25 = (__pyx_v_table.columns[__pyx_v_i]).double_values.size();
-      __pyx_t_26 = __pyx_t_25;
-      for (__pyx_t_23 = 0; __pyx_t_23 < __pyx_t_26; __pyx_t_23+=1) {
-        __pyx_v_j = __pyx_t_23;
+      __pyx_v_n = (__pyx_v_table.columns[__pyx_v_i]).double_values.size();
 
-        /* "rugo/csv/csv_reader.pyx":268
+      /* "rugo/csv/csv_reader.pyx":276
  *         elif col_type == "double":
- *             for j in range(table.columns[i].double_values.size()):
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
- *                     col_data.append(None)
- *                 else:
+ *             n = table.columns[i].double_values.size()
+ *             nm = table.columns[i].null_mask.size()             # <<<<<<<<<<<<<<
+ *             col_data = [None] * n
+ *             for j in range(n):
 */
-        __pyx_t_24 = (__pyx_v_j < (__pyx_v_table.columns[__pyx_v_i]).null_mask.size());
-        if (__pyx_t_24) {
-        } else {
-          __pyx_t_1 = __pyx_t_24;
-          goto __pyx_L23_bool_binop_done;
-        }
-        __pyx_t_24 = (((__pyx_v_table.columns[__pyx_v_i]).null_mask[__pyx_v_j]) != 0);
-        __pyx_t_1 = __pyx_t_24;
-        __pyx_L23_bool_binop_done:;
-        if (__pyx_t_1) {
+      __pyx_v_nm = (__pyx_v_table.columns[__pyx_v_i]).null_mask.size();
 
-          /* "rugo/csv/csv_reader.pyx":269
- *             for j in range(table.columns[i].double_values.size()):
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:
- *                     col_data.append(None)             # <<<<<<<<<<<<<<
- *                 else:
- *                     col_data.append(table.columns[i].double_values[j])
+      /* "rugo/csv/csv_reader.pyx":277
+ *             n = table.columns[i].double_values.size()
+ *             nm = table.columns[i].null_mask.size()
+ *             col_data = [None] * n             # <<<<<<<<<<<<<<
+ *             for j in range(n):
+ *                 if nm == n:
 */
-          __pyx_t_18 = __Pyx_PyList_Append(__pyx_v_col_data, Py_None); if (unlikely(__pyx_t_18 == ((int)-1))) __PYX_ERR(0, 269, __pyx_L1_error)
-
-          /* "rugo/csv/csv_reader.pyx":268
- *         elif col_type == "double":
- *             for j in range(table.columns[i].double_values.size()):
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
- *                     col_data.append(None)
- *                 else:
-*/
-          goto __pyx_L22;
+      __pyx_t_7 = PyList_New(1 * (__pyx_v_n)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 277, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_7);
+      { Py_ssize_t __pyx_temp;
+        for (__pyx_temp=0; __pyx_temp < __pyx_v_n; __pyx_temp++) {
+          __Pyx_INCREF(Py_None);
+          __Pyx_GIVEREF(Py_None);
+          if (__Pyx_PyList_SET_ITEM(__pyx_t_7, __pyx_temp, Py_None) != (0)) __PYX_ERR(0, 277, __pyx_L1_error);
         }
-
-        /* "rugo/csv/csv_reader.pyx":271
- *                     col_data.append(None)
- *                 else:
- *                     col_data.append(table.columns[i].double_values[j])             # <<<<<<<<<<<<<<
- *         elif col_type == "boolean":
- *             for j in range(table.columns[i].boolean_values.size()):
-*/
-        /*else*/ {
-          __pyx_t_7 = PyFloat_FromDouble(((__pyx_v_table.columns[__pyx_v_i]).double_values[__pyx_v_j])); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 271, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_7);
-          __pyx_t_18 = __Pyx_PyList_Append(__pyx_v_col_data, __pyx_t_7); if (unlikely(__pyx_t_18 == ((int)-1))) __PYX_ERR(0, 271, __pyx_L1_error)
-          __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-        }
-        __pyx_L22:;
       }
+      __Pyx_XDECREF_SET(__pyx_v_col_data, ((PyObject*)__pyx_t_7));
+      __pyx_t_7 = 0;
 
-      /* "rugo/csv/csv_reader.pyx":266
- *                 else:
- *                     col_data.append(table.columns[i].int_values[j])
- *         elif col_type == "double":             # <<<<<<<<<<<<<<
- *             for j in range(table.columns[i].double_values.size()):
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:
+      /* "rugo/csv/csv_reader.pyx":278
+ *             nm = table.columns[i].null_mask.size()
+ *             col_data = [None] * n
+ *             for j in range(n):             # <<<<<<<<<<<<<<
+ *                 if nm == n:
+ *                     if table.columns[i].null_mask[j]:
 */
-      goto __pyx_L14;
-    }
-
-    /* "rugo/csv/csv_reader.pyx":272
- *                 else:
- *                     col_data.append(table.columns[i].double_values[j])
- *         elif col_type == "boolean":             # <<<<<<<<<<<<<<
- *             for j in range(table.columns[i].boolean_values.size()):
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:
-*/
-    __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_col_type, __pyx_mstate_global->__pyx_n_u_boolean, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 272, __pyx_L1_error)
-    if (__pyx_t_1) {
-
-      /* "rugo/csv/csv_reader.pyx":273
- *                     col_data.append(table.columns[i].double_values[j])
- *         elif col_type == "boolean":
- *             for j in range(table.columns[i].boolean_values.size()):             # <<<<<<<<<<<<<<
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:
- *                     col_data.append(None)
-*/
-      __pyx_t_27 = (__pyx_v_table.columns[__pyx_v_i]).boolean_values.size();
-      __pyx_t_28 = __pyx_t_27;
-      for (__pyx_t_23 = 0; __pyx_t_23 < __pyx_t_28; __pyx_t_23+=1) {
+      __pyx_t_21 = __pyx_v_n;
+      __pyx_t_22 = __pyx_t_21;
+      for (__pyx_t_23 = 0; __pyx_t_23 < __pyx_t_22; __pyx_t_23+=1) {
         __pyx_v_j = __pyx_t_23;
 
-        /* "rugo/csv/csv_reader.pyx":274
- *         elif col_type == "boolean":
- *             for j in range(table.columns[i].boolean_values.size()):
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
- *                     col_data.append(None)
- *                 else:
+        /* "rugo/csv/csv_reader.pyx":279
+ *             col_data = [None] * n
+ *             for j in range(n):
+ *                 if nm == n:             # <<<<<<<<<<<<<<
+ *                     if table.columns[i].null_mask[j]:
+ *                         col_data[j] = None
 */
-        __pyx_t_24 = (__pyx_v_j < (__pyx_v_table.columns[__pyx_v_i]).null_mask.size());
-        if (__pyx_t_24) {
-        } else {
-          __pyx_t_1 = __pyx_t_24;
-          goto __pyx_L28_bool_binop_done;
-        }
-        __pyx_t_24 = (((__pyx_v_table.columns[__pyx_v_i]).null_mask[__pyx_v_j]) != 0);
-        __pyx_t_1 = __pyx_t_24;
-        __pyx_L28_bool_binop_done:;
+        __pyx_t_1 = (__pyx_v_nm == __pyx_v_n);
         if (__pyx_t_1) {
-
-          /* "rugo/csv/csv_reader.pyx":275
- *             for j in range(table.columns[i].boolean_values.size()):
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:
- *                     col_data.append(None)             # <<<<<<<<<<<<<<
- *                 else:
- *                     col_data.append(bool(table.columns[i].boolean_values[j]))
-*/
-          __pyx_t_18 = __Pyx_PyList_Append(__pyx_v_col_data, Py_None); if (unlikely(__pyx_t_18 == ((int)-1))) __PYX_ERR(0, 275, __pyx_L1_error)
-
-          /* "rugo/csv/csv_reader.pyx":274
- *         elif col_type == "boolean":
- *             for j in range(table.columns[i].boolean_values.size()):
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
- *                     col_data.append(None)
- *                 else:
-*/
-          goto __pyx_L27;
-        }
-
-        /* "rugo/csv/csv_reader.pyx":277
- *                     col_data.append(None)
- *                 else:
- *                     col_data.append(bool(table.columns[i].boolean_values[j]))             # <<<<<<<<<<<<<<
- *         else:  # string
- *             for j in range(table.columns[i].string_values.size()):
-*/
-        /*else*/ {
-          __pyx_t_7 = __Pyx_PyLong_From_uint8_t(((__pyx_v_table.columns[__pyx_v_i]).boolean_values[__pyx_v_j])); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 277, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_7);
-          __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 277, __pyx_L1_error)
-          __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-          __pyx_t_7 = __Pyx_PyBool_FromLong((!(!__pyx_t_1))); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 277, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_7);
-          __pyx_t_18 = __Pyx_PyList_Append(__pyx_v_col_data, __pyx_t_7); if (unlikely(__pyx_t_18 == ((int)-1))) __PYX_ERR(0, 277, __pyx_L1_error)
-          __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-        }
-        __pyx_L27:;
-      }
-
-      /* "rugo/csv/csv_reader.pyx":272
- *                 else:
- *                     col_data.append(table.columns[i].double_values[j])
- *         elif col_type == "boolean":             # <<<<<<<<<<<<<<
- *             for j in range(table.columns[i].boolean_values.size()):
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:
-*/
-      goto __pyx_L14;
-    }
-
-    /* "rugo/csv/csv_reader.pyx":279
- *                     col_data.append(bool(table.columns[i].boolean_values[j]))
- *         else:  # string
- *             for j in range(table.columns[i].string_values.size()):             # <<<<<<<<<<<<<<
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:
- *                     col_data.append(None)
-*/
-    /*else*/ {
-      __pyx_t_16 = (__pyx_v_table.columns[__pyx_v_i]).string_values.size();
-      __pyx_t_17 = __pyx_t_16;
-      for (__pyx_t_23 = 0; __pyx_t_23 < __pyx_t_17; __pyx_t_23+=1) {
-        __pyx_v_j = __pyx_t_23;
-
-        /* "rugo/csv/csv_reader.pyx":280
- *         else:  # string
- *             for j in range(table.columns[i].string_values.size()):
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
- *                     col_data.append(None)
- *                 else:
-*/
-        __pyx_t_24 = (__pyx_v_j < (__pyx_v_table.columns[__pyx_v_i]).null_mask.size());
-        if (__pyx_t_24) {
-        } else {
-          __pyx_t_1 = __pyx_t_24;
-          goto __pyx_L33_bool_binop_done;
-        }
-        __pyx_t_24 = (((__pyx_v_table.columns[__pyx_v_i]).null_mask[__pyx_v_j]) != 0);
-        __pyx_t_1 = __pyx_t_24;
-        __pyx_L33_bool_binop_done:;
-        if (__pyx_t_1) {
-
-          /* "rugo/csv/csv_reader.pyx":281
- *             for j in range(table.columns[i].string_values.size()):
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:
- *                     col_data.append(None)             # <<<<<<<<<<<<<<
- *                 else:
- *                     col_data.append(table.columns[i].string_values[j].decode('utf-8'))
-*/
-          __pyx_t_18 = __Pyx_PyList_Append(__pyx_v_col_data, Py_None); if (unlikely(__pyx_t_18 == ((int)-1))) __PYX_ERR(0, 281, __pyx_L1_error)
 
           /* "rugo/csv/csv_reader.pyx":280
- *         else:  # string
- *             for j in range(table.columns[i].string_values.size()):
- *                 if j < table.columns[i].null_mask.size() and table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
- *                     col_data.append(None)
- *                 else:
+ *             for j in range(n):
+ *                 if nm == n:
+ *                     if table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
+ *                         col_data[j] = None
+ *                     else:
 */
-          goto __pyx_L32;
+          __pyx_t_1 = (((__pyx_v_table.columns[__pyx_v_i]).null_mask[__pyx_v_j]) != 0);
+          if (__pyx_t_1) {
+
+            /* "rugo/csv/csv_reader.pyx":281
+ *                 if nm == n:
+ *                     if table.columns[i].null_mask[j]:
+ *                         col_data[j] = None             # <<<<<<<<<<<<<<
+ *                     else:
+ *                         col_data[j] = table.columns[i].double_values[j]
+*/
+            if (unlikely((__Pyx_SetItemInt(__pyx_v_col_data, __pyx_v_j, Py_None, size_t, 0, __Pyx_PyLong_FromSize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 281, __pyx_L1_error)
+
+            /* "rugo/csv/csv_reader.pyx":280
+ *             for j in range(n):
+ *                 if nm == n:
+ *                     if table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
+ *                         col_data[j] = None
+ *                     else:
+*/
+            goto __pyx_L25;
+          }
+
+          /* "rugo/csv/csv_reader.pyx":283
+ *                         col_data[j] = None
+ *                     else:
+ *                         col_data[j] = table.columns[i].double_values[j]             # <<<<<<<<<<<<<<
+ *                 else:
+ *                     if j < nm and table.columns[i].null_mask[j]:
+*/
+          /*else*/ {
+            __pyx_t_7 = PyFloat_FromDouble(((__pyx_v_table.columns[__pyx_v_i]).double_values[__pyx_v_j])); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 283, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_7);
+            if (unlikely((__Pyx_SetItemInt(__pyx_v_col_data, __pyx_v_j, __pyx_t_7, size_t, 0, __Pyx_PyLong_FromSize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 283, __pyx_L1_error)
+            __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+          }
+          __pyx_L25:;
+
+          /* "rugo/csv/csv_reader.pyx":279
+ *             col_data = [None] * n
+ *             for j in range(n):
+ *                 if nm == n:             # <<<<<<<<<<<<<<
+ *                     if table.columns[i].null_mask[j]:
+ *                         col_data[j] = None
+*/
+          goto __pyx_L24;
         }
 
-        /* "rugo/csv/csv_reader.pyx":283
- *                     col_data.append(None)
+        /* "rugo/csv/csv_reader.pyx":285
+ *                         col_data[j] = table.columns[i].double_values[j]
  *                 else:
- *                     col_data.append(table.columns[i].string_values[j].decode('utf-8'))             # <<<<<<<<<<<<<<
+ *                     if j < nm and table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
+ *                         col_data[j] = None
+ *                     else:
+*/
+        /*else*/ {
+          __pyx_t_24 = (__pyx_v_j < __pyx_v_nm);
+          if (__pyx_t_24) {
+          } else {
+            __pyx_t_1 = __pyx_t_24;
+            goto __pyx_L27_bool_binop_done;
+          }
+          __pyx_t_24 = (((__pyx_v_table.columns[__pyx_v_i]).null_mask[__pyx_v_j]) != 0);
+          __pyx_t_1 = __pyx_t_24;
+          __pyx_L27_bool_binop_done:;
+          if (__pyx_t_1) {
+
+            /* "rugo/csv/csv_reader.pyx":286
+ *                 else:
+ *                     if j < nm and table.columns[i].null_mask[j]:
+ *                         col_data[j] = None             # <<<<<<<<<<<<<<
+ *                     else:
+ *                         col_data[j] = table.columns[i].double_values[j]
+*/
+            if (unlikely((__Pyx_SetItemInt(__pyx_v_col_data, __pyx_v_j, Py_None, size_t, 0, __Pyx_PyLong_FromSize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 286, __pyx_L1_error)
+
+            /* "rugo/csv/csv_reader.pyx":285
+ *                         col_data[j] = table.columns[i].double_values[j]
+ *                 else:
+ *                     if j < nm and table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
+ *                         col_data[j] = None
+ *                     else:
+*/
+            goto __pyx_L26;
+          }
+
+          /* "rugo/csv/csv_reader.pyx":288
+ *                         col_data[j] = None
+ *                     else:
+ *                         col_data[j] = table.columns[i].double_values[j]             # <<<<<<<<<<<<<<
+ *         elif col_type == "boolean":
+ *             n = table.columns[i].boolean_values.size()
+*/
+          /*else*/ {
+            __pyx_t_7 = PyFloat_FromDouble(((__pyx_v_table.columns[__pyx_v_i]).double_values[__pyx_v_j])); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 288, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_7);
+            if (unlikely((__Pyx_SetItemInt(__pyx_v_col_data, __pyx_v_j, __pyx_t_7, size_t, 0, __Pyx_PyLong_FromSize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 288, __pyx_L1_error)
+            __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+          }
+          __pyx_L26:;
+        }
+        __pyx_L24:;
+      }
+
+      /* "rugo/csv/csv_reader.pyx":274
+ *                     else:
+ *                         col_data[j] = table.columns[i].int_values[j]
+ *         elif col_type == "double":             # <<<<<<<<<<<<<<
+ *             n = table.columns[i].double_values.size()
+ *             nm = table.columns[i].null_mask.size()
+*/
+      goto __pyx_L14;
+    }
+
+    /* "rugo/csv/csv_reader.pyx":289
+ *                     else:
+ *                         col_data[j] = table.columns[i].double_values[j]
+ *         elif col_type == "boolean":             # <<<<<<<<<<<<<<
+ *             n = table.columns[i].boolean_values.size()
+ *             nm = table.columns[i].null_mask.size()
+*/
+    __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_col_type, __pyx_mstate_global->__pyx_n_u_boolean, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 289, __pyx_L1_error)
+    if (__pyx_t_1) {
+
+      /* "rugo/csv/csv_reader.pyx":290
+ *                         col_data[j] = table.columns[i].double_values[j]
+ *         elif col_type == "boolean":
+ *             n = table.columns[i].boolean_values.size()             # <<<<<<<<<<<<<<
+ *             nm = table.columns[i].null_mask.size()
+ *             col_data = [None] * n
+*/
+      __pyx_v_n = (__pyx_v_table.columns[__pyx_v_i]).boolean_values.size();
+
+      /* "rugo/csv/csv_reader.pyx":291
+ *         elif col_type == "boolean":
+ *             n = table.columns[i].boolean_values.size()
+ *             nm = table.columns[i].null_mask.size()             # <<<<<<<<<<<<<<
+ *             col_data = [None] * n
+ *             for j in range(n):
+*/
+      __pyx_v_nm = (__pyx_v_table.columns[__pyx_v_i]).null_mask.size();
+
+      /* "rugo/csv/csv_reader.pyx":292
+ *             n = table.columns[i].boolean_values.size()
+ *             nm = table.columns[i].null_mask.size()
+ *             col_data = [None] * n             # <<<<<<<<<<<<<<
+ *             for j in range(n):
+ *                 if nm == n:
+*/
+      __pyx_t_7 = PyList_New(1 * (__pyx_v_n)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 292, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_7);
+      { Py_ssize_t __pyx_temp;
+        for (__pyx_temp=0; __pyx_temp < __pyx_v_n; __pyx_temp++) {
+          __Pyx_INCREF(Py_None);
+          __Pyx_GIVEREF(Py_None);
+          if (__Pyx_PyList_SET_ITEM(__pyx_t_7, __pyx_temp, Py_None) != (0)) __PYX_ERR(0, 292, __pyx_L1_error);
+        }
+      }
+      __Pyx_XDECREF_SET(__pyx_v_col_data, ((PyObject*)__pyx_t_7));
+      __pyx_t_7 = 0;
+
+      /* "rugo/csv/csv_reader.pyx":293
+ *             nm = table.columns[i].null_mask.size()
+ *             col_data = [None] * n
+ *             for j in range(n):             # <<<<<<<<<<<<<<
+ *                 if nm == n:
+ *                     if table.columns[i].null_mask[j]:
+*/
+      __pyx_t_21 = __pyx_v_n;
+      __pyx_t_22 = __pyx_t_21;
+      for (__pyx_t_23 = 0; __pyx_t_23 < __pyx_t_22; __pyx_t_23+=1) {
+        __pyx_v_j = __pyx_t_23;
+
+        /* "rugo/csv/csv_reader.pyx":294
+ *             col_data = [None] * n
+ *             for j in range(n):
+ *                 if nm == n:             # <<<<<<<<<<<<<<
+ *                     if table.columns[i].null_mask[j]:
+ *                         col_data[j] = None
+*/
+        __pyx_t_1 = (__pyx_v_nm == __pyx_v_n);
+        if (__pyx_t_1) {
+
+          /* "rugo/csv/csv_reader.pyx":295
+ *             for j in range(n):
+ *                 if nm == n:
+ *                     if table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
+ *                         col_data[j] = None
+ *                     else:
+*/
+          __pyx_t_1 = (((__pyx_v_table.columns[__pyx_v_i]).null_mask[__pyx_v_j]) != 0);
+          if (__pyx_t_1) {
+
+            /* "rugo/csv/csv_reader.pyx":296
+ *                 if nm == n:
+ *                     if table.columns[i].null_mask[j]:
+ *                         col_data[j] = None             # <<<<<<<<<<<<<<
+ *                     else:
+ *                         col_data[j] = bool(table.columns[i].boolean_values[j])
+*/
+            if (unlikely((__Pyx_SetItemInt(__pyx_v_col_data, __pyx_v_j, Py_None, size_t, 0, __Pyx_PyLong_FromSize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 296, __pyx_L1_error)
+
+            /* "rugo/csv/csv_reader.pyx":295
+ *             for j in range(n):
+ *                 if nm == n:
+ *                     if table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
+ *                         col_data[j] = None
+ *                     else:
+*/
+            goto __pyx_L32;
+          }
+
+          /* "rugo/csv/csv_reader.pyx":298
+ *                         col_data[j] = None
+ *                     else:
+ *                         col_data[j] = bool(table.columns[i].boolean_values[j])             # <<<<<<<<<<<<<<
+ *                 else:
+ *                     if j < nm and table.columns[i].null_mask[j]:
+*/
+          /*else*/ {
+            __pyx_t_7 = __Pyx_PyLong_From_uint8_t(((__pyx_v_table.columns[__pyx_v_i]).boolean_values[__pyx_v_j])); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 298, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_7);
+            __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 298, __pyx_L1_error)
+            __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+            __pyx_t_7 = __Pyx_PyBool_FromLong((!(!__pyx_t_1))); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 298, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_7);
+            if (unlikely((__Pyx_SetItemInt(__pyx_v_col_data, __pyx_v_j, __pyx_t_7, size_t, 0, __Pyx_PyLong_FromSize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 298, __pyx_L1_error)
+            __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+          }
+          __pyx_L32:;
+
+          /* "rugo/csv/csv_reader.pyx":294
+ *             col_data = [None] * n
+ *             for j in range(n):
+ *                 if nm == n:             # <<<<<<<<<<<<<<
+ *                     if table.columns[i].null_mask[j]:
+ *                         col_data[j] = None
+*/
+          goto __pyx_L31;
+        }
+
+        /* "rugo/csv/csv_reader.pyx":300
+ *                         col_data[j] = bool(table.columns[i].boolean_values[j])
+ *                 else:
+ *                     if j < nm and table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
+ *                         col_data[j] = None
+ *                     else:
+*/
+        /*else*/ {
+          __pyx_t_24 = (__pyx_v_j < __pyx_v_nm);
+          if (__pyx_t_24) {
+          } else {
+            __pyx_t_1 = __pyx_t_24;
+            goto __pyx_L34_bool_binop_done;
+          }
+          __pyx_t_24 = (((__pyx_v_table.columns[__pyx_v_i]).null_mask[__pyx_v_j]) != 0);
+          __pyx_t_1 = __pyx_t_24;
+          __pyx_L34_bool_binop_done:;
+          if (__pyx_t_1) {
+
+            /* "rugo/csv/csv_reader.pyx":301
+ *                 else:
+ *                     if j < nm and table.columns[i].null_mask[j]:
+ *                         col_data[j] = None             # <<<<<<<<<<<<<<
+ *                     else:
+ *                         col_data[j] = bool(table.columns[i].boolean_values[j])
+*/
+            if (unlikely((__Pyx_SetItemInt(__pyx_v_col_data, __pyx_v_j, Py_None, size_t, 0, __Pyx_PyLong_FromSize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 301, __pyx_L1_error)
+
+            /* "rugo/csv/csv_reader.pyx":300
+ *                         col_data[j] = bool(table.columns[i].boolean_values[j])
+ *                 else:
+ *                     if j < nm and table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
+ *                         col_data[j] = None
+ *                     else:
+*/
+            goto __pyx_L33;
+          }
+
+          /* "rugo/csv/csv_reader.pyx":303
+ *                         col_data[j] = None
+ *                     else:
+ *                         col_data[j] = bool(table.columns[i].boolean_values[j])             # <<<<<<<<<<<<<<
+ *         else:  # string
+ *             n = table.columns[i].string_values.size()
+*/
+          /*else*/ {
+            __pyx_t_7 = __Pyx_PyLong_From_uint8_t(((__pyx_v_table.columns[__pyx_v_i]).boolean_values[__pyx_v_j])); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 303, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_7);
+            __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 303, __pyx_L1_error)
+            __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+            __pyx_t_7 = __Pyx_PyBool_FromLong((!(!__pyx_t_1))); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 303, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_7);
+            if (unlikely((__Pyx_SetItemInt(__pyx_v_col_data, __pyx_v_j, __pyx_t_7, size_t, 0, __Pyx_PyLong_FromSize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 303, __pyx_L1_error)
+            __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+          }
+          __pyx_L33:;
+        }
+        __pyx_L31:;
+      }
+
+      /* "rugo/csv/csv_reader.pyx":289
+ *                     else:
+ *                         col_data[j] = table.columns[i].double_values[j]
+ *         elif col_type == "boolean":             # <<<<<<<<<<<<<<
+ *             n = table.columns[i].boolean_values.size()
+ *             nm = table.columns[i].null_mask.size()
+*/
+      goto __pyx_L14;
+    }
+
+    /* "rugo/csv/csv_reader.pyx":305
+ *                         col_data[j] = bool(table.columns[i].boolean_values[j])
+ *         else:  # string
+ *             n = table.columns[i].string_values.size()             # <<<<<<<<<<<<<<
+ *             nm = table.columns[i].null_mask.size()
+ *             col_data = [None] * n
+*/
+    /*else*/ {
+      __pyx_v_n = (__pyx_v_table.columns[__pyx_v_i]).string_values.size();
+
+      /* "rugo/csv/csv_reader.pyx":306
+ *         else:  # string
+ *             n = table.columns[i].string_values.size()
+ *             nm = table.columns[i].null_mask.size()             # <<<<<<<<<<<<<<
+ *             col_data = [None] * n
+ *             for j in range(n):
+*/
+      __pyx_v_nm = (__pyx_v_table.columns[__pyx_v_i]).null_mask.size();
+
+      /* "rugo/csv/csv_reader.pyx":307
+ *             n = table.columns[i].string_values.size()
+ *             nm = table.columns[i].null_mask.size()
+ *             col_data = [None] * n             # <<<<<<<<<<<<<<
+ *             for j in range(n):
+ *                 if nm == n:
+*/
+      __pyx_t_7 = PyList_New(1 * (__pyx_v_n)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 307, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_7);
+      { Py_ssize_t __pyx_temp;
+        for (__pyx_temp=0; __pyx_temp < __pyx_v_n; __pyx_temp++) {
+          __Pyx_INCREF(Py_None);
+          __Pyx_GIVEREF(Py_None);
+          if (__Pyx_PyList_SET_ITEM(__pyx_t_7, __pyx_temp, Py_None) != (0)) __PYX_ERR(0, 307, __pyx_L1_error);
+        }
+      }
+      __Pyx_XDECREF_SET(__pyx_v_col_data, ((PyObject*)__pyx_t_7));
+      __pyx_t_7 = 0;
+
+      /* "rugo/csv/csv_reader.pyx":308
+ *             nm = table.columns[i].null_mask.size()
+ *             col_data = [None] * n
+ *             for j in range(n):             # <<<<<<<<<<<<<<
+ *                 if nm == n:
+ *                     if table.columns[i].null_mask[j]:
+*/
+      __pyx_t_21 = __pyx_v_n;
+      __pyx_t_22 = __pyx_t_21;
+      for (__pyx_t_23 = 0; __pyx_t_23 < __pyx_t_22; __pyx_t_23+=1) {
+        __pyx_v_j = __pyx_t_23;
+
+        /* "rugo/csv/csv_reader.pyx":309
+ *             col_data = [None] * n
+ *             for j in range(n):
+ *                 if nm == n:             # <<<<<<<<<<<<<<
+ *                     if table.columns[i].null_mask[j]:
+ *                         col_data[j] = None
+*/
+        __pyx_t_1 = (__pyx_v_nm == __pyx_v_n);
+        if (__pyx_t_1) {
+
+          /* "rugo/csv/csv_reader.pyx":310
+ *             for j in range(n):
+ *                 if nm == n:
+ *                     if table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
+ *                         col_data[j] = None
+ *                     else:
+*/
+          __pyx_t_1 = (((__pyx_v_table.columns[__pyx_v_i]).null_mask[__pyx_v_j]) != 0);
+          if (__pyx_t_1) {
+
+            /* "rugo/csv/csv_reader.pyx":311
+ *                 if nm == n:
+ *                     if table.columns[i].null_mask[j]:
+ *                         col_data[j] = None             # <<<<<<<<<<<<<<
+ *                     else:
+ *                         col_data[j] = table.columns[i].string_values[j].decode('utf-8')
+*/
+            if (unlikely((__Pyx_SetItemInt(__pyx_v_col_data, __pyx_v_j, Py_None, size_t, 0, __Pyx_PyLong_FromSize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 311, __pyx_L1_error)
+
+            /* "rugo/csv/csv_reader.pyx":310
+ *             for j in range(n):
+ *                 if nm == n:
+ *                     if table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
+ *                         col_data[j] = None
+ *                     else:
+*/
+            goto __pyx_L39;
+          }
+
+          /* "rugo/csv/csv_reader.pyx":313
+ *                         col_data[j] = None
+ *                     else:
+ *                         col_data[j] = table.columns[i].string_values[j].decode('utf-8')             # <<<<<<<<<<<<<<
+ *                 else:
+ *                     if j < nm and table.columns[i].null_mask[j]:
+*/
+          /*else*/ {
+            __pyx_t_7 = __Pyx_decode_cpp_string(((__pyx_v_table.columns[__pyx_v_i]).string_values[__pyx_v_j]), 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 313, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_7);
+            if (unlikely((__Pyx_SetItemInt(__pyx_v_col_data, __pyx_v_j, __pyx_t_7, size_t, 0, __Pyx_PyLong_FromSize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 313, __pyx_L1_error)
+            __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+          }
+          __pyx_L39:;
+
+          /* "rugo/csv/csv_reader.pyx":309
+ *             col_data = [None] * n
+ *             for j in range(n):
+ *                 if nm == n:             # <<<<<<<<<<<<<<
+ *                     if table.columns[i].null_mask[j]:
+ *                         col_data[j] = None
+*/
+          goto __pyx_L38;
+        }
+
+        /* "rugo/csv/csv_reader.pyx":315
+ *                         col_data[j] = table.columns[i].string_values[j].decode('utf-8')
+ *                 else:
+ *                     if j < nm and table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
+ *                         col_data[j] = None
+ *                     else:
+*/
+        /*else*/ {
+          __pyx_t_24 = (__pyx_v_j < __pyx_v_nm);
+          if (__pyx_t_24) {
+          } else {
+            __pyx_t_1 = __pyx_t_24;
+            goto __pyx_L41_bool_binop_done;
+          }
+          __pyx_t_24 = (((__pyx_v_table.columns[__pyx_v_i]).null_mask[__pyx_v_j]) != 0);
+          __pyx_t_1 = __pyx_t_24;
+          __pyx_L41_bool_binop_done:;
+          if (__pyx_t_1) {
+
+            /* "rugo/csv/csv_reader.pyx":316
+ *                 else:
+ *                     if j < nm and table.columns[i].null_mask[j]:
+ *                         col_data[j] = None             # <<<<<<<<<<<<<<
+ *                     else:
+ *                         col_data[j] = table.columns[i].string_values[j].decode('utf-8')
+*/
+            if (unlikely((__Pyx_SetItemInt(__pyx_v_col_data, __pyx_v_j, Py_None, size_t, 0, __Pyx_PyLong_FromSize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 316, __pyx_L1_error)
+
+            /* "rugo/csv/csv_reader.pyx":315
+ *                         col_data[j] = table.columns[i].string_values[j].decode('utf-8')
+ *                 else:
+ *                     if j < nm and table.columns[i].null_mask[j]:             # <<<<<<<<<<<<<<
+ *                         col_data[j] = None
+ *                     else:
+*/
+            goto __pyx_L40;
+          }
+
+          /* "rugo/csv/csv_reader.pyx":318
+ *                         col_data[j] = None
+ *                     else:
+ *                         col_data[j] = table.columns[i].string_values[j].decode('utf-8')             # <<<<<<<<<<<<<<
  * 
  *         result['columns'].append(col_data)
 */
-        /*else*/ {
-          __pyx_t_7 = __Pyx_decode_cpp_string(((__pyx_v_table.columns[__pyx_v_i]).string_values[__pyx_v_j]), 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 283, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_7);
-          __pyx_t_18 = __Pyx_PyList_Append(__pyx_v_col_data, __pyx_t_7); if (unlikely(__pyx_t_18 == ((int)-1))) __PYX_ERR(0, 283, __pyx_L1_error)
-          __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+          /*else*/ {
+            __pyx_t_7 = __Pyx_decode_cpp_string(((__pyx_v_table.columns[__pyx_v_i]).string_values[__pyx_v_j]), 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 318, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_7);
+            if (unlikely((__Pyx_SetItemInt(__pyx_v_col_data, __pyx_v_j, __pyx_t_7, size_t, 0, __Pyx_PyLong_FromSize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 318, __pyx_L1_error)
+            __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+          }
+          __pyx_L40:;
         }
-        __pyx_L32:;
+        __pyx_L38:;
       }
     }
     __pyx_L14:;
 
-    /* "rugo/csv/csv_reader.pyx":285
- *                     col_data.append(table.columns[i].string_values[j].decode('utf-8'))
+    /* "rugo/csv/csv_reader.pyx":320
+ *                         col_data[j] = table.columns[i].string_values[j].decode('utf-8')
  * 
  *         result['columns'].append(col_data)             # <<<<<<<<<<<<<<
  * 
  *     return result
 */
-    __pyx_t_7 = __Pyx_PyDict_GetItem(__pyx_v_result, __pyx_mstate_global->__pyx_n_u_columns); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 285, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyDict_GetItem(__pyx_v_result, __pyx_mstate_global->__pyx_n_u_columns); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 320, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_18 = __Pyx_PyObject_Append(__pyx_t_7, __pyx_v_col_data); if (unlikely(__pyx_t_18 == ((int)-1))) __PYX_ERR(0, 285, __pyx_L1_error)
+    __pyx_t_18 = __Pyx_PyObject_Append(__pyx_t_7, __pyx_v_col_data); if (unlikely(__pyx_t_18 == ((int)-1))) __PYX_ERR(0, 320, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   }
 
-  /* "rugo/csv/csv_reader.pyx":287
+  /* "rugo/csv/csv_reader.pyx":322
  *         result['columns'].append(col_data)
  * 
  *     return result             # <<<<<<<<<<<<<<
@@ -4890,7 +5310,7 @@ static PyObject *__pyx_pf_4rugo_3csv_2read_csv(CYTHON_UNUSED PyObject *__pyx_sel
   return __pyx_r;
 }
 
-/* "rugo/csv/csv_reader.pyx":290
+/* "rugo/csv/csv_reader.pyx":325
  * 
  * 
  * def detect_csv_dialect(data, sample_size=100):             # <<<<<<<<<<<<<<
@@ -4939,35 +5359,35 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_data,&__pyx_mstate_global->__pyx_n_u_sample_size,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 290, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 325, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 290, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 325, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 290, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 325, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "detect_csv_dialect", 0) < (0)) __PYX_ERR(0, 290, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "detect_csv_dialect", 0) < (0)) __PYX_ERR(0, 325, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)((PyObject*)__pyx_mstate_global->__pyx_int_100)));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("detect_csv_dialect", 0, 1, 2, i); __PYX_ERR(0, 290, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("detect_csv_dialect", 0, 1, 2, i); __PYX_ERR(0, 325, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 290, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 325, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 290, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 325, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -4978,7 +5398,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("detect_csv_dialect", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 290, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("detect_csv_dialect", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 325, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5023,7 +5443,7 @@ static PyObject *__pyx_pf_4rugo_3csv_4detect_csv_dialect(CYTHON_UNUSED PyObject 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("detect_csv_dialect", 0);
 
-  /* "rugo/csv/csv_reader.pyx":319
+  /* "rugo/csv/csv_reader.pyx":354
  *     cdef bytes data_bytes
  *     cdef Py_buffer view
  *     cdef cbool have_view = False             # <<<<<<<<<<<<<<
@@ -5032,7 +5452,7 @@ static PyObject *__pyx_pf_4rugo_3csv_4detect_csv_dialect(CYTHON_UNUSED PyObject 
 */
   __pyx_v_have_view = 0;
 
-  /* "rugo/csv/csv_reader.pyx":322
+  /* "rugo/csv/csv_reader.pyx":357
  * 
  *     # Handle different input types
  *     if isinstance(data, memoryview):             # <<<<<<<<<<<<<<
@@ -5042,19 +5462,19 @@ static PyObject *__pyx_pf_4rugo_3csv_4detect_csv_dialect(CYTHON_UNUSED PyObject 
   __pyx_t_1 = PyMemoryView_Check(__pyx_v_data); 
   if (__pyx_t_1) {
 
-    /* "rugo/csv/csv_reader.pyx":323
+    /* "rugo/csv/csv_reader.pyx":358
  *     # Handle different input types
  *     if isinstance(data, memoryview):
  *         PyObject_GetBuffer(data.obj, &view, PyBUF_CONTIG_RO)             # <<<<<<<<<<<<<<
  *         data_ptr = <const uint8_t*>view.buf
  *         data_size = view.len
 */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_data, __pyx_mstate_global->__pyx_n_u_obj); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 323, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_data, __pyx_mstate_global->__pyx_n_u_obj); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 358, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = PyObject_GetBuffer(__pyx_t_2, (&__pyx_v_view), PyBUF_CONTIG_RO); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 323, __pyx_L1_error)
+    __pyx_t_3 = PyObject_GetBuffer(__pyx_t_2, (&__pyx_v_view), PyBUF_CONTIG_RO); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 358, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "rugo/csv/csv_reader.pyx":324
+    /* "rugo/csv/csv_reader.pyx":359
  *     if isinstance(data, memoryview):
  *         PyObject_GetBuffer(data.obj, &view, PyBUF_CONTIG_RO)
  *         data_ptr = <const uint8_t*>view.buf             # <<<<<<<<<<<<<<
@@ -5063,7 +5483,7 @@ static PyObject *__pyx_pf_4rugo_3csv_4detect_csv_dialect(CYTHON_UNUSED PyObject 
 */
     __pyx_v_data_ptr = ((uint8_t const *)__pyx_v_view.buf);
 
-    /* "rugo/csv/csv_reader.pyx":325
+    /* "rugo/csv/csv_reader.pyx":360
  *         PyObject_GetBuffer(data.obj, &view, PyBUF_CONTIG_RO)
  *         data_ptr = <const uint8_t*>view.buf
  *         data_size = view.len             # <<<<<<<<<<<<<<
@@ -5073,7 +5493,7 @@ static PyObject *__pyx_pf_4rugo_3csv_4detect_csv_dialect(CYTHON_UNUSED PyObject 
     __pyx_t_4 = __pyx_v_view.len;
     __pyx_v_data_size = __pyx_t_4;
 
-    /* "rugo/csv/csv_reader.pyx":326
+    /* "rugo/csv/csv_reader.pyx":361
  *         data_ptr = <const uint8_t*>view.buf
  *         data_size = view.len
  *         have_view = True             # <<<<<<<<<<<<<<
@@ -5082,7 +5502,7 @@ static PyObject *__pyx_pf_4rugo_3csv_4detect_csv_dialect(CYTHON_UNUSED PyObject 
 */
     __pyx_v_have_view = 1;
 
-    /* "rugo/csv/csv_reader.pyx":322
+    /* "rugo/csv/csv_reader.pyx":357
  * 
  *     # Handle different input types
  *     if isinstance(data, memoryview):             # <<<<<<<<<<<<<<
@@ -5092,7 +5512,7 @@ static PyObject *__pyx_pf_4rugo_3csv_4detect_csv_dialect(CYTHON_UNUSED PyObject 
     goto __pyx_L3;
   }
 
-  /* "rugo/csv/csv_reader.pyx":327
+  /* "rugo/csv/csv_reader.pyx":362
  *         data_size = view.len
  *         have_view = True
  *     elif isinstance(data, bytes):             # <<<<<<<<<<<<<<
@@ -5102,7 +5522,7 @@ static PyObject *__pyx_pf_4rugo_3csv_4detect_csv_dialect(CYTHON_UNUSED PyObject 
   __pyx_t_1 = PyBytes_Check(__pyx_v_data); 
   if (likely(__pyx_t_1)) {
 
-    /* "rugo/csv/csv_reader.pyx":328
+    /* "rugo/csv/csv_reader.pyx":363
  *         have_view = True
  *     elif isinstance(data, bytes):
  *         data_bytes = data             # <<<<<<<<<<<<<<
@@ -5111,11 +5531,11 @@ static PyObject *__pyx_pf_4rugo_3csv_4detect_csv_dialect(CYTHON_UNUSED PyObject 
 */
     __pyx_t_2 = __pyx_v_data;
     __Pyx_INCREF(__pyx_t_2);
-    if (!(likely(PyBytes_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_2))) __PYX_ERR(0, 328, __pyx_L1_error)
+    if (!(likely(PyBytes_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_2))) __PYX_ERR(0, 363, __pyx_L1_error)
     __pyx_v_data_bytes = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "rugo/csv/csv_reader.pyx":329
+    /* "rugo/csv/csv_reader.pyx":364
  *     elif isinstance(data, bytes):
  *         data_bytes = data
  *         data_ptr = <const uint8_t*><char*>data_bytes             # <<<<<<<<<<<<<<
@@ -5124,12 +5544,12 @@ static PyObject *__pyx_pf_4rugo_3csv_4detect_csv_dialect(CYTHON_UNUSED PyObject 
 */
     if (unlikely(__pyx_v_data_bytes == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-      __PYX_ERR(0, 329, __pyx_L1_error)
+      __PYX_ERR(0, 364, __pyx_L1_error)
     }
-    __pyx_t_5 = __Pyx_PyBytes_AsWritableString(__pyx_v_data_bytes); if (unlikely((!__pyx_t_5) && PyErr_Occurred())) __PYX_ERR(0, 329, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyBytes_AsWritableString(__pyx_v_data_bytes); if (unlikely((!__pyx_t_5) && PyErr_Occurred())) __PYX_ERR(0, 364, __pyx_L1_error)
     __pyx_v_data_ptr = ((uint8_t const *)((char *)__pyx_t_5));
 
-    /* "rugo/csv/csv_reader.pyx":330
+    /* "rugo/csv/csv_reader.pyx":365
  *         data_bytes = data
  *         data_ptr = <const uint8_t*><char*>data_bytes
  *         data_size = len(data_bytes)             # <<<<<<<<<<<<<<
@@ -5138,12 +5558,12 @@ static PyObject *__pyx_pf_4rugo_3csv_4detect_csv_dialect(CYTHON_UNUSED PyObject 
 */
     if (unlikely(__pyx_v_data_bytes == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-      __PYX_ERR(0, 330, __pyx_L1_error)
+      __PYX_ERR(0, 365, __pyx_L1_error)
     }
-    __pyx_t_4 = __Pyx_PyBytes_GET_SIZE(__pyx_v_data_bytes); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 330, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyBytes_GET_SIZE(__pyx_v_data_bytes); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 365, __pyx_L1_error)
     __pyx_v_data_size = __pyx_t_4;
 
-    /* "rugo/csv/csv_reader.pyx":327
+    /* "rugo/csv/csv_reader.pyx":362
  *         data_size = view.len
  *         have_view = True
  *     elif isinstance(data, bytes):             # <<<<<<<<<<<<<<
@@ -5153,7 +5573,7 @@ static PyObject *__pyx_pf_4rugo_3csv_4detect_csv_dialect(CYTHON_UNUSED PyObject 
     goto __pyx_L3;
   }
 
-  /* "rugo/csv/csv_reader.pyx":332
+  /* "rugo/csv/csv_reader.pyx":367
  *         data_size = len(data_bytes)
  *     else:
  *         raise TypeError(f"Expected bytes or memoryview, got {type(data)}")             # <<<<<<<<<<<<<<
@@ -5164,9 +5584,9 @@ static PyObject *__pyx_pf_4rugo_3csv_4detect_csv_dialect(CYTHON_UNUSED PyObject 
     __pyx_t_6 = NULL;
     __Pyx_INCREF(__pyx_builtin_TypeError);
     __pyx_t_7 = __pyx_builtin_TypeError; 
-    __pyx_t_8 = __Pyx_PyObject_FormatSimple(((PyObject *)Py_TYPE(__pyx_v_data)), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 332, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_FormatSimple(((PyObject *)Py_TYPE(__pyx_v_data)), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 367, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_9 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Expected_bytes_or_memoryview_got, __pyx_t_8); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 332, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Expected_bytes_or_memoryview_got, __pyx_t_8); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 367, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __pyx_t_10 = 1;
@@ -5176,26 +5596,26 @@ static PyObject *__pyx_pf_4rugo_3csv_4detect_csv_dialect(CYTHON_UNUSED PyObject 
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 332, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 367, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 332, __pyx_L1_error)
+    __PYX_ERR(0, 367, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "rugo/csv/csv_reader.pyx":335
+  /* "rugo/csv/csv_reader.pyx":370
  * 
  *     # Detect dialect
  *     cdef CsvDialect dialect = DetectCsvDialect(data_ptr, data_size, sample_size)             # <<<<<<<<<<<<<<
  * 
  *     if have_view:
 */
-  __pyx_t_10 = __Pyx_PyLong_As_size_t(__pyx_v_sample_size); if (unlikely((__pyx_t_10 == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 335, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyLong_As_size_t(__pyx_v_sample_size); if (unlikely((__pyx_t_10 == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 370, __pyx_L1_error)
   __pyx_v_dialect = DetectCsvDialect(__pyx_v_data_ptr, __pyx_v_data_size, __pyx_t_10);
 
-  /* "rugo/csv/csv_reader.pyx":337
+  /* "rugo/csv/csv_reader.pyx":372
  *     cdef CsvDialect dialect = DetectCsvDialect(data_ptr, data_size, sample_size)
  * 
  *     if have_view:             # <<<<<<<<<<<<<<
@@ -5205,7 +5625,7 @@ static PyObject *__pyx_pf_4rugo_3csv_4detect_csv_dialect(CYTHON_UNUSED PyObject 
   __pyx_t_1 = (__pyx_v_have_view != 0);
   if (__pyx_t_1) {
 
-    /* "rugo/csv/csv_reader.pyx":338
+    /* "rugo/csv/csv_reader.pyx":373
  * 
  *     if have_view:
  *         PyBuffer_Release(&view)             # <<<<<<<<<<<<<<
@@ -5214,7 +5634,7 @@ static PyObject *__pyx_pf_4rugo_3csv_4detect_csv_dialect(CYTHON_UNUSED PyObject 
 */
     PyBuffer_Release((&__pyx_v_view));
 
-    /* "rugo/csv/csv_reader.pyx":337
+    /* "rugo/csv/csv_reader.pyx":372
  *     cdef CsvDialect dialect = DetectCsvDialect(data_ptr, data_size, sample_size)
  * 
  *     if have_view:             # <<<<<<<<<<<<<<
@@ -5223,7 +5643,7 @@ static PyObject *__pyx_pf_4rugo_3csv_4detect_csv_dialect(CYTHON_UNUSED PyObject 
 */
   }
 
-  /* "rugo/csv/csv_reader.pyx":340
+  /* "rugo/csv/csv_reader.pyx":375
  *         PyBuffer_Release(&view)
  * 
  *     return {             # <<<<<<<<<<<<<<
@@ -5232,36 +5652,36 @@ static PyObject *__pyx_pf_4rugo_3csv_4detect_csv_dialect(CYTHON_UNUSED PyObject 
 */
   __Pyx_XDECREF(__pyx_r);
 
-  /* "rugo/csv/csv_reader.pyx":341
+  /* "rugo/csv/csv_reader.pyx":376
  * 
  *     return {
  *         'delimiter': chr(dialect.delimiter),             # <<<<<<<<<<<<<<
  *         'quote_char': chr(dialect.quote_char)
  *     }
 */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 341, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 376, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_7 = PyUnicode_FromOrdinal(__pyx_v_dialect.delimiter); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 341, __pyx_L1_error)
+  __pyx_t_7 = PyUnicode_FromOrdinal(__pyx_v_dialect.delimiter); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 376, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_delimiter, __pyx_t_7) < (0)) __PYX_ERR(0, 341, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_delimiter, __pyx_t_7) < (0)) __PYX_ERR(0, 376, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "rugo/csv/csv_reader.pyx":342
+  /* "rugo/csv/csv_reader.pyx":377
  *     return {
  *         'delimiter': chr(dialect.delimiter),
  *         'quote_char': chr(dialect.quote_char)             # <<<<<<<<<<<<<<
  *     }
  * 
 */
-  __pyx_t_7 = PyUnicode_FromOrdinal(__pyx_v_dialect.quote_char); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 342, __pyx_L1_error)
+  __pyx_t_7 = PyUnicode_FromOrdinal(__pyx_v_dialect.quote_char); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 377, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_quote_char, __pyx_t_7) < (0)) __PYX_ERR(0, 341, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_quote_char, __pyx_t_7) < (0)) __PYX_ERR(0, 376, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "rugo/csv/csv_reader.pyx":290
+  /* "rugo/csv/csv_reader.pyx":325
  * 
  * 
  * def detect_csv_dialect(data, sample_size=100):             # <<<<<<<<<<<<<<
@@ -5285,7 +5705,7 @@ static PyObject *__pyx_pf_4rugo_3csv_4detect_csv_dialect(CYTHON_UNUSED PyObject 
   return __pyx_r;
 }
 
-/* "rugo/csv/csv_reader.pyx":347
+/* "rugo/csv/csv_reader.pyx":382
  * 
  * # Convenience function for TSV
  * def read_tsv(data, columns=None):             # <<<<<<<<<<<<<<
@@ -5334,35 +5754,35 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_data,&__pyx_mstate_global->__pyx_n_u_columns,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 347, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 382, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 347, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 382, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 347, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 382, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_tsv", 0) < (0)) __PYX_ERR(0, 347, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_tsv", 0) < (0)) __PYX_ERR(0, 382, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_tsv", 0, 1, 2, i); __PYX_ERR(0, 347, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_tsv", 0, 1, 2, i); __PYX_ERR(0, 382, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 347, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 382, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 347, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 382, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -5373,7 +5793,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("read_tsv", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 347, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("read_tsv", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 382, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5407,7 +5827,7 @@ static PyObject *__pyx_pf_4rugo_3csv_6read_tsv(CYTHON_UNUSED PyObject *__pyx_sel
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_tsv", 0);
 
-  /* "rugo/csv/csv_reader.pyx":372
+  /* "rugo/csv/csv_reader.pyx":407
  *     ['name', 'age', 'salary']
  *     """
  *     return read_csv(data, columns=columns, delimiter='\t')             # <<<<<<<<<<<<<<
@@ -5416,7 +5836,7 @@ static PyObject *__pyx_pf_4rugo_3csv_6read_tsv(CYTHON_UNUSED PyObject *__pyx_sel
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_read_csv); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 372, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_read_csv); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 407, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -5432,22 +5852,22 @@ static PyObject *__pyx_pf_4rugo_3csv_6read_tsv(CYTHON_UNUSED PyObject *__pyx_sel
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_2, __pyx_v_data};
-    __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 372, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 407, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_columns, __pyx_v_columns, __pyx_t_5, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 372, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_delimiter, __pyx_mstate_global->__pyx_kp_u__3, __pyx_t_5, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 372, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_columns, __pyx_v_columns, __pyx_t_5, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 407, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_delimiter, __pyx_mstate_global->__pyx_kp_u__3, __pyx_t_5, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 407, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder(__pyx_t_3, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_5);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 372, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 407, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "rugo/csv/csv_reader.pyx":347
+  /* "rugo/csv/csv_reader.pyx":382
  * 
  * # Convenience function for TSV
  * def read_tsv(data, columns=None):             # <<<<<<<<<<<<<<
@@ -5469,7 +5889,7 @@ static PyObject *__pyx_pf_4rugo_3csv_6read_tsv(CYTHON_UNUSED PyObject *__pyx_sel
   return __pyx_r;
 }
 
-/* "rugo/csv/csv_reader.pyx":375
+/* "rugo/csv/csv_reader.pyx":410
  * 
  * 
  * def get_tsv_schema(data, sample_size=100):             # <<<<<<<<<<<<<<
@@ -5518,35 +5938,35 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_data,&__pyx_mstate_global->__pyx_n_u_sample_size,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 375, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 410, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 375, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 410, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 375, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 410, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_tsv_schema", 0) < (0)) __PYX_ERR(0, 375, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_tsv_schema", 0) < (0)) __PYX_ERR(0, 410, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)((PyObject*)__pyx_mstate_global->__pyx_int_100)));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("get_tsv_schema", 0, 1, 2, i); __PYX_ERR(0, 375, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("get_tsv_schema", 0, 1, 2, i); __PYX_ERR(0, 410, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 375, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 410, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 375, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 410, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -5557,7 +5977,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("get_tsv_schema", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 375, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("get_tsv_schema", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 410, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5591,14 +6011,14 @@ static PyObject *__pyx_pf_4rugo_3csv_8get_tsv_schema(CYTHON_UNUSED PyObject *__p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_tsv_schema", 0);
 
-  /* "rugo/csv/csv_reader.pyx":393
+  /* "rugo/csv/csv_reader.pyx":428
  *         List of column schemas
  *     """
  *     return get_csv_schema(data, delimiter='\t', sample_size=sample_size)             # <<<<<<<<<<<<<<
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_get_csv_schema); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 393, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_get_csv_schema); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 428, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -5614,22 +6034,22 @@ static PyObject *__pyx_pf_4rugo_3csv_8get_tsv_schema(CYTHON_UNUSED PyObject *__p
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_2, __pyx_v_data};
-    __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 393, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 428, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_delimiter, __pyx_mstate_global->__pyx_kp_u__3, __pyx_t_5, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 393, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sample_size, __pyx_v_sample_size, __pyx_t_5, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 393, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_delimiter, __pyx_mstate_global->__pyx_kp_u__3, __pyx_t_5, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 428, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sample_size, __pyx_v_sample_size, __pyx_t_5, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 428, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder(__pyx_t_3, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_5);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 393, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 428, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "rugo/csv/csv_reader.pyx":375
+  /* "rugo/csv/csv_reader.pyx":410
  * 
  * 
  * def get_tsv_schema(data, sample_size=100):             # <<<<<<<<<<<<<<
@@ -6041,43 +6461,43 @@ __Pyx_RefNannySetupContext("PyInit_csv", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_read_csv, __pyx_t_2) < (0)) __PYX_ERR(0, 158, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "rugo/csv/csv_reader.pyx":290
+  /* "rugo/csv/csv_reader.pyx":325
  * 
  * 
  * def detect_csv_dialect(data, sample_size=100):             # <<<<<<<<<<<<<<
  *     """
  *     Auto-detect CSV dialect (delimiter, quote character).
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_4rugo_3csv_5detect_csv_dialect, 0, __pyx_mstate_global->__pyx_n_u_detect_csv_dialect, NULL, __pyx_mstate_global->__pyx_n_u_rugo_csv, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 290, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_4rugo_3csv_5detect_csv_dialect, 0, __pyx_mstate_global->__pyx_n_u_detect_csv_dialect, NULL, __pyx_mstate_global->__pyx_n_u_rugo_csv, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 325, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[2]);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_detect_csv_dialect, __pyx_t_2) < (0)) __PYX_ERR(0, 290, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_detect_csv_dialect, __pyx_t_2) < (0)) __PYX_ERR(0, 325, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "rugo/csv/csv_reader.pyx":347
+  /* "rugo/csv/csv_reader.pyx":382
  * 
  * # Convenience function for TSV
  * def read_tsv(data, columns=None):             # <<<<<<<<<<<<<<
  *     """
  *     Read TSV (tab-separated values) data.
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_4rugo_3csv_7read_tsv, 0, __pyx_mstate_global->__pyx_n_u_read_tsv, NULL, __pyx_mstate_global->__pyx_n_u_rugo_csv, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 347, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_4rugo_3csv_7read_tsv, 0, __pyx_mstate_global->__pyx_n_u_read_tsv, NULL, __pyx_mstate_global->__pyx_n_u_rugo_csv, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 382, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[3]);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_read_tsv, __pyx_t_2) < (0)) __PYX_ERR(0, 347, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_read_tsv, __pyx_t_2) < (0)) __PYX_ERR(0, 382, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "rugo/csv/csv_reader.pyx":375
+  /* "rugo/csv/csv_reader.pyx":410
  * 
  * 
  * def get_tsv_schema(data, sample_size=100):             # <<<<<<<<<<<<<<
  *     """
  *     Extract schema from TSV data.
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_4rugo_3csv_9get_tsv_schema, 0, __pyx_mstate_global->__pyx_n_u_get_tsv_schema, NULL, __pyx_mstate_global->__pyx_n_u_rugo_csv, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 375, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_4rugo_3csv_9get_tsv_schema, 0, __pyx_mstate_global->__pyx_n_u_get_tsv_schema, NULL, __pyx_mstate_global->__pyx_n_u_rugo_csv, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 410, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[2]);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_get_tsv_schema, __pyx_t_2) < (0)) __PYX_ERR(0, 375, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_get_tsv_schema, __pyx_t_2) < (0)) __PYX_ERR(0, 410, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "rugo/csv/csv_reader.pyx":1
@@ -6089,8 +6509,8 @@ __Pyx_RefNannySetupContext("PyInit_csv", 0);
   __Pyx_GOTREF(__pyx_t_2);
   if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_get_csv_schema_line_65, __pyx_mstate_global->__pyx_kp_u_Extract_schema_information_from) < (0)) __PYX_ERR(0, 1, __pyx_L1_error)
   if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_read_csv_line_158, __pyx_mstate_global->__pyx_kp_u_Read_CSV_data_into_columnar_for) < (0)) __PYX_ERR(0, 1, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_detect_csv_dialect_line_290, __pyx_mstate_global->__pyx_kp_u_Auto_detect_CSV_dialect_delimit) < (0)) __PYX_ERR(0, 1, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_read_tsv_line_347, __pyx_mstate_global->__pyx_kp_u_Read_TSV_tab_separated_values_d) < (0)) __PYX_ERR(0, 1, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_detect_csv_dialect_line_325, __pyx_mstate_global->__pyx_kp_u_Auto_detect_CSV_dialect_delimit) < (0)) __PYX_ERR(0, 1, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_read_tsv_line_382, __pyx_mstate_global->__pyx_kp_u_Read_TSV_tab_separated_values_d) < (0)) __PYX_ERR(0, 1, __pyx_L1_error)
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_test, __pyx_t_2) < (0)) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
@@ -6179,7 +6599,7 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_data_size, sizeof(__pyx_k_data_size), 0, 1, 1}, /* PyObject cname: __pyx_n_u_data_size */
   {__pyx_k_delimiter, sizeof(__pyx_k_delimiter), 0, 1, 1}, /* PyObject cname: __pyx_n_u_delimiter */
   {__pyx_k_detect_csv_dialect, sizeof(__pyx_k_detect_csv_dialect), 0, 1, 1}, /* PyObject cname: __pyx_n_u_detect_csv_dialect */
-  {__pyx_k_detect_csv_dialect_line_290, sizeof(__pyx_k_detect_csv_dialect_line_290), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_detect_csv_dialect_line_290 */
+  {__pyx_k_detect_csv_dialect_line_325, sizeof(__pyx_k_detect_csv_dialect_line_325), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_detect_csv_dialect_line_325 */
   {__pyx_k_dialect, sizeof(__pyx_k_dialect), 0, 1, 1}, /* PyObject cname: __pyx_n_u_dialect */
   {__pyx_k_double, sizeof(__pyx_k_double), 0, 1, 1}, /* PyObject cname: __pyx_n_u_double */
   {__pyx_k_encode, sizeof(__pyx_k_encode), 0, 1, 1}, /* PyObject cname: __pyx_n_u_encode */
@@ -6195,8 +6615,10 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_j, sizeof(__pyx_k_j), 0, 1, 1}, /* PyObject cname: __pyx_n_u_j */
   {__pyx_k_main, sizeof(__pyx_k_main), 0, 1, 1}, /* PyObject cname: __pyx_n_u_main */
   {__pyx_k_module, sizeof(__pyx_k_module), 0, 1, 1}, /* PyObject cname: __pyx_n_u_module */
+  {__pyx_k_n, sizeof(__pyx_k_n), 0, 1, 1}, /* PyObject cname: __pyx_n_u_n */
   {__pyx_k_name, sizeof(__pyx_k_name), 0, 1, 1}, /* PyObject cname: __pyx_n_u_name */
   {__pyx_k_name_2, sizeof(__pyx_k_name_2), 0, 1, 1}, /* PyObject cname: __pyx_n_u_name_2 */
+  {__pyx_k_nm, sizeof(__pyx_k_nm), 0, 1, 1}, /* PyObject cname: __pyx_n_u_nm */
   {__pyx_k_nullable, sizeof(__pyx_k_nullable), 0, 1, 1}, /* PyObject cname: __pyx_n_u_nullable */
   {__pyx_k_num_rows, sizeof(__pyx_k_num_rows), 0, 1, 1}, /* PyObject cname: __pyx_n_u_num_rows */
   {__pyx_k_obj, sizeof(__pyx_k_obj), 0, 1, 1}, /* PyObject cname: __pyx_n_u_obj */
@@ -6207,7 +6629,7 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_read_csv, sizeof(__pyx_k_read_csv), 0, 1, 1}, /* PyObject cname: __pyx_n_u_read_csv */
   {__pyx_k_read_csv_line_158, sizeof(__pyx_k_read_csv_line_158), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_read_csv_line_158 */
   {__pyx_k_read_tsv, sizeof(__pyx_k_read_tsv), 0, 1, 1}, /* PyObject cname: __pyx_n_u_read_tsv */
-  {__pyx_k_read_tsv_line_347, sizeof(__pyx_k_read_tsv_line_347), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_read_tsv_line_347 */
+  {__pyx_k_read_tsv_line_382, sizeof(__pyx_k_read_tsv_line_382), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_read_tsv_line_382 */
   {__pyx_k_result, sizeof(__pyx_k_result), 0, 1, 1}, /* PyObject cname: __pyx_n_u_result */
   {__pyx_k_rugo_csv, sizeof(__pyx_k_rugo_csv), 0, 1, 1}, /* PyObject cname: __pyx_n_u_rugo_csv */
   {__pyx_k_rugo_csv_csv_reader_pyx, sizeof(__pyx_k_rugo_csv_csv_reader_pyx), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_rugo_csv_csv_reader_pyx */
@@ -6268,25 +6690,25 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[1]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[1]);
 
-  /* "rugo/csv/csv_reader.pyx":290
+  /* "rugo/csv/csv_reader.pyx":325
  * 
  * 
  * def detect_csv_dialect(data, sample_size=100):             # <<<<<<<<<<<<<<
  *     """
  *     Auto-detect CSV dialect (delimiter, quote character).
 */
-  __pyx_mstate_global->__pyx_tuple[2] = PyTuple_Pack(1, ((PyObject*)__pyx_mstate_global->__pyx_int_100)); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 290, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[2] = PyTuple_Pack(1, ((PyObject*)__pyx_mstate_global->__pyx_int_100)); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 325, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[2]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[2]);
 
-  /* "rugo/csv/csv_reader.pyx":347
+  /* "rugo/csv/csv_reader.pyx":382
  * 
  * # Convenience function for TSV
  * def read_tsv(data, columns=None):             # <<<<<<<<<<<<<<
  *     """
  *     Read TSV (tab-separated values) data.
 */
-  __pyx_mstate_global->__pyx_tuple[3] = PyTuple_Pack(1, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 347, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[3] = PyTuple_Pack(1, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 382, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[3]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[3]);
   __Pyx_RefNannyFinishContext();
@@ -6338,22 +6760,22 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_rugo_csv_csv_reader_pyx, __pyx_mstate->__pyx_n_u_get_csv_schema, __pyx_k_88I_H_1_z_4vQfA_4q_D_A_1F_Q_7_C, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {5, 0, 0, 19, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 158, 809};
-    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_data, __pyx_mstate->__pyx_n_u_columns, __pyx_mstate->__pyx_n_u_delimiter, __pyx_mstate->__pyx_n_u_quote_char, __pyx_mstate->__pyx_n_u_has_header, __pyx_mstate->__pyx_n_u_data_ptr, __pyx_mstate->__pyx_n_u_data_size, __pyx_mstate->__pyx_n_u_data_bytes, __pyx_mstate->__pyx_n_u_view, __pyx_mstate->__pyx_n_u_have_view, __pyx_mstate->__pyx_n_u_dialect, __pyx_mstate->__pyx_n_u_column_names_cpp, __pyx_mstate->__pyx_n_u_col, __pyx_mstate->__pyx_n_u_table, __pyx_mstate->__pyx_n_u_result, __pyx_mstate->__pyx_n_u_i, __pyx_mstate->__pyx_n_u_j, __pyx_mstate->__pyx_n_u_col_type, __pyx_mstate->__pyx_n_u_col_data};
+    const __Pyx_PyCode_New_function_description descr = {5, 0, 0, 21, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 158, 1114};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_data, __pyx_mstate->__pyx_n_u_columns, __pyx_mstate->__pyx_n_u_delimiter, __pyx_mstate->__pyx_n_u_quote_char, __pyx_mstate->__pyx_n_u_has_header, __pyx_mstate->__pyx_n_u_data_ptr, __pyx_mstate->__pyx_n_u_data_size, __pyx_mstate->__pyx_n_u_data_bytes, __pyx_mstate->__pyx_n_u_view, __pyx_mstate->__pyx_n_u_have_view, __pyx_mstate->__pyx_n_u_dialect, __pyx_mstate->__pyx_n_u_column_names_cpp, __pyx_mstate->__pyx_n_u_col, __pyx_mstate->__pyx_n_u_table, __pyx_mstate->__pyx_n_u_result, __pyx_mstate->__pyx_n_u_i, __pyx_mstate->__pyx_n_u_j, __pyx_mstate->__pyx_n_u_col_type, __pyx_mstate->__pyx_n_u_n, __pyx_mstate->__pyx_n_u_nm, __pyx_mstate->__pyx_n_u_col_data};
     __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_rugo_csv_csv_reader_pyx, __pyx_mstate->__pyx_n_u_read_csv, __pyx_k_0_X_1_z_4vQfA_4q_D_A_1F_Q_7_Cq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 290, 168};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 325, 168};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_data, __pyx_mstate->__pyx_n_u_sample_size, __pyx_mstate->__pyx_n_u_data_ptr, __pyx_mstate->__pyx_n_u_data_size, __pyx_mstate->__pyx_n_u_data_bytes, __pyx_mstate->__pyx_n_u_view, __pyx_mstate->__pyx_n_u_have_view, __pyx_mstate->__pyx_n_u_dialect};
     __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_rugo_csv_csv_reader_pyx, __pyx_mstate->__pyx_n_u_detect_csv_dialect, __pyx_k_Q_1_z_4vQfA_4q_D_A_1F_Q_7_Cq_iq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 347, 24};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 382, 24};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_data, __pyx_mstate->__pyx_n_u_columns};
     __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_rugo_csv_csv_reader_pyx, __pyx_mstate->__pyx_n_u_read_tsv, __pyx_k_12_81F_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 375, 24};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 410, 24};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_data, __pyx_mstate->__pyx_n_u_sample_size};
     __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_rugo_csv_csv_reader_pyx, __pyx_mstate->__pyx_n_u_get_tsv_schema, __pyx_k_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
   }
@@ -8078,6 +8500,64 @@ static PyObject *__Pyx_PyDict_GetItem(PyObject *d, PyObject* key) {
     return value;
 }
 #endif
+
+/* SetItemInt */
+static int __Pyx_SetItemInt_Generic(PyObject *o, PyObject *j, PyObject *v) {
+    int r;
+    if (unlikely(!j)) return -1;
+    r = PyObject_SetItem(o, j, v);
+    Py_DECREF(j);
+    return r;
+}
+static CYTHON_INLINE int __Pyx_SetItemInt_Fast(PyObject *o, Py_ssize_t i, PyObject *v, int is_list,
+                                               CYTHON_NCP_UNUSED int wraparound, CYTHON_NCP_UNUSED int boundscheck) {
+#if CYTHON_ASSUME_SAFE_MACROS && CYTHON_ASSUME_SAFE_SIZE && !CYTHON_AVOID_BORROWED_REFS && CYTHON_USE_TYPE_SLOTS
+    if (is_list || PyList_CheckExact(o)) {
+        Py_ssize_t n = (!wraparound) ? i : ((likely(i >= 0)) ? i : i + PyList_GET_SIZE(o));
+        if ((!boundscheck) || likely(__Pyx_is_valid_index(n, PyList_GET_SIZE(o)))) {
+            Py_INCREF(v);
+#if CYTHON_AVOID_THREAD_UNSAFE_BORROWED_REFS
+            PyList_SetItem(o, n, v);
+#else
+            PyObject* old = PyList_GET_ITEM(o, n);
+            PyList_SET_ITEM(o, n, v);
+            Py_DECREF(old);
+#endif
+            return 1;
+        }
+    } else {
+        PyMappingMethods *mm = Py_TYPE(o)->tp_as_mapping;
+        PySequenceMethods *sm = Py_TYPE(o)->tp_as_sequence;
+        if (mm && mm->mp_ass_subscript) {
+            int r;
+            PyObject *key = PyLong_FromSsize_t(i);
+            if (unlikely(!key)) return -1;
+            r = mm->mp_ass_subscript(o, key, v);
+            Py_DECREF(key);
+            return r;
+        }
+        if (likely(sm && sm->sq_ass_item)) {
+            if (wraparound && unlikely(i < 0) && likely(sm->sq_length)) {
+                Py_ssize_t l = sm->sq_length(o);
+                if (likely(l >= 0)) {
+                    i += l;
+                } else {
+                    if (!PyErr_ExceptionMatches(PyExc_OverflowError))
+                        return -1;
+                    PyErr_Clear();
+                }
+            }
+            return sm->sq_ass_item(o, i, v);
+        }
+    }
+#else
+    if (is_list || !PyMapping_Check(o))
+    {
+        return PySequence_SetItem(o, i, v);
+    }
+#endif
+    return __Pyx_SetItemInt_Generic(o, PyLong_FromSsize_t(i), v);
+}
 
 /* PyDictVersioning */
 #if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS
@@ -10305,77 +10785,6 @@ raise_neg_overflow:
 }
 
 /* CIntToPy */
-static CYTHON_INLINE PyObject* __Pyx_PyLong_From_uint8_t(uint8_t value) {
-#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wconversion"
-#endif
-    const uint8_t neg_one = (uint8_t) -1, const_zero = (uint8_t) 0;
-#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
-#pragma GCC diagnostic pop
-#endif
-    const int is_unsigned = neg_one > const_zero;
-    if (is_unsigned) {
-        if (sizeof(uint8_t) < sizeof(long)) {
-            return PyLong_FromLong((long) value);
-        } else if (sizeof(uint8_t) <= sizeof(unsigned long)) {
-            return PyLong_FromUnsignedLong((unsigned long) value);
-#if defined(HAVE_LONG_LONG) && !CYTHON_COMPILING_IN_PYPY
-        } else if (sizeof(uint8_t) <= sizeof(unsigned PY_LONG_LONG)) {
-            return PyLong_FromUnsignedLongLong((unsigned PY_LONG_LONG) value);
-#endif
-        }
-    } else {
-        if (sizeof(uint8_t) <= sizeof(long)) {
-            return PyLong_FromLong((long) value);
-#ifdef HAVE_LONG_LONG
-        } else if (sizeof(uint8_t) <= sizeof(PY_LONG_LONG)) {
-            return PyLong_FromLongLong((PY_LONG_LONG) value);
-#endif
-        }
-    }
-    {
-        unsigned char *bytes = (unsigned char *)&value;
-#if !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX >= 0x030d00A4
-        if (is_unsigned) {
-            return PyLong_FromUnsignedNativeBytes(bytes, sizeof(value), -1);
-        } else {
-            return PyLong_FromNativeBytes(bytes, sizeof(value), -1);
-        }
-#elif !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX < 0x030d0000
-        int one = 1; int little = (int)*(unsigned char *)&one;
-        return _PyLong_FromByteArray(bytes, sizeof(uint8_t),
-                                     little, !is_unsigned);
-#else
-        int one = 1; int little = (int)*(unsigned char *)&one;
-        PyObject *from_bytes, *result = NULL, *kwds = NULL;
-        PyObject *py_bytes = NULL, *order_str = NULL;
-        from_bytes = PyObject_GetAttrString((PyObject*)&PyLong_Type, "from_bytes");
-        if (!from_bytes) return NULL;
-        py_bytes = PyBytes_FromStringAndSize((char*)bytes, sizeof(uint8_t));
-        if (!py_bytes) goto limited_bad;
-        order_str = PyUnicode_FromString(little ? "little" : "big");
-        if (!order_str) goto limited_bad;
-        {
-            PyObject *args[3+(CYTHON_VECTORCALL ? 1 : 0)] = { NULL, py_bytes, order_str };
-            if (!is_unsigned) {
-                kwds = __Pyx_MakeVectorcallBuilderKwds(1);
-                if (!kwds) goto limited_bad;
-                if (__Pyx_VectorcallBuilder_AddArgStr("signed", __Pyx_NewRef(Py_True), kwds, args+3, 0) < 0) goto limited_bad;
-            }
-            result = __Pyx_Object_Vectorcall_CallFromBuilder(from_bytes, args+1, 2 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET, kwds);
-        }
-        limited_bad:
-        Py_XDECREF(kwds);
-        Py_XDECREF(order_str);
-        Py_XDECREF(py_bytes);
-        Py_XDECREF(from_bytes);
-        return result;
-#endif
-    }
-}
-
-/* CIntToPy */
 static CYTHON_INLINE PyObject* __Pyx_PyLong_From_PY_LONG_LONG(PY_LONG_LONG value) {
 #ifdef __Pyx_HAS_GCC_DIAGNOSTIC
 #pragma GCC diagnostic push
@@ -10424,6 +10833,77 @@ static CYTHON_INLINE PyObject* __Pyx_PyLong_From_PY_LONG_LONG(PY_LONG_LONG value
         from_bytes = PyObject_GetAttrString((PyObject*)&PyLong_Type, "from_bytes");
         if (!from_bytes) return NULL;
         py_bytes = PyBytes_FromStringAndSize((char*)bytes, sizeof(PY_LONG_LONG));
+        if (!py_bytes) goto limited_bad;
+        order_str = PyUnicode_FromString(little ? "little" : "big");
+        if (!order_str) goto limited_bad;
+        {
+            PyObject *args[3+(CYTHON_VECTORCALL ? 1 : 0)] = { NULL, py_bytes, order_str };
+            if (!is_unsigned) {
+                kwds = __Pyx_MakeVectorcallBuilderKwds(1);
+                if (!kwds) goto limited_bad;
+                if (__Pyx_VectorcallBuilder_AddArgStr("signed", __Pyx_NewRef(Py_True), kwds, args+3, 0) < 0) goto limited_bad;
+            }
+            result = __Pyx_Object_Vectorcall_CallFromBuilder(from_bytes, args+1, 2 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET, kwds);
+        }
+        limited_bad:
+        Py_XDECREF(kwds);
+        Py_XDECREF(order_str);
+        Py_XDECREF(py_bytes);
+        Py_XDECREF(from_bytes);
+        return result;
+#endif
+    }
+}
+
+/* CIntToPy */
+static CYTHON_INLINE PyObject* __Pyx_PyLong_From_uint8_t(uint8_t value) {
+#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
+#endif
+    const uint8_t neg_one = (uint8_t) -1, const_zero = (uint8_t) 0;
+#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
+#pragma GCC diagnostic pop
+#endif
+    const int is_unsigned = neg_one > const_zero;
+    if (is_unsigned) {
+        if (sizeof(uint8_t) < sizeof(long)) {
+            return PyLong_FromLong((long) value);
+        } else if (sizeof(uint8_t) <= sizeof(unsigned long)) {
+            return PyLong_FromUnsignedLong((unsigned long) value);
+#if defined(HAVE_LONG_LONG) && !CYTHON_COMPILING_IN_PYPY
+        } else if (sizeof(uint8_t) <= sizeof(unsigned PY_LONG_LONG)) {
+            return PyLong_FromUnsignedLongLong((unsigned PY_LONG_LONG) value);
+#endif
+        }
+    } else {
+        if (sizeof(uint8_t) <= sizeof(long)) {
+            return PyLong_FromLong((long) value);
+#ifdef HAVE_LONG_LONG
+        } else if (sizeof(uint8_t) <= sizeof(PY_LONG_LONG)) {
+            return PyLong_FromLongLong((PY_LONG_LONG) value);
+#endif
+        }
+    }
+    {
+        unsigned char *bytes = (unsigned char *)&value;
+#if !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX >= 0x030d00A4
+        if (is_unsigned) {
+            return PyLong_FromUnsignedNativeBytes(bytes, sizeof(value), -1);
+        } else {
+            return PyLong_FromNativeBytes(bytes, sizeof(value), -1);
+        }
+#elif !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX < 0x030d0000
+        int one = 1; int little = (int)*(unsigned char *)&one;
+        return _PyLong_FromByteArray(bytes, sizeof(uint8_t),
+                                     little, !is_unsigned);
+#else
+        int one = 1; int little = (int)*(unsigned char *)&one;
+        PyObject *from_bytes, *result = NULL, *kwds = NULL;
+        PyObject *py_bytes = NULL, *order_str = NULL;
+        from_bytes = PyObject_GetAttrString((PyObject*)&PyLong_Type, "from_bytes");
+        if (!from_bytes) return NULL;
+        py_bytes = PyBytes_FromStringAndSize((char*)bytes, sizeof(uint8_t));
         if (!py_bytes) goto limited_bad;
         order_str = PyUnicode_FromString(little ? "little" : "big");
         if (!order_str) goto limited_bad;
