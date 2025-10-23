@@ -446,6 +446,9 @@ rugo/
 - SIMD optimizations (AVX2/SSE2) are automatically enabled on x86-64 platforms.
 - Bloom filter information is exposed via offsets and lengths; higher-level helpers are planned.
 
+## Future Format Support
+rugo currently supports Parquet and JSON Lines. We are evaluating additional formats based on optimization opportunities and community demand. See [FORMAT_SUPPORT_ANALYSIS.md](docs/FORMAT_SUPPORT_ANALYSIS.md) for a detailed analysis of candidate formats (ORC, Avro, CSV, Arrow IPC) and [FORMAT_ROADMAP.md](docs/FORMAT_ROADMAP.md) for our planned roadmap. Feedback and feature requests are welcome!
+
 ## License
 Licensed under the Apache License 2.0. See `LICENSE` for full terms.
 
