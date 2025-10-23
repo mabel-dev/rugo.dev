@@ -598,6 +598,10 @@ static JsonType InferType(JsonType a, JsonType b) {
     // Integer + Double -> Double
     if ((a == JsonType::Integer && b == JsonType::Double) ||
         (a == JsonType::Double && b == JsonType::Integer)) return JsonType::Double;
+    // Mixed Array + Object -> treat as Object (general JSON type)
+    // This allows the column to be recognized as containing JSON values
+    if ((a == JsonType::Array && b == JsonType::Object) ||
+        (a == JsonType::Object && b == JsonType::Array)) return JsonType::Object;
     // Mixed types fallback to String
     return JsonType::String;
 }
@@ -616,6 +620,8 @@ std::vector<ColumnSchema> GetJsonlSchema(const uint8_t* data, size_t size, size_
         for (const auto &ent : kvs) {
             const char* key_ptr; size_t key_len; const char* val_ptr; size_t val_len; JsonType type; bool has_escape;
             std::tie(key_ptr, key_len, val_ptr, val_len, type, has_escape) = ent;
+            // DEBUG: print encountered type
+            //fprintf(stderr, "DEBUG: key=%.*s type=%d val_len=%zu\n", (int)key_len, key_ptr, (int)type, val_len);
             std::string key(key_ptr, key_len);
             auto it = schema.find(key);
             if (it == schema.end()) {
@@ -731,7 +737,7 @@ JsonlTable ReadJsonl(const uint8_t* data, size_t size, const std::vector<std::st
                     col.null_mask.reserve(estimated_lines);
                     break;
                 case JsonType::String:
-                    col.type = "string";
+                    col.type = "bytes";
                     col.string_values.reserve(estimated_lines);
                     col.null_mask.reserve(estimated_lines);
                     break;
@@ -740,8 +746,32 @@ JsonlTable ReadJsonl(const uint8_t* data, size_t size, const std::vector<std::st
                     col.boolean_values.reserve(estimated_lines);
                     col.null_mask.reserve(estimated_lines);
                     break;
+                case JsonType::Array: {
+                    // If the schema provides an element_type, include it in the
+                    // C++ column type string so the Python wrapper can decide
+                    // how to materialize elements (e.g. array<bytes>).
+                    // DEBUG: print element_type
+                    //fprintf(stderr, "DEBUG: column %s element_type=%d\n", table.column_names[i].c_str(), (int)it->element_type);
+                    if (it->element_type == JsonType::Integer) {
+                        col.type = "array<int64>";
+                    } else if (it->element_type == JsonType::Double) {
+                        col.type = "array<double>";
+                    } else if (it->element_type == JsonType::String) {
+                        col.type = "array<bytes>";
+                    } else {
+                        col.type = "array";
+                    }
+                    col.string_values.reserve(estimated_lines);
+                    col.null_mask.reserve(estimated_lines);
+                    break;
+                }
+                case JsonType::Object:
+                    col.type = "object";
+                    col.string_values.reserve(estimated_lines);
+                    col.null_mask.reserve(estimated_lines);
+                    break;
                 default:
-                    col.type = "string";
+                    col.type = "bytes";
                     col.string_values.reserve(estimated_lines);
                     col.null_mask.reserve(estimated_lines);
             }
@@ -778,7 +808,7 @@ JsonlTable ReadJsonl(const uint8_t* data, size_t size, const std::vector<std::st
                     case JsonType::Boolean: type_str = "Boolean"; break;
                     case JsonType::Integer: type_str = "Integer"; break;
                     case JsonType::Double: type_str = "Double"; break;
-                    case JsonType::String: type_str = "String"; break;
+                    case JsonType::String: type_str = "Bytes"; break;
                 }
                 // KV instrumentation removed
             }
@@ -800,7 +830,7 @@ JsonlTable ReadJsonl(const uint8_t* data, size_t size, const std::vector<std::st
                 // null push instrumentation removed
                 if (col.type == "int64") col.int_values.push_back(0);
                 else if (col.type == "double") col.double_values.push_back(0.0);
-                else if (col.type == "string") {
+                else if (col.type == "bytes" || col.type.rfind("array", 0) == 0 || col.type == "object") {
                     col.string_values.emplace_back();
                     col.string_slices.emplace_back(nullptr, 0);
                 } else if (col.type == "boolean") col.boolean_values.push_back(0);
@@ -816,7 +846,7 @@ JsonlTable ReadJsonl(const uint8_t* data, size_t size, const std::vector<std::st
                     col.int_values.push_back(FastParseInt(val_ptr, val_len));
                 } else if (col.type == "double") {
                     col.double_values.push_back(FastParseDouble(val_ptr, val_len));
-                } else if (col.type == "string") {
+                } else if (col.type == "bytes" || col.type.rfind("array", 0) == 0 || col.type == "object") {
                     if (!has_escape) {
                         // Fast path: store slice pointer & len; materialize later if needed
                         col.string_slices.emplace_back(val_ptr, val_len);
@@ -867,7 +897,7 @@ JsonlTable ReadJsonl(const uint8_t* data, size_t size, const std::vector<std::st
                 col.null_mask.push_back(1);
                 if (col.type == "int64") col.int_values.push_back(0);
                 else if (col.type == "double") col.double_values.push_back(0.0);
-                else if (col.type == "string") {
+                else if (col.type == "bytes" || col.type.rfind("array", 0) == 0 || col.type == "object") {
                     col.string_values.emplace_back();
                     col.string_slices.emplace_back(nullptr, 0);
                 } else if (col.type == "boolean") col.boolean_values.push_back(0);
@@ -881,7 +911,42 @@ JsonlTable ReadJsonl(const uint8_t* data, size_t size, const std::vector<std::st
     // (which expects vector<string>) remains consistent.
     for (size_t ci = 0; ci < table.columns.size(); ++ci) {
         auto &col = table.columns[ci];
-        if (col.type != "string") continue;
+        if (col.type != "bytes" && col.type.rfind("array", 0) != 0 && col.type != "object") continue;
+        // If this is a generic array column with no element annotation, try
+        // to infer element type from the first non-empty slice we stored.
+        if (col.type == "array") {
+            JsonType inferred = JsonType::Null;
+            // scan slices for a candidate
+            for (size_t si = 0; si < col.string_slices.size(); ++si) {
+                auto &p = col.string_slices[si];
+                if (p.first == nullptr) continue;
+                const char* vptr = p.first;
+                size_t vlen = p.second;
+                size_t idx = 0;
+                if (idx < vlen && vptr[idx] == '[') idx++;
+                while (idx < vlen && (vptr[idx] == ' ' || vptr[idx] == '\t' || vptr[idx] == '\r' || vptr[idx] == '\n')) idx++;
+                if (idx < vlen) {
+                    char fc = vptr[idx];
+                    if (fc == '"') inferred = JsonType::String;
+                    else if (fc == '{') inferred = JsonType::Object;
+                    else if (fc == '[') inferred = JsonType::Array;
+                    else if (fc == 't' || fc == 'f') inferred = JsonType::Boolean;
+                    else if (fc == 'n') inferred = JsonType::Null;
+                    else if ((fc >= '0' && fc <= '9') || fc == '-' || fc == '+') {
+                        bool is_double = false;
+                        for (size_t k = idx; k < vlen; ++k) {
+                            if (vptr[k] == '.' || vptr[k] == 'e' || vptr[k] == 'E') { is_double = true; break; }
+                        }
+                        inferred = is_double ? JsonType::Double : JsonType::Integer;
+                    }
+                }
+                if (inferred != JsonType::Null) break;
+            }
+            if (inferred == JsonType::Integer) col.type = "array<int64>";
+            else if (inferred == JsonType::Double) col.type = "array<double>";
+            else if (inferred == JsonType::String) col.type = "array<bytes>";
+            // otherwise leave as generic 'array'
+        }
         // Ensure vectors have same length
         size_t n = col.null_mask.size();
         // If string_values already has entries for escaped ones and empty placeholders

@@ -37,7 +37,7 @@ def test_get_schema_with_complex_types():
     
     expected_types = {
         'id': 'int64',
-        'values': 'array<string>'
+        'values': 'array<bytes>'
     }
     
     for col in schema:

@@ -17,6 +17,7 @@ from cpython.ref cimport PyObject, Py_INCREF, Py_DECREF
 from cpython.exc cimport PyErr_Occurred
 from cpython.list cimport PyList_Append
 from cpython.exc cimport PyErr_Clear
+from cpython.bytes cimport PyBytes_FromStringAndSize
 
 # Internal fast array parser (no runtime deps). Parses a JSON array encoded
 # in UTF-8 bytes into Python lists. Objects found inside arrays are returned
@@ -232,7 +233,7 @@ def get_jsonl_schema(data, sample_size=25):
     list of dict
         A list of dictionaries, each describing a column with keys:
         - 'name': str, the column name
-        - 'type': str, the inferred type ('null', 'boolean', 'int64', 'double', 'string')
+        - 'type': str, the inferred type ('null', 'boolean', 'int64', 'double', 'bytes')
         - 'nullable': bool, whether the column can contain null values
     """
     cdef const uint8_t* data_ptr
@@ -279,7 +280,7 @@ def get_jsonl_schema(data, sample_size=25):
             elif elem_val == 3:
                 type_str = "array<double>"
             elif elem_val == 4:
-                type_str = "array<string>"
+                type_str = "array<bytes>"
             else:
                 type_str = "array"
         elif type_val == 6:
@@ -375,65 +376,158 @@ def read_jsonl(data, columns=None, parse_arrays=True, parse_objects=True):
                 else:
                     py_list.append(col.double_values[j])
             py_columns.append(py_list)
-        elif col_type == 'string':
-            # instrumentation removed
+        elif col_type == 'string' or col_type == 'bytes':
+            # Bytes columns: return as bytes (binary data), do NOT parse as JSON
+            # The schema has already determined this is a bytes/string column, not array/object
             py_list = []
             for j in range(col.string_values.size()):
                 if col.null_mask[j]:
                     py_list.append(None)
                     continue
 
-                # col.string_values[j] is exposed as Python bytes; inspect first byte
                 raw = col.string_values[j]
-                # libcpp.string: check size()
                 if raw.size() == 0:
-                    py_list.append("")
+                    py_list.append(b'')
                     continue
 
-                first = raw[0]
-                # '[' -> JSON array: parse into Python list if enabled
-                if first == '[' and parse_arrays:
-                    # Call the C wrapper and check for NULL ourselves to avoid Cython
-                    # automatically turning a NULL into a SystemError when no
-                    # Python exception is set.
+                # Always return as bytes, never parse as JSON
+                py_obj = <object>PyBytes_FromStringAndSize(<const char*>raw.data(), <Py_ssize_t>raw.size())
+                if py_obj is not None:
+                    py_list.append(py_obj)
+                else:
+                    py_list.append(b'')
+            py_columns.append(py_list)
+        elif col_type.startswith('array'):
+            # Array columns: may be annotated as array<elemtype>
+            # Determine element type if provided (e.g. array<bytes>)
+            elem_type = None
+            if col_type.startswith('array<') and col_type.endswith('>'):
+                elem_type = col_type[6:-1]
+
+            def _convert_strings_to_bytes_inplace(obj):
+                # Recursively convert str elements in lists to bytes when elem_type == 'bytes'
+                # obj is a Python object returned from the parser
+                if isinstance(obj, list):
+                    for idx in range(len(obj)):
+                        v = obj[idx]
+                        if isinstance(v, str):
+                            obj[idx] = v.encode('utf-8')
+                        elif isinstance(v, list):
+                            _convert_strings_to_bytes_inplace(v)
+                        # leave dicts/bytes as-is
+
+            py_list = []
+            for j in range(col.string_values.size()):
+                if col.null_mask[j]:
+                    py_list.append(None)
+                    continue
+
+                raw = col.string_values[j]
+                if raw.size() == 0:
+                    py_list.append([])
+                    continue
+
+                if parse_arrays:
+                    # Parse the JSON array into Python list
                     o_ptr = ParseJsonSliceToPyObject(<const uint8_t*>raw.data(), raw.size(), True)
                     if o_ptr != NULL:
-                        # wrapper returns a new reference on success
                         o = <object>o_ptr
+                        # If element type is bytes, or unspecified but the parsed
+                        # array contains string elements (likely binary-as-JSON
+                        # strings), convert those strings to bytes.
+                        if isinstance(o, list):
+                            if elem_type == 'bytes':
+                                _convert_strings_to_bytes_inplace(o)
+                            elif elem_type is None:
+                                # Heuristic: if at least one leaf element is str,
+                                # convert all string leaves to bytes
+                                def _has_string_leaf(x):
+                                    if isinstance(x, list):
+                                        for y in x:
+                                            if _has_string_leaf(y):
+                                                return True
+                                        return False
+                                    return isinstance(x, str)
+                                if _has_string_leaf(o):
+                                    _convert_strings_to_bytes_inplace(o)
                         py_list.append(o)
-                        # ownership transferred to Python object 'o'
                     else:
-                        # wrapper returned NULL -> fall back
-                        # If there's a Python-level error, clear it and fallback
                         if PyErr_Occurred():
                             PyErr_Clear()
                         try:
                             parsed = _parse_array_from_bytes(raw)
+                            if isinstance(parsed, list):
+                                if elem_type == 'bytes':
+                                    _convert_strings_to_bytes_inplace(parsed)
+                                elif elem_type is None:
+                                    def _has_string_leaf(x):
+                                        if isinstance(x, list):
+                                            for y in x:
+                                                if _has_string_leaf(y):
+                                                    return True
+                                            return False
+                                        return isinstance(x, str)
+                                    if _has_string_leaf(parsed):
+                                        _convert_strings_to_bytes_inplace(parsed)
                             py_list.append(parsed)
                         except Exception:
-                            py_list.append(raw.decode('utf-8').encode('utf-8'))
-                # '{' -> parse into dict if enabled, otherwise return raw bytes
-                elif first == '{':
-                    if parse_objects:
+                            # Fallback to raw string
+                            py_list.append(raw.decode('utf-8'))
+                else:
+                    # Return as string without parsing
+                    py_list.append(raw.decode('utf-8'))
+            py_columns.append(py_list)
+        elif col_type == 'object':
+            # Object columns: return as JSONB (bytes), may contain objects, arrays, or mixed
+            # Check each value and handle appropriately
+            py_list = []
+            for j in range(col.string_values.size()):
+                if col.null_mask[j]:
+                    py_list.append(None)
+                    continue
+
+                raw = col.string_values[j]
+                if raw.size() == 0:
+                    py_list.append(b'{}')
+                    continue
+
+                # Check what type of JSON value this is
+                first = raw[0]
+                
+                if first == '[':
+                    # This is an array in a mixed column
+                    if parse_arrays:
+                        # Parse as array into Python list
                         o_ptr = ParseJsonSliceToPyObject(<const uint8_t*>raw.data(), raw.size(), True)
                         if o_ptr != NULL:
                             o = <object>o_ptr
                             py_list.append(o)
                         else:
-                            # wrapper returned NULL -> fall back
                             if PyErr_Occurred():
                                 PyErr_Clear()
-                            # fallback to json.loads on Python side
                             try:
-                                parsed = json.loads(raw.decode('utf-8'))
+                                parsed = _parse_array_from_bytes(raw)
                                 py_list.append(parsed)
                             except Exception:
-                                py_list.append(raw.decode('utf-8').encode('utf-8'))
+                                py_list.append(raw.decode('utf-8'))
                     else:
-                        py_list.append(raw.decode('utf-8').encode('utf-8'))
+                        # Arrays not requested, return as string
+                        py_list.append(raw.decode('utf-8'))
+                        
+                elif first == '{':
+                    # This is an object - always return as JSONB (bytes)
+                    py_obj = <object>PyBytes_FromStringAndSize(<const char*>raw.data(), <Py_ssize_t>raw.size())
+                    if py_obj is not None:
+                        py_list.append(py_obj)
+                    else:
+                        py_list.append(b'{}')
                 else:
-                    # regular string value: decode to Python str
-                    py_list.append(raw.decode('utf-8'))
+                    # Unexpected - fallback to bytes
+                    py_obj = <object>PyBytes_FromStringAndSize(<const char*>raw.data(), <Py_ssize_t>raw.size())
+                    if py_obj is not None:
+                        py_list.append(py_obj)
+                    else:
+                        py_list.append(b'')
             py_columns.append(py_list)
         elif col_type == 'boolean':
             py_list = []

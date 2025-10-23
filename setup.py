@@ -120,6 +120,33 @@ def get_extensions():
     )
     extensions.append(jsonl_ext)
     
+    # CSV/TSV reader extension with SIMD optimizations
+    csv_compile_args = extra_compile_args.copy()
+    # Add SIMD flags based on architecture (same as JSONL)
+    machine = platform.machine().lower()
+    if machine in ("x86_64", "amd64"):
+        # x86-64: Add SSE4.2 and AVX2 flags
+        csv_compile_args.extend(["-msse4.2", "-mavx2"])
+    elif machine in ("arm64", "aarch64"):
+        # ARM: NEON is enabled by default on ARMv8
+        if platform.system() != "Darwin":
+            csv_compile_args.append("-mfpu=neon")
+    
+    csv_ext = Extension(
+        "rugo.csv",
+        sources=[
+            "rugo/csv/csv_reader.pyx",
+            "rugo/csv/csv_parser.cpp",
+        ],
+        include_dirs=[
+            "rugo/csv",
+        ],
+        language="c++",
+        extra_compile_args=csv_compile_args,
+        extra_link_args=[],
+    )
+    extensions.append(csv_ext)
+    
     return extensions
 
 

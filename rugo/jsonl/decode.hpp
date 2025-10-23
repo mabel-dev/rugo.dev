@@ -39,7 +39,7 @@ struct JsonlColumn {
     std::vector<std::pair<const char*, size_t>> string_slices;
     std::vector<uint8_t> boolean_values;
     std::vector<uint8_t> null_mask;  // 1 = null, 0 = not null
-    std::string type;  // "int64", "double", "string", "boolean"
+    std::string type;  // "int64", "double", "bytes", "boolean"
     bool success = false;
 };
 
