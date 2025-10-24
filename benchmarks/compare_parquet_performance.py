@@ -9,21 +9,24 @@ Produces an in-memory Parquet dataset (using pyarrow) and measures:
 Requires pyarrow to generate and read Parquet data. If pyarrow is not
 installed the script will exit with a helpful message.
 """
+import argparse
+import gc
 import os
+import statistics
 import sys
 import time
-import gc
-import statistics
-import argparse
 from io import BytesIO
-from typing import List, Tuple
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from typing import List
+from typing import Tuple
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 
 import rugo.parquet as rp
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
 
 
 # ANSI colors

@@ -23,27 +23,15 @@ from io import BytesIO
 from typing import List
 from typing import Tuple
 
-# Add rugo to path if running from source
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(1, os.path.join(sys.path[0], "../opteryx"))
-
-import opteryx
 import pyarrow.json as paj
 
 import rugo.jsonl as rj
 
+# Add rugo to path if running from source
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(1, os.path.join(sys.path[0], "../opteryx"))
 
-# Check if Opteryx is available
-try:
-    import opteryx
-    from opteryx.utils.file_decoders import jsonl_decoder as opteryx_jsonl_decoder
-    HAS_OPTERYX = True
-    OPTERYX_VERSION = opteryx.__version__ if hasattr(opteryx, '__version__') else "unknown"
-    
-except ImportError:
-    HAS_OPTERYX = False
-    OPTERYX_VERSION = None
-    print("Warning: Opteryx not available. Install with: pip install opteryx")
+
 
 # Check if PyArrow is available
 try:
@@ -170,68 +158,7 @@ def benchmark_rugo_projection(data: bytes, columns: List[str], iterations: int =
     return avg_time, rows
 
 
-def benchmark_opteryx_full_read(data: bytes, iterations: int = 5) -> Tuple[float, int]:
-    """Benchmark Opteryx reading all columns."""
-    if not HAS_OPTERYX:
-        return None, None
-    
-    times = []
-    
-    for _ in range(iterations):
-        start = time.perf_counter()
-        rows, cols, size, table = opteryx_jsonl_decoder(data)
-        elapsed = time.perf_counter() - start
-        times.append(elapsed)
-    
-    avg_time = sum(times) / len(times)
-    # Determine a reliable row count: prefer the returned table length if available
-    rows_count = rows
-    try:
-        if table is not None:
-            # pyarrow.Table supports len(table)
-            rows_count = len(table)
-    except Exception:
-        pass
-    return avg_time, rows_count
-
-
-def benchmark_opteryx_projection(data: bytes, columns: List[str], iterations: int = 5) -> Tuple[float, int]:
-    """
-    Benchmark Opteryx reading specific columns.
-    
-    Note: Opteryx's jsonl_decoder doesn't support true projection pushdown
-    like rugo does. It reads all data and then filters columns after parsing.
-    This is a fundamental difference in architecture.
-    """
-    if not HAS_OPTERYX:
-        return None, None
-    
-    times = []
-    
-    # Opteryx reads all columns then selects, so we'll measure full read + select
-    # to be fair in comparison
-    for _ in range(iterations):
-        start = time.perf_counter()
-        rows, cols, size, table = opteryx_jsonl_decoder(data)
-        # Simulate projection by selecting columns from the result
-        if table and columns:
-            try:
-                table = table.select(columns)
-            except KeyError:
-                # If some columns don't exist, just use the full table
-                pass
-        elapsed = time.perf_counter() - start
-        times.append(elapsed)
-    
-    avg_time = sum(times) / len(times)
-    # Prefer the table length if available (more reliable than decoder 'rows')
-    rows_count = rows
-    try:
-        if table is not None:
-            rows_count = len(table)
-    except Exception:
-        pass
-    return avg_time, rows_count
+# Opteryx removed from this benchmark to focus on rugo vs pyarrow
 
 
 def benchmark_pyarrow_full_read(data: bytes, iterations: int = 5) -> Tuple[float, int]:
@@ -305,10 +232,6 @@ def print_system_info():
     print(f"Platform: {platform.platform()}")
     print(f"Processor: {platform.processor()}")
     print(f"Architecture: {platform.machine()}")
-    if HAS_OPTERYX:
-        print(f"Opteryx version: {OPTERYX_VERSION}")
-        decoder_type = "Cython-based (fast)"
-        print(f"Opteryx decoder: {decoder_type}")
     if HAS_PYARROW:
         print(f"PyArrow version: {PYARROW_VERSION}")
     print()
@@ -345,21 +268,7 @@ def run_benchmark_suite(num_rows: int):
     rugo_throughput = format_throughput(rugo_rows, rugo_time)
     print(f"  rugo:    {rugo_time:.4f}s ({rugo_throughput})")
     
-    # Opteryx
-    if HAS_OPTERYX:
-        opteryx_time, opteryx_rows = benchmark_opteryx_full_read(data, iterations=5)
-        opteryx_throughput = format_throughput(opteryx_rows, opteryx_time)
-        print(f"  Opteryx: {opteryx_time:.4f}s ({opteryx_throughput})")
-        
-        # Comparison
-        if opteryx_time < rugo_time:
-            speedup = rugo_time / opteryx_time
-            print(f"  → Opteryx is {speedup:.2f}x faster than rugo")
-        else:
-            speedup = opteryx_time / rugo_time
-            print(f"  → rugo is {speedup:.2f}x faster than Opteryx")
-    else:
-        print("  Opteryx: Not available")
+    # Opteryx removed from this benchmark
     
     # PyArrow
     if HAS_PYARROW:
@@ -393,21 +302,7 @@ def run_benchmark_suite(num_rows: int):
     rugo_throughput = format_throughput(rugo_rows, rugo_time)
     print(f"  rugo:    {rugo_time:.4f}s ({rugo_throughput})")
     
-    # Opteryx
-    if HAS_OPTERYX:
-        opteryx_time, opteryx_rows = benchmark_opteryx_projection(data, projection_cols, iterations=5)
-        opteryx_throughput = format_throughput(opteryx_rows, opteryx_time)
-        print(f"  Opteryx: {opteryx_time:.4f}s ({opteryx_throughput})")
-        
-        # Comparison
-        if opteryx_time < rugo_time:
-            speedup = rugo_time / opteryx_time
-            print(f"  → Opteryx is {speedup:.2f}x faster than rugo")
-        else:
-            speedup = opteryx_time / rugo_time
-            print(f"  → rugo is {speedup:.2f}x faster than Opteryx")
-    else:
-        print("  Opteryx: Not available")
+    # Opteryx removed from this benchmark
     
     # PyArrow
     if HAS_PYARROW:
@@ -438,21 +333,7 @@ def run_benchmark_suite(num_rows: int):
     rugo_throughput = format_throughput(rugo_rows, rugo_time)
     print(f"  rugo:    {rugo_time:.4f}s ({rugo_throughput})")
     
-    # Opteryx
-    if HAS_OPTERYX:
-        opteryx_time, opteryx_rows = benchmark_opteryx_projection(data, projection_cols, iterations=5)
-        opteryx_throughput = format_throughput(opteryx_rows, opteryx_time)
-        print(f"  Opteryx: {opteryx_time:.4f}s ({opteryx_throughput})")
-        
-        # Comparison
-        if opteryx_time < rugo_time:
-            speedup = rugo_time / opteryx_time
-            print(f"  → Opteryx is {speedup:.2f}x faster than rugo")
-        else:
-            speedup = opteryx_time / rugo_time
-            print(f"  → rugo is {speedup:.2f}x faster than Opteryx")
-    else:
-        print("  Opteryx: Not available")
+    # Opteryx removed from this benchmark
     
     # PyArrow
     if HAS_PYARROW:
@@ -475,18 +356,8 @@ def main():
     """Main benchmark execution."""
     print_system_info()
     
-    warnings = []
-    if not HAS_OPTERYX:
-        warnings.append("⚠️  WARNING: Opteryx is not installed!")
-        warnings.append("Install with: pip install opteryx")
-    
     if not HAS_PYARROW:
-        warnings.append("⚠️  WARNING: PyArrow is not installed!")
-        warnings.append("Install with: pip install pyarrow")
-    
-    if warnings:
-        for warning in warnings:
-            print(warning)
+        print("⚠️  WARNING: PyArrow is not installed! Install with: pip install pyarrow")
         print()
     
     # Test with different dataset sizes
@@ -497,16 +368,8 @@ def main():
     print("Benchmark Complete!")
     print("=" * 80)
     
-    notes = []
-    if not HAS_OPTERYX:
-        notes.append("Opteryx benchmarks were skipped. Install Opteryx to run full comparison.")
     if not HAS_PYARROW:
-        notes.append("PyArrow benchmarks were skipped. Install PyArrow to run full comparison.")
-    
-    if notes:
-        print("\nNote:")
-        for note in notes:
-            print(f"  - {note}")
+        print("Note: PyArrow benchmarks were skipped. Install PyArrow to run full comparison.")
 
 
 if __name__ == "__main__":

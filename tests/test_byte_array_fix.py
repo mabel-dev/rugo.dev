@@ -41,7 +41,7 @@ result3 = jsonl.read_jsonl(data3)
 print(f"Schema: {schema3[1]}")  # message column
 print(f"Value: {result3['columns'][1][0]}")
 print(f"✓ Type: {type(result3['columns'][1][0])}")
-print(f"✓ Not mis-parsed as array!")
+print("✓ Not mis-parsed as array!")
 
 # Test 4: Objects returned as JSONB (bytes)
 print("\n4. OBJECTS RETURNED AS JSONB (BYTES)")
@@ -53,7 +53,7 @@ result4 = jsonl.read_jsonl(data4)
 print(f"Schema: {schema4[1]}")  # metadata column
 print(f"Value: {result4['columns'][1][0]}")
 print(f"✓ Type: {type(result4['columns'][1][0])}")
-print(f"✓ Object kept as binary JSONB, not parsed!")
+print("✓ Object kept as binary JSONB, not parsed!")
 
 print("\n" + "="*70)
 print("SUMMARY:")

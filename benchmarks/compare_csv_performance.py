@@ -8,13 +8,16 @@ import os
 import sys
 import time
 from io import BytesIO
-from typing import List, Tuple
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from typing import List
+from typing import Tuple
 
 import pyarrow.csv as pacsv
 
 import rugo.csv as rc
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
 
 
 def generate_csv_bytes(num_rows: int = 10000) -> bytes:

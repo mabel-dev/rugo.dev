@@ -21,4 +21,8 @@ recursive-include rugo/parquet/vendor/zstd *
 recursive-include rugo/parquet/vendor/zstd/common *
 recursive-include rugo/parquet/vendor/zstd/decompress *
 recursive-include rugo/jsonl/vendor *
+recursive-include rugo/jsonl *
+include rugo/jsonl/*.hpp
+include rugo/jsonl/*.cpp
+include rugo/jsonl/text_search.hpp
 recursive-include rugo/csv *
