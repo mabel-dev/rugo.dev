@@ -97,10 +97,11 @@ def get_extensions():
         # x86-64: Add SSE4.2 and AVX2 flags
         jsonl_compile_args.extend(["-msse4.2", "-mavx2"])
     elif machine in ("arm64", "aarch64"):
-        # ARM: NEON is enabled by default on ARMv8, but we can be explicit
-        # On some ARM systems, we may need to explicitly enable NEON
-        if platform.system() != "Darwin":  # macOS automatically enables NEON
-            jsonl_compile_args.append("-mfpu=neon")
+        # ARM: NEON is standard on AArch64 (ARMv8+). Avoid adding `-mfpu=neon`
+        # which is invalid for some aarch64 toolchains; rely on the compiler
+        # default or use -march flags if necessary.
+        # no-op: leave defaults (NEON is available on AArch64)
+        pass
     
     jsonl_ext = Extension(
         "rugo.jsonl",
@@ -128,9 +129,10 @@ def get_extensions():
         # x86-64: Add SSE4.2 and AVX2 flags
         csv_compile_args.extend(["-msse4.2", "-mavx2"])
     elif machine in ("arm64", "aarch64"):
-        # ARM: NEON is enabled by default on ARMv8
-        if platform.system() != "Darwin":
-            csv_compile_args.append("-mfpu=neon")
+        # ARM: NEON is standard on AArch64 (ARMv8+). Avoid adding `-mfpu=neon`
+        # which can be rejected by some cross-compilers; rely on defaults.
+        # no-op: leave defaults (NEON is available on AArch64)
+        pass
     
     csv_ext = Extension(
         "rugo.csv",
