@@ -64,7 +64,7 @@ jobs:
 
       - name: Build manylinux aarch64 wheels
         env:
-          CIBW_PLATFORM: "manylinux"
+          CIBW_PLATFORM: "linux"
           CIBW_ARCHS: "aarch64"
           CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-* cp313-*"
           CIBW_SKIP: "pp* *-manylinux_i686"
@@ -93,7 +93,7 @@ jobs:
           path: dist/*.tar.gz
 
   publish:
-    needs: [build_wheels, build_sdist]
+    needs: [build_wheels, build_sdist, build_wheels_aarch64]
     runs-on: ubuntu-latest
     if: github.event_name == 'release' && github.event.action == 'published'
     environment: pypi
@@ -111,7 +111,7 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
 
   publish_test:
-    needs: [build_wheels, build_sdist]
+    needs: [build_wheels, build_sdist, build_wheels_aarch64]
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' && inputs.publish_to_test
     environment: test-pypi
