@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rugo"
-version = "0.1.15"
+version = "0.1.16"
 description = "Parquet Metadata Reader"
 readme = "README.md"
 authors = [

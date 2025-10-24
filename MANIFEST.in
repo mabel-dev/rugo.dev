@@ -11,3 +11,14 @@ include pyproject.toml
 
 # Include tests
 recursive-include tests *.py
+
+# Include vendored compression libraries and other third-party sources needed to
+# build the extensions on client machines that build from sdist. Without these
+# entries the source distribution may omit the vendor C++ files (e.g. snappy)
+# and pip install from sdist will fail.
+recursive-include rugo/parquet/vendor/snappy *
+recursive-include rugo/parquet/vendor/zstd *
+recursive-include rugo/parquet/vendor/zstd/common *
+recursive-include rugo/parquet/vendor/zstd/decompress *
+recursive-include rugo/jsonl/vendor *
+recursive-include rugo/csv *
