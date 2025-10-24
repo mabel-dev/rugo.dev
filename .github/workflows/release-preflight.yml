@@ -1,7 +1,17 @@
 name: Release preflight
 
 on:
-  push
+  workflow_dispatch:
+    inputs:
+      arch:
+        description: 'Target architecture to preflight (x86_64 or aarch64)'
+        required: true
+        default: 'aarch64'
+      do_build:
+        description: 'Run a short actual build for one ABI (cp39). Set to false to skip.'
+        required: false
+        default: 'true'
+  push:
 
 jobs:
   preflight:
@@ -43,6 +53,25 @@ jobs:
           docker pull quay.io/pypa/manylinux_2_28_aarch64:latest || true
           docker pull quay.io/pypa/manylinux_2_28_aarch64:2025.10.10-1 || true
           docker pull quay.io/pypa/manylinux2014_aarch64:latest || true
+
+      - name: Quick single-ABI wheel build (cp39)
+        if: ${{ github.event.inputs.do_build == 'true' }}
+        env:
+          CIBW_PLATFORM: linux
+          CIBW_ARCHS: ${{ github.event.inputs.arch }}
+          CIBW_MANYLINUX_VERSION: manylinux2014
+          # Only build CPython 3.9 wheels to keep build short
+          CIBW_BUILD: cp39-*
+        run: |
+          echo "Starting quick build for CPython 3.9 on arch=${{ github.event.inputs.arch }}"
+          python -m cibuildwheel --output-dir wheelhouse
+
+      - name: Upload preflight wheel artifact
+        if: ${{ github.event.inputs.do_build == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: preflight-wheels
+          path: wheelhouse
 
       - name: Show Docker info
         run: docker version && docker info || true
