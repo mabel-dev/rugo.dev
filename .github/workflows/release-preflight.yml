@@ -1,12 +1,7 @@
 name: Release preflight
 
 on:
-  workflow_dispatch:
-    inputs:
-      arch:
-        description: 'Target architecture to preflight (x86_64 or aarch64)'
-        required: true
-        default: 'aarch64'
+  push
 
 jobs:
   preflight:
