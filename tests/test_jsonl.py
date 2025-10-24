@@ -243,7 +243,6 @@ def test_consistency():
     table = rj.read_jsonl(data)
 
     for col in table['columns']:
-        print(col)
         assert all(isinstance(val, type(col[0])) or val is None for val in col), f"Inconsistent types in column with first value {col[0]}"
 
 
