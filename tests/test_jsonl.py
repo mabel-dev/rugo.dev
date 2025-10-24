@@ -247,5 +247,4 @@ def test_consistency():
 
 
 if __name__ == "__main__":
-    test_consistency()
-#    pytest.main([__file__, "-v"])
+    pytest.main([__file__, "-v"])
