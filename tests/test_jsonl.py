@@ -234,6 +234,19 @@ def test_large_dataset_preallocation():
     assert abs(values[0] - 0.0) < 1e-10
     assert abs(values[999] - 1498.5) < 1e-10
 
+def test_consistency():
+    """Test schema extraction from basic JSON lines data."""
+    data = b'{"id": 1, "name": "Alice", "age": 30}\n' * 100
+    data += b'{"id": 2, "name": "[Bob]", "age": 25}\n'
+    data += b'{"id": 3, "name": "Charlie", "age": 35.0}'
+
+    table = rj.read_jsonl(data)
+
+    for col in table['columns']:
+        print(col)
+        assert all(isinstance(val, type(col[0])) or val is None for val in col), f"Inconsistent types in column with first value {col[0]}"
+
 
 if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+    test_consistency()
+#    pytest.main([__file__, "-v"])
