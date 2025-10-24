@@ -81,8 +81,8 @@ print(f"Detected delimiter: '{dialect['delimiter']}'")
 print(f"Quote character: '{dialect['quote_char']}'")
 
 dialect_tsv = rc.detect_csv_dialect(sample_tsv)
-print(f"\nFor TSV:")
-print(f"Detected delimiter: '\\t' (tab)" if dialect_tsv['delimiter'] == '\t' else f"Detected delimiter: '{dialect_tsv['delimiter']}'")
+print("\nFor TSV:")
+print("Detected delimiter: '\\t' (tab)" if dialect_tsv['delimiter'] == '\t' else f"Detected delimiter: '{dialect_tsv['delimiter']}'")
 
 # 6. Reading TSV data
 print("\n6. Reading TSV (Tab-Separated Values):")
