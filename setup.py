@@ -23,6 +23,26 @@ if platform.system() == "Darwin":
             continue
         extra_compile_args.extend(["-arch", arch])
 
+
+def detect_target_machine():
+    """Detect the target architecture. Prefer environment variables set by
+    cibuildwheel or CI (CIBW_ARCHS, CIBW_ARCH, CIBW_BUILD) and fall back to the
+    local platform.machine(). This avoids adding flags for the host arch when
+    cross-building inside manylinux containers or emulators.
+    """
+    # Prefer cibuildwheel environment vars which specify target arches
+    for key in ("CIBW_ARCHS", "CIBW_ARCH", "CIBW_BUILD"):
+        val = os.environ.get(key)
+        if not val:
+            continue
+        s = val.lower()
+        if "aarch64" in s or "arm64" in s:
+            return "aarch64"
+        if "x86_64" in s or "amd64" in s or "x86" in s:
+            return "x86_64"
+    # Fallback to the runtime platform machine
+    return platform.machine().lower()
+
 def get_vendor_sources():
     """Get vendored compression library sources"""
     vendor_sources = []
@@ -49,7 +69,7 @@ def get_vendor_sources():
         "rugo/parquet/vendor/zstd/decompress/zstd_ddict.cpp"
     ]
 
-    machine = platform.machine().lower()
+    machine = detect_target_machine()
     if machine in ("x86_64", "amd64"):
         # BMI2-enabled builds expect this ASM fast path to be present on x86-64.
         zstd_sources.append("rugo/parquet/vendor/zstd/decompress/huf_decompress_amd64.S")
@@ -92,7 +112,7 @@ def get_extensions():
     # JSON lines reader extension with SIMD optimizations
     jsonl_compile_args = extra_compile_args.copy()
     # Add SIMD flags based on architecture
-    machine = platform.machine().lower()
+    machine = detect_target_machine()
     if machine in ("x86_64", "amd64"):
         # x86-64: Add SSE4.2 and AVX2 flags
         jsonl_compile_args.extend(["-msse4.2", "-mavx2"])
@@ -124,7 +144,7 @@ def get_extensions():
     # CSV/TSV reader extension with SIMD optimizations
     csv_compile_args = extra_compile_args.copy()
     # Add SIMD flags based on architecture (same as JSONL)
-    machine = platform.machine().lower()
+    machine = detect_target_machine()
     if machine in ("x86_64", "amd64"):
         # x86-64: Add SSE4.2 and AVX2 flags
         csv_compile_args.extend(["-msse4.2", "-mavx2"])
