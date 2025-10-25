@@ -11,6 +11,17 @@ import tempfile
 import os
 import rugo.jsonl as rj
 
+# Helper function to convert vectors to lists
+def vector_to_list(vec):
+    """Convert a draken vector or Python list to a Python list."""
+    if hasattr(vec, 'to_arrow'):
+        # It's a draken vector, convert to pyarrow then to list
+        arrow_array = vec.to_arrow()
+        return arrow_array.to_pylist()
+    else:
+        # It's already a Python list
+        return vec
+
 # Sample JSON Lines data
 sample_data = b'''{"id": 1, "name": "Alice", "age": 30, "salary": 50000.0, "active": true}
 {"id": 2, "name": "Bob", "age": 25, "salary": 45000.0, "active": false}
@@ -30,15 +41,22 @@ for col in schema:
     print(f"  {col['name']:15} {col['type']:10} nullable={col['nullable']}")
 
 # 2. Read all columns
-print("\n2. Read All Columns:")
+print("\n2. Read All Columns (Draken Vectors):")
 print("-" * 60)
 result = rj.read_jsonl(sample_data)
 print(f"Success: {result['success']}")
 print(f"Rows: {result['num_rows']}")
 print(f"Columns: {result['column_names']}")
-print("\nFirst few rows:")
+print("\nColumn types:")
+for i, name in enumerate(result['column_names']):
+    col = result['columns'][i]
+    print(f"  {name}: {type(col).__name__}")
+
+print("\nFirst few rows (converting vectors to lists for display):")
+# Convert vectors to lists for easy access
+column_lists = [vector_to_list(col) for col in result['columns']]
 for i in range(min(3, result['num_rows'])):
-    row = {name: result['columns'][j][i] for j, name in enumerate(result['column_names'])}
+    row = {name: column_lists[j][i] for j, name in enumerate(result['column_names'])}
     print(f"  {row}")
 
 # 3. Read with projection (only specific columns)
@@ -49,8 +67,12 @@ print(f"Success: {result['success']}")
 print(f"Rows: {result['num_rows']}")
 print(f"Columns: {result['column_names']}")
 print("\nData:")
+names = vector_to_list(result['columns'][0])
+salaries = vector_to_list(result['columns'][1])
 for i in range(result['num_rows']):
-    print(f"  {result['columns'][0][i]:15} ${result['columns'][1][i]:,.2f}")
+    # Decode bytes to string for display
+    name = names[i].decode('utf-8') if isinstance(names[i], bytes) else names[i]
+    print(f"  {name:15} ${salaries[i]:,.2f}")
 
 # 4. Working with null values
 print("\n4. Handling Null Values:")
@@ -61,8 +83,11 @@ data_with_nulls = b'''{"id": 1, "name": "Alice", "score": 85.5}
 
 result = rj.read_jsonl(data_with_nulls)
 print("Data with nulls:")
+print(f"Column types: {[type(col).__name__ for col in result['columns']]}")
+# Convert to lists for easy display
+column_lists = [vector_to_list(col) for col in result['columns']]
 for i in range(result['num_rows']):
-    row = {name: result['columns'][j][i] for j, name in enumerate(result['column_names'])}
+    row = {name: column_lists[j][i] for j, name in enumerate(result['column_names'])}
     print(f"  {row}")
 
 # 5. Working with file data
@@ -81,6 +106,7 @@ with open(temp_file, 'rb') as f:
 result = rj.read_jsonl(file_data, columns=['id', 'name', 'age'])
 print(f"Read {result['num_rows']} rows from {temp_file}")
 print(f"Columns: {result['column_names']}")
+print(f"Column types: {[type(col).__name__ for col in result['columns']]}")
 
 # Cleanup
 os.unlink(temp_file)
@@ -91,6 +117,7 @@ print("=" * 60)
 print("✓ Memory-based processing (no file I/O overhead)")
 print("✓ Projection pushdown (read only needed columns)")
 print("✓ Fast schema inference")
-print("✓ Columnar output format")
-print("✓ Native null handling")
+print("✓ Columnar output format with Draken vectors")
+print("✓ Native null handling in vectors")
+print("✓ Zero-copy interoperability with Apache Arrow")
 print("=" * 60)
