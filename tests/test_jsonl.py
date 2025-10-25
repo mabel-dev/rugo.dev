@@ -3,12 +3,13 @@ Tests for JSON lines reader functionality.
 """
 import sys
 from pathlib import Path
-
+import os
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Add draken path if available
 try:
-    sys.path.insert(0, '/tmp/draken')
+    draken_path = os.environ.get('DRAKEN_PATH', str(Path(__file__).parent.parent / 'draken'))
+    sys.path.insert(0, draken_path)
 except Exception:
     pass
 

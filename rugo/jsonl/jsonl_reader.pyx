@@ -568,7 +568,9 @@ def read_jsonl(data, columns=None, parse_arrays=True, parse_objects=True):
                 elif col_type == 'boolean':
                     arrow_array = pa.array(py_columns[i], type=pa.bool_())
                 elif col_type == 'string' or col_type == 'bytes':
-                    # String/bytes columns are stored as binary in draken
+                    # String/bytes columns are stored as binary in draken.
+                    # This preserves the original UTF-8 bytes without decoding,
+                    # since draken's StringVector expects binary data.
                     arrow_array = pa.array(py_columns[i], type=pa.binary())
                 elif col_type == 'object':
                     # Object columns are stored as binary (JSONB)

@@ -325,7 +325,6 @@ for i in range(result['num_rows']):
     score = scores[i]
     print(f"User {user_id}: {email} - Score: {score}")
 ```
-    print(f"User {user_id}: {email} - Score: {score}")
 ```
 
 ### Orso Integration
