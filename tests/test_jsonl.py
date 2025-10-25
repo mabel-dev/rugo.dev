@@ -6,8 +6,25 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# Add draken path if available
+try:
+    sys.path.insert(0, '/tmp/draken')
+except Exception:
+    pass
+
 import pytest
 import rugo.jsonl as rj
+
+# Helper function to convert draken vectors to lists for comparison
+def vector_to_list(vec):
+    """Convert a draken vector or Python list to a Python list."""
+    if hasattr(vec, 'to_arrow'):
+        # It's a draken vector, convert to pyarrow then to list
+        arrow_array = vec.to_arrow()
+        return arrow_array.to_pylist()
+    else:
+        # It's already a Python list
+        return vec
 
 
 def test_get_schema_basic():
@@ -55,9 +72,9 @@ def test_read_with_projection():
     assert result['column_names'] == ['name', 'salary']
     assert len(result['columns']) == 2
     
-    # Check the data
-    names = result['columns'][0]
-    salaries = result['columns'][1]
+    # Check the data - convert vectors to lists
+    names = vector_to_list(result['columns'][0])
+    salaries = vector_to_list(result['columns'][1])
     
     assert names == [b'Alice', b'Bob', b'Charlie']
     assert salaries == [50000.0, 45000.0, 55000.0]
@@ -72,8 +89,8 @@ def test_read_int64_column():
     result = rj.read_jsonl(data, columns=['id', 'count'])
     
     assert result['success']
-    ids = result['columns'][0]
-    counts = result['columns'][1]
+    ids = vector_to_list(result['columns'][0])
+    counts = vector_to_list(result['columns'][1])
     
     assert ids == [1, 2, 3]
     assert counts == [100, 200, 300]
@@ -88,8 +105,8 @@ def test_read_string_column():
     result = rj.read_jsonl(data, columns=['name', 'city'])
     
     assert result['success']
-    names = result['columns'][0]
-    cities = result['columns'][1]
+    names = vector_to_list(result['columns'][0])
+    cities = vector_to_list(result['columns'][1])
 
     assert names == [b'Alice', b'Bob', b'Charlie']
     assert cities == [b'NYC', b'LA', b'SF']
@@ -104,8 +121,8 @@ def test_read_double_column():
     result = rj.read_jsonl(data, columns=['price', 'tax'])
     
     assert result['success']
-    prices = result['columns'][0]
-    taxes = result['columns'][1]
+    prices = vector_to_list(result['columns'][0])
+    taxes = vector_to_list(result['columns'][1])
     
     assert prices == [19.99, 29.99, 39.99]
     assert taxes == [1.5, 2.25, 3.0]
@@ -120,8 +137,8 @@ def test_read_boolean_column():
     result = rj.read_jsonl(data, columns=['active', 'verified'])
     
     assert result['success']
-    active = result['columns'][0]
-    verified = result['columns'][1]
+    active = vector_to_list(result['columns'][0])
+    verified = vector_to_list(result['columns'][1])
     
     assert active == [True, False, True]
     assert verified == [False, True, True]
@@ -136,9 +153,9 @@ def test_read_with_nulls():
     result = rj.read_jsonl(data, columns=['id', 'name', 'age'])
     
     assert result['success']
-    ids = result['columns'][0]
-    names = result['columns'][1]
-    ages = result['columns'][2]
+    ids = vector_to_list(result['columns'][0])
+    names = vector_to_list(result['columns'][1])
+    ages = vector_to_list(result['columns'][2])
     
     assert ids == [1, 2, 3]
     assert names == [b'Alice', None, b'Charlie']
@@ -177,10 +194,10 @@ def test_fast_integer_parsing():
     assert result['success']
     assert result['num_rows'] == 2
     
-    pos = result['columns'][0]
-    neg = result['columns'][1]
-    zero = result['columns'][2]
-    large = result['columns'][3]
+    pos = vector_to_list(result['columns'][0])
+    neg = vector_to_list(result['columns'][1])
+    zero = vector_to_list(result['columns'][2])
+    large = vector_to_list(result['columns'][3])
     
     assert pos == [123, 1]
     assert neg == [-456, -1]
@@ -198,10 +215,10 @@ def test_fast_float_parsing():
     assert result['success']
     assert result['num_rows'] == 2
     
-    simple = result['columns'][0]
-    scientific = result['columns'][1]
-    negative = result['columns'][2]
-    zero = result['columns'][3]
+    simple = vector_to_list(result['columns'][0])
+    scientific = vector_to_list(result['columns'][1])
+    negative = vector_to_list(result['columns'][2])
+    zero = vector_to_list(result['columns'][3])
     
     assert simple == [1.5, 2.5]
     assert abs(scientific[0] - 1.23e10) < 1e5
@@ -224,8 +241,8 @@ def test_large_dataset_preallocation():
     assert result['success']
     assert result['num_rows'] == 1000
     
-    ids = result['columns'][0]
-    values = result['columns'][1]
+    ids = vector_to_list(result['columns'][0])
+    values = vector_to_list(result['columns'][1])
     
     assert len(ids) == 1000
     assert len(values) == 1000
@@ -242,8 +259,14 @@ def test_consistency():
 
     table = rj.read_jsonl(data)
 
+    # Convert vectors to lists for consistency checking
     for col in table['columns']:
-        assert all(isinstance(val, type(col[0])) or val is None for val in col), f"Inconsistent types in column with first value {col[0]}"
+        col_list = vector_to_list(col)
+        if col_list:  # Only check non-empty columns
+            first_non_null = next((val for val in col_list if val is not None), None)
+            if first_non_null is not None:
+                assert all(isinstance(val, type(first_non_null)) or val is None for val in col_list), \
+                    f"Inconsistent types in column with first value {first_non_null}"
 
 
 if __name__ == "__main__":

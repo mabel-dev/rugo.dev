@@ -27,6 +27,8 @@ classifiers = [
 keywords = ["data", "decoder", "parquet", "cython", "python"]
 requires-python = ">=3.9"
 dependencies = [
+    "draken",
+    "pyarrow",
 ]
 
 [project.optional-dependencies]
