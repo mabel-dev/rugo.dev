@@ -9,8 +9,8 @@
         "extra_compile_args": [
             "-O3",
             "-std=c++17",
-            "-arch",
-            "arm64"
+            "-msse4.2",
+            "-mavx2"
         ],
         "include_dirs": [
             "rugo/csv"
@@ -3961,7 +3961,7 @@ static PyObject *__pyx_pf_4rugo_3csv_2read_csv(CYTHON_UNUSED PyObject *__pyx_sel
   size_t __pyx_v_i;
   size_t __pyx_v_j;
   PyObject *__pyx_v_col_type = NULL;
-  std::vector<uint8_t> ::size_type __pyx_v_n;
+  std::vector<std::string> ::size_type __pyx_v_n;
   std::vector<uint8_t> ::size_type __pyx_v_nm;
   PyObject *__pyx_v_col_data = NULL;
   PyObject *__pyx_r = NULL;
@@ -3986,10 +3986,8 @@ static PyObject *__pyx_pf_4rugo_3csv_2read_csv(CYTHON_UNUSED PyObject *__pyx_sel
   int __pyx_t_18;
   std::vector<CsvColumn> ::size_type __pyx_t_19;
   std::vector<CsvColumn> ::size_type __pyx_t_20;
-  std::vector<uint8_t> ::size_type __pyx_t_21;
-  std::vector<uint8_t> ::size_type __pyx_t_22;
-  size_t __pyx_t_23;
-  int __pyx_t_24;
+  size_t __pyx_t_21;
+  int __pyx_t_22;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -4564,10 +4562,10 @@ static PyObject *__pyx_pf_4rugo_3csv_2read_csv(CYTHON_UNUSED PyObject *__pyx_sel
  *                 if nm == n:
  *                     if table.columns[i].null_mask[j]:
 */
-      __pyx_t_21 = __pyx_v_n;
-      __pyx_t_22 = __pyx_t_21;
-      for (__pyx_t_23 = 0; __pyx_t_23 < __pyx_t_22; __pyx_t_23+=1) {
-        __pyx_v_j = __pyx_t_23;
+      __pyx_t_16 = __pyx_v_n;
+      __pyx_t_17 = __pyx_t_16;
+      for (__pyx_t_21 = 0; __pyx_t_21 < __pyx_t_17; __pyx_t_21+=1) {
+        __pyx_v_j = __pyx_t_21;
 
         /* "rugo/csv/csv_reader.pyx":264
  *             col_data = [None] * n
@@ -4641,14 +4639,14 @@ static PyObject *__pyx_pf_4rugo_3csv_2read_csv(CYTHON_UNUSED PyObject *__pyx_sel
  *                     else:
 */
         /*else*/ {
-          __pyx_t_24 = (__pyx_v_j < __pyx_v_nm);
-          if (__pyx_t_24) {
+          __pyx_t_22 = (__pyx_v_j < __pyx_v_nm);
+          if (__pyx_t_22) {
           } else {
-            __pyx_t_1 = __pyx_t_24;
+            __pyx_t_1 = __pyx_t_22;
             goto __pyx_L20_bool_binop_done;
           }
-          __pyx_t_24 = (((__pyx_v_table.columns[__pyx_v_i]).null_mask[__pyx_v_j]) != 0);
-          __pyx_t_1 = __pyx_t_24;
+          __pyx_t_22 = (((__pyx_v_table.columns[__pyx_v_i]).null_mask[__pyx_v_j]) != 0);
+          __pyx_t_1 = __pyx_t_22;
           __pyx_L20_bool_binop_done:;
           if (__pyx_t_1) {
 
@@ -4753,10 +4751,10 @@ static PyObject *__pyx_pf_4rugo_3csv_2read_csv(CYTHON_UNUSED PyObject *__pyx_sel
  *                 if nm == n:
  *                     if table.columns[i].null_mask[j]:
 */
-      __pyx_t_21 = __pyx_v_n;
-      __pyx_t_22 = __pyx_t_21;
-      for (__pyx_t_23 = 0; __pyx_t_23 < __pyx_t_22; __pyx_t_23+=1) {
-        __pyx_v_j = __pyx_t_23;
+      __pyx_t_16 = __pyx_v_n;
+      __pyx_t_17 = __pyx_t_16;
+      for (__pyx_t_21 = 0; __pyx_t_21 < __pyx_t_17; __pyx_t_21+=1) {
+        __pyx_v_j = __pyx_t_21;
 
         /* "rugo/csv/csv_reader.pyx":279
  *             col_data = [None] * n
@@ -4830,14 +4828,14 @@ static PyObject *__pyx_pf_4rugo_3csv_2read_csv(CYTHON_UNUSED PyObject *__pyx_sel
  *                     else:
 */
         /*else*/ {
-          __pyx_t_24 = (__pyx_v_j < __pyx_v_nm);
-          if (__pyx_t_24) {
+          __pyx_t_22 = (__pyx_v_j < __pyx_v_nm);
+          if (__pyx_t_22) {
           } else {
-            __pyx_t_1 = __pyx_t_24;
+            __pyx_t_1 = __pyx_t_22;
             goto __pyx_L27_bool_binop_done;
           }
-          __pyx_t_24 = (((__pyx_v_table.columns[__pyx_v_i]).null_mask[__pyx_v_j]) != 0);
-          __pyx_t_1 = __pyx_t_24;
+          __pyx_t_22 = (((__pyx_v_table.columns[__pyx_v_i]).null_mask[__pyx_v_j]) != 0);
+          __pyx_t_1 = __pyx_t_22;
           __pyx_L27_bool_binop_done:;
           if (__pyx_t_1) {
 
@@ -4942,10 +4940,10 @@ static PyObject *__pyx_pf_4rugo_3csv_2read_csv(CYTHON_UNUSED PyObject *__pyx_sel
  *                 if nm == n:
  *                     if table.columns[i].null_mask[j]:
 */
-      __pyx_t_21 = __pyx_v_n;
-      __pyx_t_22 = __pyx_t_21;
-      for (__pyx_t_23 = 0; __pyx_t_23 < __pyx_t_22; __pyx_t_23+=1) {
-        __pyx_v_j = __pyx_t_23;
+      __pyx_t_16 = __pyx_v_n;
+      __pyx_t_17 = __pyx_t_16;
+      for (__pyx_t_21 = 0; __pyx_t_21 < __pyx_t_17; __pyx_t_21+=1) {
+        __pyx_v_j = __pyx_t_21;
 
         /* "rugo/csv/csv_reader.pyx":294
  *             col_data = [None] * n
@@ -5023,14 +5021,14 @@ static PyObject *__pyx_pf_4rugo_3csv_2read_csv(CYTHON_UNUSED PyObject *__pyx_sel
  *                     else:
 */
         /*else*/ {
-          __pyx_t_24 = (__pyx_v_j < __pyx_v_nm);
-          if (__pyx_t_24) {
+          __pyx_t_22 = (__pyx_v_j < __pyx_v_nm);
+          if (__pyx_t_22) {
           } else {
-            __pyx_t_1 = __pyx_t_24;
+            __pyx_t_1 = __pyx_t_22;
             goto __pyx_L34_bool_binop_done;
           }
-          __pyx_t_24 = (((__pyx_v_table.columns[__pyx_v_i]).null_mask[__pyx_v_j]) != 0);
-          __pyx_t_1 = __pyx_t_24;
+          __pyx_t_22 = (((__pyx_v_table.columns[__pyx_v_i]).null_mask[__pyx_v_j]) != 0);
+          __pyx_t_1 = __pyx_t_22;
           __pyx_L34_bool_binop_done:;
           if (__pyx_t_1) {
 
@@ -5130,10 +5128,10 @@ static PyObject *__pyx_pf_4rugo_3csv_2read_csv(CYTHON_UNUSED PyObject *__pyx_sel
  *                 if nm == n:
  *                     if table.columns[i].null_mask[j]:
 */
-      __pyx_t_21 = __pyx_v_n;
-      __pyx_t_22 = __pyx_t_21;
-      for (__pyx_t_23 = 0; __pyx_t_23 < __pyx_t_22; __pyx_t_23+=1) {
-        __pyx_v_j = __pyx_t_23;
+      __pyx_t_16 = __pyx_v_n;
+      __pyx_t_17 = __pyx_t_16;
+      for (__pyx_t_21 = 0; __pyx_t_21 < __pyx_t_17; __pyx_t_21+=1) {
+        __pyx_v_j = __pyx_t_21;
 
         /* "rugo/csv/csv_reader.pyx":309
  *             col_data = [None] * n
@@ -5207,14 +5205,14 @@ static PyObject *__pyx_pf_4rugo_3csv_2read_csv(CYTHON_UNUSED PyObject *__pyx_sel
  *                     else:
 */
         /*else*/ {
-          __pyx_t_24 = (__pyx_v_j < __pyx_v_nm);
-          if (__pyx_t_24) {
+          __pyx_t_22 = (__pyx_v_j < __pyx_v_nm);
+          if (__pyx_t_22) {
           } else {
-            __pyx_t_1 = __pyx_t_24;
+            __pyx_t_1 = __pyx_t_22;
             goto __pyx_L41_bool_binop_done;
           }
-          __pyx_t_24 = (((__pyx_v_table.columns[__pyx_v_i]).null_mask[__pyx_v_j]) != 0);
-          __pyx_t_1 = __pyx_t_24;
+          __pyx_t_22 = (((__pyx_v_table.columns[__pyx_v_i]).null_mask[__pyx_v_j]) != 0);
+          __pyx_t_1 = __pyx_t_22;
           __pyx_L41_bool_binop_done:;
           if (__pyx_t_1) {
 

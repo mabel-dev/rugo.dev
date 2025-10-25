@@ -19,6 +19,14 @@ from cpython.list cimport PyList_Append
 from cpython.exc cimport PyErr_Clear
 from cpython.bytes cimport PyBytes_FromStringAndSize
 
+# Import draken and pyarrow for creating vectors
+try:
+    import draken
+    import pyarrow as pa
+    DRAKEN_AVAILABLE = True
+except ImportError:
+    DRAKEN_AVAILABLE = False
+
 # Internal fast array parser (no runtime deps). Parses a JSON array encoded
 # in UTF-8 bytes into Python lists. Objects found inside arrays are returned
 # as raw bytes; strings are unescaped to Python str; numbers become int/float;
@@ -539,9 +547,75 @@ def read_jsonl(data, columns=None, parse_arrays=True, parse_objects=True):
             py_columns.append(py_list)
         else:
             py_columns.append(None)
-    return {
-        'success': True,
-        'column_names': py_column_names,
-        'num_rows': table.num_rows,
-        'columns': py_columns
-    }
+    
+    # Convert Python lists to draken vectors
+    if DRAKEN_AVAILABLE:
+        draken_columns = []
+        for i in range(len(py_columns)):
+            if py_columns[i] is None:
+                draken_columns.append(None)
+                continue
+            
+            # Get the column type to determine appropriate Arrow type
+            col_type = table.columns[i].type.decode('utf-8')
+            
+            # Convert Python list to PyArrow array, then to draken vector
+            try:
+                if col_type == 'int64':
+                    arrow_array = pa.array(py_columns[i], type=pa.int64())
+                elif col_type == 'double':
+                    arrow_array = pa.array(py_columns[i], type=pa.float64())
+                elif col_type == 'boolean':
+                    arrow_array = pa.array(py_columns[i], type=pa.bool_())
+                elif col_type == 'string' or col_type == 'bytes':
+                    # String/bytes columns are stored as binary in draken.
+                    # This preserves the original UTF-8 bytes without decoding,
+                    # since draken's StringVector expects binary data.
+                    arrow_array = pa.array(py_columns[i], type=pa.binary())
+                elif col_type == 'object':
+                    # Object columns are stored as binary (JSONB)
+                    arrow_array = pa.array(py_columns[i], type=pa.binary())
+                elif col_type.startswith('array'):
+                    # Array columns can be converted to draken ArrayVector if typed
+                    try:
+                        if col_type == 'array<int64>':
+                            arrow_array = pa.array(py_columns[i], type=pa.list_(pa.int64()))
+                        elif col_type == 'array<double>':
+                            arrow_array = pa.array(py_columns[i], type=pa.list_(pa.float64()))
+                        elif col_type == 'array<bytes>':
+                            arrow_array = pa.array(py_columns[i], type=pa.list_(pa.binary()))
+                        else:
+                            # Generic array type - keep as Python list
+                            # (contains mixed types or nested structures)
+                            draken_columns.append(py_columns[i])
+                            continue
+                    except Exception:
+                        # If conversion fails, keep as Python list
+                        draken_columns.append(py_columns[i])
+                        continue
+                else:
+                    # Unknown type, keep as Python list
+                    draken_columns.append(py_columns[i])
+                    continue
+                
+                # Convert Arrow array to draken vector
+                draken_vec = draken.Vector.from_arrow(arrow_array)
+                draken_columns.append(draken_vec)
+            except Exception:
+                # If conversion fails, keep as Python list
+                draken_columns.append(py_columns[i])
+        
+        return {
+            'success': True,
+            'column_names': py_column_names,
+            'num_rows': table.num_rows,
+            'columns': draken_columns
+        }
+    else:
+        # Draken not available, return Python lists as before
+        return {
+            'success': True,
+            'column_names': py_column_names,
+            'num_rows': table.num_rows,
+            'columns': py_columns
+        }
