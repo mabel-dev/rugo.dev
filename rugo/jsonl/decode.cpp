@@ -855,7 +855,8 @@ JsonlTable ReadJsonl(const uint8_t* data, size_t size, const std::vector<std::st
                     } else {
                         // Need to unescape and copy now
                         std::string s(val_ptr, val_len);
-                        // Basic unescape pass (handles common escapes), this is simplified
+                        // Basic unescape pass (handles common JSON escapes only)
+                        // Unicode escapes (\uXXXX) are kept as-is for the consumer to decode
                         std::string out;
                         out.reserve(s.size());
                         for (size_t i = 0; i < s.size(); ++i) {
@@ -871,7 +872,11 @@ JsonlTable ReadJsonl(const uint8_t* data, size_t size, const std::vector<std::st
                                     case 'n': out.push_back('\n'); break;
                                     case 'r': out.push_back('\r'); break;
                                     case 't': out.push_back('\t'); break;
-                                    default: out.push_back(esc); break;
+                                    default: 
+                                        // Keep other escapes as-is (including \uXXXX)
+                                        out.push_back('\\');
+                                        out.push_back(esc);
+                                        break;
                                 }
                             } else {
                                 out.push_back(s[i]);

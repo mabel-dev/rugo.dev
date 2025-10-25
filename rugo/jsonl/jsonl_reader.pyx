@@ -570,11 +570,27 @@ def read_jsonl(data, columns=None, parse_arrays=True, parse_objects=True):
                 elif col_type == 'string' or col_type == 'bytes':
                     # String/bytes columns are stored as binary in draken
                     arrow_array = pa.array(py_columns[i], type=pa.binary())
-                elif col_type.startswith('array') or col_type == 'object':
-                    # For arrays and objects, keep as Python lists for now
-                    # (draken doesn't have native support for nested types yet)
-                    draken_columns.append(py_columns[i])
-                    continue
+                elif col_type == 'object':
+                    # Object columns are stored as binary (JSONB)
+                    arrow_array = pa.array(py_columns[i], type=pa.binary())
+                elif col_type.startswith('array'):
+                    # Array columns can be converted to draken ArrayVector if typed
+                    try:
+                        if col_type == 'array<int64>':
+                            arrow_array = pa.array(py_columns[i], type=pa.list_(pa.int64()))
+                        elif col_type == 'array<double>':
+                            arrow_array = pa.array(py_columns[i], type=pa.list_(pa.float64()))
+                        elif col_type == 'array<bytes>':
+                            arrow_array = pa.array(py_columns[i], type=pa.list_(pa.binary()))
+                        else:
+                            # Generic array type - keep as Python list
+                            # (contains mixed types or nested structures)
+                            draken_columns.append(py_columns[i])
+                            continue
+                    except Exception:
+                        # If conversion fails, keep as Python list
+                        draken_columns.append(py_columns[i])
+                        continue
                 else:
                     # Unknown type, keep as Python list
                     draken_columns.append(py_columns[i])

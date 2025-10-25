@@ -25,13 +25,11 @@ from typing import Tuple
 
 import pyarrow.json as paj
 
-import rugo.jsonl as rj
-
 # Add rugo to path if running from source
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(1, os.path.join(sys.path[0], "../opteryx"))
 
-
+import rugo.jsonl as rj
 
 # Check if PyArrow is available
 try:
