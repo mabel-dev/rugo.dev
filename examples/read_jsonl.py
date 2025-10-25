@@ -70,7 +70,8 @@ print("\nData:")
 names = vector_to_list(result['columns'][0])
 salaries = vector_to_list(result['columns'][1])
 for i in range(result['num_rows']):
-    # Decode bytes to string for display
+    # String columns are stored as bytes in draken vectors (binary representation)
+    # Decode to UTF-8 for display
     name = names[i].decode('utf-8') if isinstance(names[i], bytes) else names[i]
     print(f"  {name:15} ${salaries[i]:,.2f}")
 
