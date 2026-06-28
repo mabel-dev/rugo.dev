@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "rugo.dev",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8787", "--directory", "docs"],
+      "port": 8787
+    }
+  ]
+}
