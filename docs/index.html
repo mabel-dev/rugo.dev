@@ -1,0 +1,1327 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Rugo — Fast, dependency-free file engine for Python</title>
+        <meta
+            name="description"
+            content="Rugo reads and writes Parquet, CSV, and JSONL from Python. No PyArrow. No NumPy. 2.9 MB wheel. 2.6 ms import."
+        />
+        <style>
+            :root {
+                --bg: #0d0f14;
+                --surface: #161920;
+                --border: #252830;
+                --accent: #4f8ef7;
+                --accent2: #7c5cfc;
+                --text: #e2e6f0;
+                --muted: #7a8099;
+                --green: #3ecf8e;
+                --red: #f56565;
+                --code-bg: #11131a;
+                --radius: 8px;
+            }
+
+            *,
+            *::before,
+            *::after {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+
+            html {
+                scroll-behavior: smooth;
+            }
+
+            body {
+                background: var(--bg);
+                color: var(--text);
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica,
+                    Arial, sans-serif;
+                font-size: 16px;
+                line-height: 1.65;
+            }
+
+            a {
+                color: var(--accent);
+                text-decoration: none;
+            }
+            a:hover {
+                text-decoration: underline;
+            }
+
+            /* ── NAV ── */
+            nav {
+                position: sticky;
+                top: 0;
+                z-index: 100;
+                background: rgba(13, 15, 20, 0.88);
+                backdrop-filter: blur(12px);
+                border-bottom: 1px solid var(--border);
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 2rem;
+                height: 56px;
+            }
+            .nav-logo {
+                font-weight: 700;
+                font-size: 1.1rem;
+                letter-spacing: -0.02em;
+                color: var(--text);
+            }
+            .nav-logo span {
+                color: var(--accent);
+            }
+            .nav-links {
+                display: flex;
+                gap: 1.75rem;
+                font-size: 0.9rem;
+                color: var(--muted);
+            }
+            .nav-links a {
+                color: var(--muted);
+            }
+            .nav-links a:hover {
+                color: var(--text);
+                text-decoration: none;
+            }
+            .nav-pip {
+                background: var(--accent);
+                color: #fff;
+                padding: 0.35rem 0.9rem;
+                border-radius: 6px;
+                font-size: 0.85rem;
+                font-weight: 600;
+                font-family: "SF Mono", "Fira Code", monospace;
+            }
+            .nav-pip:hover {
+                background: #3a7de8;
+                text-decoration: none;
+            }
+
+            /* ── LAYOUT ── */
+            .container {
+                max-width: 960px;
+                margin: 0 auto;
+                padding: 0 1.5rem;
+            }
+            section {
+                padding: 5rem 0;
+            }
+            section + section {
+                border-top: 1px solid var(--border);
+            }
+
+            h2 {
+                font-size: 1.75rem;
+                font-weight: 700;
+                letter-spacing: -0.03em;
+                margin-bottom: 0.5rem;
+            }
+            h3 {
+                font-size: 1.1rem;
+                font-weight: 600;
+                margin-bottom: 0.5rem;
+            }
+            .section-label {
+                font-size: 0.75rem;
+                font-weight: 700;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                color: var(--accent);
+                margin-bottom: 0.75rem;
+            }
+            .section-intro {
+                font-size: 1.05rem;
+                color: var(--muted);
+                max-width: 620px;
+                margin-bottom: 3rem;
+            }
+
+            /* ── HERO ── */
+            #hero {
+                padding: 6rem 0 5rem;
+                border-top: none;
+            }
+            .hero-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.4rem;
+                background: rgba(79, 142, 247, 0.1);
+                border: 1px solid rgba(79, 142, 247, 0.25);
+                border-radius: 100px;
+                padding: 0.25rem 0.85rem;
+                font-size: 0.8rem;
+                color: var(--accent);
+                margin-bottom: 1.75rem;
+            }
+            .hero-badge::before {
+                content: "●";
+                font-size: 0.55rem;
+            }
+            #hero h1 {
+                font-size: clamp(2rem, 5vw, 3.2rem);
+                font-weight: 800;
+                letter-spacing: -0.04em;
+                line-height: 1.15;
+                margin-bottom: 1.25rem;
+                max-width: 700px;
+            }
+            #hero h1 em {
+                font-style: normal;
+                background: linear-gradient(
+                    90deg,
+                    var(--accent),
+                    var(--accent2)
+                );
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
+            .hero-sub {
+                font-size: 1.15rem;
+                color: var(--muted);
+                max-width: 560px;
+                margin-bottom: 2.5rem;
+            }
+            .hero-ctas {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 1rem;
+                margin-bottom: 3.5rem;
+            }
+            .btn-primary {
+                background: var(--accent);
+                color: #fff;
+                padding: 0.65rem 1.4rem;
+                border-radius: var(--radius);
+                font-weight: 600;
+                font-size: 0.95rem;
+            }
+            .btn-primary:hover {
+                background: #3a7de8;
+                text-decoration: none;
+            }
+            .btn-secondary {
+                background: var(--surface);
+                color: var(--text);
+                border: 1px solid var(--border);
+                padding: 0.65rem 1.4rem;
+                border-radius: var(--radius);
+                font-weight: 600;
+                font-size: 0.95rem;
+            }
+            .btn-secondary:hover {
+                border-color: var(--accent);
+                text-decoration: none;
+            }
+
+            /* stat row */
+            .hero-stats {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 2rem;
+            }
+            .stat {
+            }
+            .stat-val {
+                font-size: 1.9rem;
+                font-weight: 800;
+                letter-spacing: -0.04em;
+                color: var(--text);
+                line-height: 1;
+            }
+            .stat-val em {
+                font-style: normal;
+                color: var(--green);
+            }
+            .stat-label {
+                font-size: 0.8rem;
+                color: var(--muted);
+                margin-top: 0.25rem;
+            }
+
+            /* ── INSTALL SNIPPET ── */
+            .install-block {
+                margin-top: 3rem;
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                background: var(--code-bg);
+                border: 1px solid var(--border);
+                border-radius: var(--radius);
+                padding: 1rem 1.25rem;
+                max-width: 420px;
+            }
+            .install-block code {
+                font-family: "SF Mono", "Fira Code", monospace;
+                font-size: 0.95rem;
+                color: var(--green);
+            }
+
+            /* ── CODE BLOCKS ── */
+            pre {
+                background: var(--code-bg);
+                border: 1px solid var(--border);
+                border-radius: var(--radius);
+                padding: 1.25rem 1.5rem;
+                overflow-x: auto;
+                font-family: "SF Mono", "Fira Code", monospace;
+                font-size: 0.85rem;
+                line-height: 1.7;
+                tab-size: 4;
+            }
+            pre .c {
+                color: var(--muted);
+            } /* comment */
+            pre .k {
+                color: var(--accent2);
+            } /* keyword / from / import */
+            pre .s {
+                color: #e6a04a;
+            } /* string */
+            pre .f {
+                color: var(--accent);
+            } /* function call */
+            pre .n {
+                color: var(--green);
+            } /* number / constant */
+            pre .p {
+                color: var(--text);
+            } /* punctuation */
+
+            /* ── COMPARISON TABLE ── */
+            .cmp-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 0.9rem;
+            }
+            .cmp-table th {
+                text-align: left;
+                padding: 0.6rem 1rem;
+                color: var(--muted);
+                font-weight: 600;
+                font-size: 0.8rem;
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+                border-bottom: 1px solid var(--border);
+            }
+            .cmp-table td {
+                padding: 0.75rem 1rem;
+                border-bottom: 1px solid var(--border);
+                color: var(--text);
+            }
+            .cmp-table tr:last-child td {
+                border-bottom: none;
+            }
+            .cmp-table td:first-child {
+                color: var(--muted);
+            }
+            .win {
+                color: var(--green);
+                font-weight: 700;
+            }
+            .lose {
+                color: var(--muted);
+            }
+
+            /* ── FEATURE GRID ── */
+            .feature-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+                gap: 1.25rem;
+            }
+            .feature-card {
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: var(--radius);
+                padding: 1.5rem;
+            }
+            .feature-icon {
+                font-size: 1.5rem;
+                margin-bottom: 0.75rem;
+            }
+
+            /* ── FORMAT TABS ── */
+            .tabs {
+                display: flex;
+                gap: 0.5rem;
+                margin-bottom: 1.25rem;
+            }
+            .tab {
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                padding: 0.4rem 1rem;
+                font-size: 0.85rem;
+                font-weight: 600;
+                color: var(--muted);
+                cursor: pointer;
+                transition: all 0.15s;
+                font-family: inherit;
+            }
+            .tab.active,
+            .tab:hover {
+                background: var(--accent);
+                color: #fff;
+                border-color: var(--accent);
+            }
+            .tab-pane {
+                display: none;
+            }
+            .tab-pane.active {
+                display: block;
+            }
+
+            /* ── PERF TABLE ── */
+            .perf-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 0.88rem;
+            }
+            .perf-table th {
+                text-align: left;
+                padding: 0.5rem 0.9rem;
+                color: var(--muted);
+                font-size: 0.78rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                border-bottom: 1px solid var(--border);
+            }
+            .perf-table td {
+                padding: 0.65rem 0.9rem;
+                border-bottom: 1px solid var(--border);
+            }
+            .perf-table tr:last-child td {
+                border-bottom: none;
+            }
+            .perf-table td:first-child {
+                color: var(--muted);
+            }
+
+            /* ── DATA MODEL ── */
+            .dm-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 1.25rem;
+            }
+            @media (max-width: 600px) {
+                .dm-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
+
+            /* ── FOOTER ── */
+            footer {
+                border-top: 1px solid var(--border);
+                padding: 2.5rem 0;
+                font-size: 0.85rem;
+                color: var(--muted);
+            }
+            footer .container {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 1rem;
+            }
+            footer a {
+                color: var(--muted);
+            }
+            footer a:hover {
+                color: var(--text);
+            }
+
+            @media (max-width: 640px) {
+                nav {
+                    padding: 0 1rem;
+                }
+                .nav-links {
+                    display: none;
+                }
+                .hero-stats {
+                    gap: 1.25rem;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <!-- ── NAV ── -->
+        <nav>
+            <span class="nav-logo">ru<span>go</span></span>
+            <div class="nav-links">
+                <a href="#why">Why Rugo</a>
+                <a href="#formats">Formats</a>
+                <a href="#quickstart">Quickstart</a>
+                <a href="#data-model">Data Model</a>
+                <a
+                    href="https://github.com/mabel-dev/opteryx-core/tree/main/rugo"
+                    >Docs</a
+                >
+            </div>
+            <a class="nav-pip" href="https://pypi.org/project/rugo/"
+                >pip install rugo</a
+            >
+        </nav>
+
+        <!-- ── HERO ── -->
+        <section id="hero">
+            <div class="container">
+                <div class="hero-badge">Zero runtime dependencies</div>
+                <h1>
+                    Read and write Parquet, CSV, and JSONL.<br /><em
+                        >No PyArrow. No NumPy.</em
+                    >
+                </h1>
+                <p class="hero-sub">
+                    Rugo is a compiled C++/Cython file engine for Python. 2.9 MB
+                    wheel. 2.6 ms cold import. Built for serverless, containers,
+                    and anywhere 124 MB of Arrow C++ is too much to ask.
+                </p>
+                <div class="hero-ctas">
+                    <a class="btn-primary" href="#quickstart">Get started</a>
+                    <a
+                        class="btn-secondary"
+                        href="https://github.com/mabel-dev/opteryx-core/tree/main/rugo"
+                        >Full documentation →</a
+                    >
+                </div>
+                <div class="hero-stats">
+                    <div class="stat">
+                        <div class="stat-val"><em>2.9 MB</em></div>
+                        <div class="stat-label">
+                            wheel size (PyArrow: ~23 MB)
+                        </div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-val"><em>2.6 ms</em></div>
+                        <div class="stat-label">
+                            cold import (PyArrow: 137 ms)
+                        </div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-val"><em>7.7 MB</em></div>
+                        <div class="stat-label">
+                            installed footprint (PyArrow: 124 MB)
+                        </div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-val"><em>zero</em></div>
+                        <div class="stat-label">runtime dependencies</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── WHY ── -->
+        <section id="why">
+            <div class="container">
+                <div class="section-label">Why Rugo</div>
+                <h2>PyArrow is excellent. It is also enormous.</h2>
+                <p class="section-intro">
+                    At 124 MB installed and 137 ms to import, PyArrow drags the
+                    entire Arrow C++ runtime into every environment whether you
+                    use 5% of it or 100%. In serverless or containerised
+                    deployments, you pay for every millisecond of cold-start
+                    time and every megabyte. Rugo is built for those
+                    environments.
+                </p>
+
+                <table class="cmp-table">
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Rugo</th>
+                            <th>PyArrow</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Wheel size</td>
+                            <td class="win">2.9 MB</td>
+                            <td class="lose">~23 MB</td>
+                        </tr>
+                        <tr>
+                            <td>Installed footprint</td>
+                            <td class="win">7.7 MB</td>
+                            <td class="lose">124 MB</td>
+                        </tr>
+                        <tr>
+                            <td>Runtime dependencies</td>
+                            <td class="win">zero</td>
+                            <td class="lose">Arrow C++ runtime</td>
+                        </tr>
+                        <tr>
+                            <td>Cold import time</td>
+                            <td class="win">2.6 ms</td>
+                            <td class="lose">137 ms</td>
+                        </tr>
+                        <tr>
+                            <td>Memory at import</td>
+                            <td class="win">134 KB</td>
+                            <td class="lose">260 KB</td>
+                        </tr>
+                        <tr>
+                            <td>Schema read (footer only)</td>
+                            <td class="win">0.02 ms</td>
+                            <td class="lose">0.05 ms</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p
+                    style="
+                        margin-top: 1.5rem;
+                        font-size: 0.85rem;
+                        color: var(--muted);
+                    "
+                >
+                    Measured on Python 3.14t, Apple M-series. Import times on a
+                    cold process (first load off disk).
+                </p>
+
+                <div class="feature-grid" style="margin-top: 3rem">
+                    <div class="feature-card">
+                        <div class="feature-icon">⚡</div>
+                        <h3>Serverless-first</h3>
+                        <p style="color: var(--muted); font-size: 0.9rem">
+                            AWS Lambda and GCP Cloud Functions bill by the
+                            millisecond. A 137 ms PyArrow import adds real cost
+                            to every cold start. Rugo imports in 2.6 ms — over
+                            50× faster.
+                        </p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📦</div>
+                        <h3>Tiny container images</h3>
+                        <p style="color: var(--muted); font-size: 0.9rem">
+                            At 16× smaller than PyArrow, rugo meaningfully
+                            shrinks image size, speeds scale-out, and keeps you
+                            well clear of AWS Lambda's 250 MB unzipped layer
+                            limit.
+                        </p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔍</div>
+                        <h3>Read less, go faster</h3>
+                        <p style="color: var(--muted); font-size: 0.9rem">
+                            Column projection and row-group pruning are
+                            first-class citizens. Skip the columns you don't
+                            need. Skip the row groups that can't match. Rugo's
+                            advantage grows with selectivity.
+                        </p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔒</div>
+                        <h3>No surprise dependencies</h3>
+                        <p style="color: var(--muted); font-size: 0.9rem">
+                            The wheel bundles everything it needs — Draken, the
+                            columnar substrate, ships inside.
+                            <code>pip install rugo</code> is the entire
+                            dependency story.
+                        </p>
+                    </div>
+                </div>
+
+                <p
+                    style="
+                        margin-top: 2.5rem;
+                        font-size: 0.9rem;
+                        color: var(--muted);
+                        border-left: 3px solid var(--border);
+                        padding-left: 1rem;
+                    "
+                >
+                    <strong style="color: var(--text)"
+                        >Where PyArrow is faster:</strong
+                    >
+                    bulk full-table decoding. PyArrow's Arrow C++ engine is
+                    highly optimised for raw throughput. Rugo's primary design
+                    goal is <em>reading less</em> — projection and row-group
+                    pruning — not maximising raw scan speed. If you are
+                    streaming entire large tables into memory as fast as
+                    possible, PyArrow is the right tool. If you are running in a
+                    constrained environment, routing selective queries, or
+                    simply do not want 124 MB of Arrow C++ in your dependency
+                    tree, rugo is for you.
+                </p>
+            </div>
+        </section>
+
+        <!-- ── QUICKSTART ── -->
+        <section id="quickstart">
+            <div class="container">
+                <div class="section-label">Quickstart</div>
+                <h2>One install, three formats.</h2>
+                <p class="section-intro">
+                    Rugo reads and writes Parquet, CSV, and JSONL. The API is
+                    the same shape across all three: pass a path or bytes, get
+                    columnar data back.
+                </p>
+
+                <div class="install-block" style="margin-bottom: 2.5rem">
+                    <code>pip install rugo</code>
+                </div>
+
+                <pre><span class="k">from</span> rugo <span class="k">import</span> parquet
+
+<span class="c"># Stream a projected, row-group-pruned read — no PyArrow, no NumPy</span>
+<span class="k">with</span> parquet.<span class="f">read_parquet</span>(
+    <span class="s">"planets.parquet"</span>,
+    columns=[<span class="s">"id"</span>, <span class="s">"name"</span>],
+    filters=[(<span class="s">"id"</span>, <span class="s">">"</span>, <span class="n">4</span>)],
+) <span class="k">as</span> reader:
+    <span class="k">for</span> morsel <span class="k">in</span> reader:
+        <span class="f">print</span>(morsel.<span class="f">column</span>(<span class="s">b"name"</span>).<span class="f">to_pylist</span>())
+
+<span class="c"># Write a Morsel to Parquet bytes</span>
+data = parquet.<span class="f">write_parquet</span>(morsel, compression=<span class="s">"zstd"</span>)</pre>
+
+                <pre
+                    style="margin-top: 1rem"
+                ><span class="k">from</span> rugo.csv <span class="k">import</span> read_csv, write_csv
+
+result = <span class="f">read_csv</span>(<span class="s">"data.csv"</span>, columns=[<span class="s">"name"</span>], predicates=[(<span class="s">"age"</span>, <span class="s">">"</span>, <span class="n">30</span>)])
+<span class="k">if</span> result[<span class="s">"success"</span>]:
+    <span class="k">for</span> vec <span class="k">in</span> result[<span class="s">"columns"</span>]:
+        <span class="f">print</span>(vec.<span class="f">to_pylist</span>())</pre>
+
+                <pre
+                    style="margin-top: 1rem"
+                ><span class="k">from</span> rugo.jsonl <span class="k">import</span> read_jsonl, write_jsonl
+
+result = <span class="f">read_jsonl</span>(<span class="s">"events.jsonl"</span>, columns=[<span class="s">"id"</span>, <span class="s">"status"</span>],
+                   predicates=[(<span class="s">"status"</span>, <span class="s">"=="</span>, <span class="s">"active"</span>)])
+<span class="f">print</span>(result[<span class="s">"num_rows"</span>], <span class="s">"rows matched"</span>)</pre>
+
+                <p style="margin-top: 1.5rem">
+                    A complete worked example on a real dataset is in
+                    <a
+                        href="https://github.com/mabel-dev/opteryx-core/blob/main/rugo/space_missions.ipynb"
+                        ><code>space_missions.ipynb</code></a
+                    >.
+                </p>
+            </div>
+        </section>
+
+        <!-- ── FORMATS ── -->
+        <section id="formats">
+            <div class="container">
+                <div class="section-label">Formats</div>
+                <h2>Parquet, CSV, JSONL — read and write.</h2>
+                <p class="section-intro">
+                    All three formats support column projection and predicate
+                    filtering. Writers produce standard output readable by any
+                    compliant tool.
+                </p>
+
+                <div class="tabs">
+                    <button class="tab active" onclick="showTab('parquet')">
+                        Parquet
+                    </button>
+                    <button class="tab" onclick="showTab('csv')">CSV</button>
+                    <button class="tab" onclick="showTab('jsonl')">
+                        JSONL
+                    </button>
+                </div>
+
+                <!-- PARQUET -->
+                <div id="tab-parquet" class="tab-pane active">
+                    <div
+                        style="
+                            display: grid;
+                            grid-template-columns: 1fr 1fr;
+                            gap: 2rem;
+                            align-items: start;
+                        "
+                    >
+                        <div>
+                            <h3 style="margin-bottom: 1rem">
+                                rugo.parquet API
+                            </h3>
+                            <table class="perf-table">
+                                <thead>
+                                    <tr>
+                                        <th>Function</th>
+                                        <th>Returns</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <code
+                                                >read_parquet(source, columns,
+                                                filters)</code
+                                            >
+                                        </td>
+                                        <td>
+                                            context manager → one Morsel per row
+                                            group
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <code>read_metadata(source)</code>
+                                        </td>
+                                        <td>
+                                            <code>ParquetMetadata</code>
+                                            (num_rows, schema_columns)
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <code
+                                                >write_parquet(morsel,
+                                                compression)</code
+                                            >
+                                        </td>
+                                        <td><code>bytes</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <code
+                                                >write_parquet_with_bounds(morsel)</code
+                                            >
+                                        </td>
+                                        <td>
+                                            <code
+                                                >(bytes, {col: (min,
+                                                max)})</code
+                                            >
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p
+                                style="
+                                    margin-top: 1.25rem;
+                                    font-size: 0.85rem;
+                                    color: var(--muted);
+                                "
+                            >
+                                <code>source</code> is a filename or
+                                <code>bytes</code
+                                >/<code>bytearray</code>/<code>memoryview</code>.
+                                <code>filters</code> is a list of
+                                <code>(column, op, value)</code> tuples; pruning
+                                is at row-group granularity. Supported ops:
+                                <code
+                                    >= == != &lt; &lt;= &gt; &gt;= in "not
+                                    in"</code
+                                >.
+                            </p>
+                            <p
+                                style="
+                                    margin-top: 1rem;
+                                    font-size: 0.85rem;
+                                    color: var(--muted);
+                                "
+                            >
+                                <strong style="color: var(--text)"
+                                    >Decode support:</strong
+                                >
+                                int32/64, float32/64, boolean, byte_array ·
+                                UNCOMPRESSED, SNAPPY, ZSTD · PLAIN,
+                                RLE_DICTIONARY, DELTA_BINARY_PACKED,
+                                DELTA_BYTE_ARRAY
+                            </p>
+                            <p
+                                style="
+                                    margin-top: 1rem;
+                                    font-size: 0.85rem;
+                                    color: var(--muted);
+                                "
+                            >
+                                <strong style="color: var(--text)"
+                                    >Write support:</strong
+                                >
+                                INT8–64, FLOAT32/64, BOOL, VARCHAR, DATE32,
+                                TIME, TIMESTAMP64, INTERVAL, DECIMAL, ARRAY —
+                                ZSTD or uncompressed, per-column min/max stats,
+                                optional bloom filters.
+                            </p>
+                        </div>
+                        <div>
+                            <pre><span class="k">from</span> rugo <span class="k">import</span> parquet
+
+<span class="c"># Metadata only — no column decode</span>
+meta = parquet.<span class="f">read_metadata</span>(<span class="s">"planets.parquet"</span>)
+<span class="f">print</span>(meta.num_rows)
+<span class="f">print</span>([c.name <span class="k">for</span> c <span class="k">in</span> meta.schema_columns])
+
+<span class="c"># Selective streaming read</span>
+<span class="k">with</span> parquet.<span class="f">read_parquet</span>(
+    <span class="s">"planets.parquet"</span>,
+    columns=[<span class="s">"id"</span>, <span class="s">"name"</span>],
+    filters=[(<span class="s">"id"</span>, <span class="s">">"</span>, <span class="n">4</span>)],
+) <span class="k">as</span> reader:
+    <span class="k">for</span> morsel <span class="k">in</span> reader:
+        names = morsel.<span class="f">column</span>(<span class="s">b"name"</span>).<span class="f">to_pylist</span>()
+
+<span class="c"># Write (ZSTD default)</span>
+data = parquet.<span class="f">write_parquet</span>(morsel)
+<span class="k">with</span> <span class="f">open</span>(<span class="s">"out.parquet"</span>, <span class="s">"wb"</span>) <span class="k">as</span> f:
+    f.<span class="f">write</span>(data)</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CSV -->
+                <div id="tab-csv" class="tab-pane">
+                    <div
+                        style="
+                            display: grid;
+                            grid-template-columns: 1fr 1fr;
+                            gap: 2rem;
+                            align-items: start;
+                        "
+                    >
+                        <div>
+                            <h3 style="margin-bottom: 1rem">rugo.csv API</h3>
+                            <table class="perf-table">
+                                <thead>
+                                    <tr>
+                                        <th>Function</th>
+                                        <th>Returns</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <code
+                                                >read_csv(data, columns,
+                                                predicates, delimiter,
+                                                has_header, use_threads)</code
+                                            >
+                                        </td>
+                                        <td>result dict</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <code
+                                                >write_csv(morsel, delimiter,
+                                                header)</code
+                                            >
+                                        </td>
+                                        <td><code>bytes</code> (RFC 4180)</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p
+                                style="
+                                    margin-top: 1.25rem;
+                                    font-size: 0.85rem;
+                                    color: var(--muted);
+                                "
+                            >
+                                Result dict keys: <code>success</code>,
+                                <code>column_names</code>,
+                                <code>num_rows</code>,
+                                <code>columns</code> (list of Draken Vectors).
+                            </p>
+                            <p
+                                style="
+                                    margin-top: 1rem;
+                                    font-size: 0.85rem;
+                                    color: var(--muted);
+                                "
+                            >
+                                Type inference: <code>int64</code> →
+                                <code>float64</code> → <code>VARCHAR</code> →
+                                <code>null</code>. Parallel scan available via
+                                <code>use_threads=True</code>.
+                            </p>
+
+                            <h3
+                                style="margin-top: 2rem; margin-bottom: 0.75rem"
+                            >
+                                Performance vs PyArrow (wide file, 50 cols)
+                            </h3>
+                            <table class="perf-table">
+                                <thead>
+                                    <tr>
+                                        <th>Query shape</th>
+                                        <th>Rugo</th>
+                                        <th>PyArrow</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>SELECT *</td>
+                                        <td>~26 ms</td>
+                                        <td>~17 ms</td>
+                                    </tr>
+                                    <tr>
+                                        <td>SELECT 2 cols</td>
+                                        <td class="win">~9 ms</td>
+                                        <td class="lose">~7 ms</td>
+                                    </tr>
+                                    <tr>
+                                        <td>WHERE P90 (~10% pass)</td>
+                                        <td class="win">~13 ms</td>
+                                        <td class="lose">~27 ms</td>
+                                    </tr>
+                                    <tr>
+                                        <td>WHERE P99 (~1% pass)</td>
+                                        <td class="win">~10 ms</td>
+                                        <td class="lose">~23 ms</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p
+                                style="
+                                    font-size: 0.8rem;
+                                    color: var(--muted);
+                                    margin-top: 0.5rem;
+                                "
+                            >
+                                200k rows, 55 MB. On narrow files PyArrow is
+                                faster across the board — crossover is driven by
+                                column skip + row elimination.
+                            </p>
+                        </div>
+                        <div>
+                            <pre><span class="k">from</span> rugo.csv <span class="k">import</span> read_csv, write_csv
+
+<span class="c"># Projected + filtered read</span>
+result = <span class="f">read_csv</span>(
+    <span class="s">"data.csv"</span>,
+    columns=[<span class="s">"name"</span>, <span class="s">"score"</span>],
+    predicates=[(<span class="s">"age"</span>, <span class="s">">"</span>, <span class="n">30</span>)],
+)
+<span class="k">if</span> result[<span class="s">"success"</span>]:
+    <span class="k">for</span> vec <span class="k">in</span> result[<span class="s">"columns"</span>]:
+        <span class="f">print</span>(vec.<span class="f">to_pylist</span>())
+
+<span class="c"># TSV variant</span>
+result = <span class="f">read_csv</span>(<span class="s">"data.tsv"</span>, delimiter=<span class="s">"\t"</span>)
+
+<span class="c"># Write a Morsel to RFC 4180 bytes</span>
+csv_bytes = <span class="f">write_csv</span>(morsel, delimiter=<span class="s">","</span>, header=<span class="k">True</span>)</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- JSONL -->
+                <div id="tab-jsonl" class="tab-pane">
+                    <div
+                        style="
+                            display: grid;
+                            grid-template-columns: 1fr 1fr;
+                            gap: 2rem;
+                            align-items: start;
+                        "
+                    >
+                        <div>
+                            <h3 style="margin-bottom: 1rem">rugo.jsonl API</h3>
+                            <table class="perf-table">
+                                <thead>
+                                    <tr>
+                                        <th>Function</th>
+                                        <th>Returns</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <code
+                                                >read_jsonl(data, columns,
+                                                predicates, ...)</code
+                                            >
+                                        </td>
+                                        <td>result dict</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <code
+                                                >get_jsonl_schema(data,
+                                                sample_size)</code
+                                            >
+                                        </td>
+                                        <td><code>{"columns": [...]}</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <code>write_jsonl(morsel)</code>
+                                        </td>
+                                        <td><code>bytes</code></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p
+                                style="
+                                    margin-top: 1.25rem;
+                                    font-size: 0.85rem;
+                                    color: var(--muted);
+                                "
+                            >
+                                Result dict keys: <code>success</code>,
+                                <code>column_names</code>,
+                                <code>num_rows</code>, <code>columns</code>,
+                                <code>schema</code>. Inferred types:
+                                <code>int64</code>, <code>double</code>,
+                                <code>boolean</code>, <code>string</code>,
+                                <code>bytes</code>, <code>object</code>,
+                                <code>null</code>, <code>array&lt;T&gt;</code>.
+                            </p>
+
+                            <h3
+                                style="margin-top: 2rem; margin-bottom: 0.75rem"
+                            >
+                                Performance vs PyArrow (116 MB, 1.5M rows)
+                            </h3>
+                            <table class="perf-table">
+                                <thead>
+                                    <tr>
+                                        <th>Query shape</th>
+                                        <th>Rugo</th>
+                                        <th>PyArrow</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>SELECT *</td>
+                                        <td>~67 ms</td>
+                                        <td>~53 ms</td>
+                                    </tr>
+                                    <tr>
+                                        <td>SELECT 1 col</td>
+                                        <td class="win">~33 ms</td>
+                                        <td class="lose">~53 ms</td>
+                                    </tr>
+                                    <tr>
+                                        <td>WHERE ~10% pass</td>
+                                        <td class="win">~15 ms</td>
+                                        <td class="lose">~53 ms</td>
+                                    </tr>
+                                    <tr>
+                                        <td>WHERE ~1% pass</td>
+                                        <td class="win">~7 ms</td>
+                                        <td class="lose">~53 ms</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p
+                                style="
+                                    font-size: 0.8rem;
+                                    color: var(--muted);
+                                    margin-top: 0.5rem;
+                                "
+                            >
+                                5 cols. PyArrow multithreaded. Advantage grows
+                                with selectivity.
+                            </p>
+                        </div>
+                        <div>
+                            <pre><span class="k">from</span> rugo.jsonl <span class="k">import</span> get_jsonl_schema, read_jsonl, write_jsonl
+
+<span class="c"># Infer schema from sample rows</span>
+schema = <span class="f">get_jsonl_schema</span>(<span class="s">"events.jsonl"</span>, sample_size=<span class="n">5</span>)
+
+<span class="c"># Projected + filtered read</span>
+result = <span class="f">read_jsonl</span>(
+    <span class="s">"events.jsonl"</span>,
+    columns=[<span class="s">"id"</span>, <span class="s">"status"</span>],
+    predicates=[(<span class="s">"status"</span>, <span class="s">"=="</span>, <span class="s">"active"</span>)],
+)
+<span class="k">if</span> result[<span class="s">"success"</span>]:
+    <span class="f">print</span>(result[<span class="s">"num_rows"</span>], <span class="s">"rows matched"</span>)
+    <span class="k">for</span> vec <span class="k">in</span> result[<span class="s">"columns"</span>]:
+        <span class="f">print</span>(vec.<span class="f">to_pylist</span>())
+
+<span class="c"># Read from bytes</span>
+<span class="k">with</span> <span class="f">open</span>(<span class="s">"events.jsonl"</span>, <span class="s">"rb"</span>) <span class="k">as</span> f:
+    result = <span class="f">read_jsonl</span>(f.<span class="f">read</span>())
+
+<span class="c"># Write a Morsel to JSONL bytes</span>
+jsonl_bytes = <span class="f">write_jsonl</span>(morsel)</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── DATA MODEL ── -->
+        <section id="data-model">
+            <div class="container">
+                <div class="section-label">Data Model</div>
+                <h2>Vectors and Morsels.</h2>
+                <p class="section-intro">
+                    Rugo speaks Draken — a bundled columnar substrate that ships
+                    inside the wheel. There are two objects you will encounter.
+                </p>
+
+                <div class="dm-grid">
+                    <div class="feature-card">
+                        <h3>Vector</h3>
+                        <p
+                            style="
+                                color: var(--muted);
+                                font-size: 0.9rem;
+                                margin-bottom: 1rem;
+                            "
+                        >
+                            A single typed column. Call
+                            <code>vector.to_pylist()</code> to get a Python list
+                            of values.
+                        </p>
+                        <pre
+                            style="font-size: 0.8rem"
+                        >vec = morsel.<span class="f">column</span>(<span class="s">b"name"</span>)
+values = vec.<span class="f">to_pylist</span>()
+<span class="c"># ["Mercury", "Venus", ...]</span></pre>
+                        <p
+                            style="
+                                color: var(--muted);
+                                font-size: 0.85rem;
+                                margin-top: 0.75rem;
+                            "
+                        >
+                            Note: column keys are <strong>bytes</strong>, not
+                            strings.
+                        </p>
+                    </div>
+                    <div class="feature-card">
+                        <h3>Morsel</h3>
+                        <p
+                            style="
+                                color: var(--muted);
+                                font-size: 0.9rem;
+                                margin-bottom: 1rem;
+                            "
+                        >
+                            A batch of rows across several columns — a chunk of
+                            a table. One Parquet row group produces one Morsel.
+                        </p>
+                        <pre
+                            style="font-size: 0.8rem"
+                        ><span class="k">for</span> morsel <span class="k">in</span> reader:
+    <span class="f">print</span>(<span class="f">len</span>(morsel), <span class="s">"rows"</span>)
+    vec = morsel.<span class="f">column</span>(<span class="s">b"id"</span>)</pre>
+                    </div>
+                </div>
+
+                <p
+                    style="
+                        margin-top: 2rem;
+                        font-size: 0.9rem;
+                        color: var(--muted);
+                    "
+                >
+                    A read → write round-trip works naturally:
+                    <code>read_parquet</code> yields Morsels,
+                    <code>write_parquet</code> / <code>write_csv</code> /
+                    <code>write_jsonl</code> all consume a Morsel.
+                </p>
+
+                <pre
+                    style="margin-top: 1.25rem"
+                ><span class="k">from</span> rugo <span class="k">import</span> parquet
+<span class="k">from</span> rugo.csv <span class="k">import</span> write_csv
+<span class="k">from</span> rugo.jsonl <span class="k">import</span> write_jsonl
+
+<span class="k">with</span> parquet.<span class="f">read_parquet</span>(<span class="s">"planets.parquet"</span>) <span class="k">as</span> reader:
+    <span class="k">for</span> morsel <span class="k">in</span> reader:
+        csv_bytes   = <span class="f">write_csv</span>(morsel)
+        jsonl_bytes = <span class="f">write_jsonl</span>(morsel)
+        pq_bytes    = parquet.<span class="f">write_parquet</span>(morsel)</pre>
+            </div>
+        </section>
+
+        <!-- ── LINKS ── -->
+        <section id="resources">
+            <div class="container">
+                <div class="section-label">Resources</div>
+                <h2>Where to go next.</h2>
+                <div class="feature-grid">
+                    <a
+                        class="feature-card"
+                        href="https://github.com/mabel-dev/opteryx-core/blob/main/rugo/README.md"
+                        style="display: block; color: inherit"
+                    >
+                        <div class="feature-icon">📖</div>
+                        <h3>Full documentation</h3>
+                        <p style="color: var(--muted); font-size: 0.9rem">
+                            Complete API reference, all options, limitations,
+                            and design notes.
+                        </p>
+                    </a>
+                    <a
+                        class="feature-card"
+                        href="https://github.com/mabel-dev/opteryx-core/blob/main/rugo/space_missions.ipynb"
+                        style="display: block; color: inherit"
+                    >
+                        <div class="feature-icon">🚀</div>
+                        <h3>Example notebook</h3>
+                        <p style="color: var(--muted); font-size: 0.9rem">
+                            A complete workflow on a real dataset: schema
+                            inspection, filtered streaming, aggregation, and
+                            format conversion.
+                        </p>
+                    </a>
+                    <a
+                        class="feature-card"
+                        href="https://github.com/mabel-dev/opteryx-core/tree/main/rugo"
+                        style="display: block; color: inherit"
+                    >
+                        <div class="feature-icon">💻</div>
+                        <h3>Source &amp; examples</h3>
+                        <p style="color: var(--muted); font-size: 0.9rem">
+                            Rugo is developed inside <code>opteryx-core</code>.
+                            Source, examples, and issue tracking are all there.
+                        </p>
+                    </a>
+                    <a
+                        class="feature-card"
+                        href="https://pypi.org/project/rugo/"
+                        style="display: block; color: inherit"
+                    >
+                        <div class="feature-icon">📦</div>
+                        <h3>PyPI</h3>
+                        <p style="color: var(--muted); font-size: 0.9rem">
+                            Pre-built wheels for Linux x86-64/aarch64, macOS
+                            arm64. Python 3.11+.
+                        </p>
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── FOOTER ── -->
+        <footer>
+            <div class="container">
+                <span
+                    >Rugo is part of the
+                    <a href="https://opteryx.dev/">Opteryx</a> project — Apache
+                    2.0</span
+                >
+                <span>
+                    <a href="https://github.com/mabel-dev/opteryx-core"
+                        >GitHub</a
+                    >
+                    ·
+                    <a href="https://pypi.org/project/rugo/">PyPI</a>
+                </span>
+            </div>
+        </footer>
+
+        <script>
+            function showTab(name) {
+                document
+                    .querySelectorAll(".tab")
+                    .forEach((t) => t.classList.remove("active"));
+                document
+                    .querySelectorAll(".tab-pane")
+                    .forEach((p) => p.classList.remove("active"));
+                document.getElementById("tab-" + name).classList.add("active");
+                event.target.classList.add("active");
+            }
+        </script>
+    </body>
+</html>
