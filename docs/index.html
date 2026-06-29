@@ -581,7 +581,7 @@
                 </h1>
                 <p class="hero-sub">
                     Rugo is the file layer extracted from the
-                    <a href="https://opteryx.dev/">Opteryx</a> SQL engine. It
+                    <a href="https://opteryx.app/">Opteryx</a> SQL engine. It
                     was built to keep memory use low by pushing filters as early
                     as possible — skipping columns you don't need and pruning
                     row groups before any data is decoded.
@@ -628,7 +628,7 @@
                 <h2>Thin by design. Opinionated about what not to load.</h2>
                 <p class="section-intro">
                     Rugo was built as the file layer for the
-                    <a href="https://opteryx.dev/">Opteryx</a> SQL engine, where
+                    <a href="https://opteryx.app/">Opteryx</a> SQL engine, where
                     the constraint was simple: read as little data as possible,
                     hold as little in memory as possible. Column projection and
                     row-group pruning happen before any decoding. The result is
@@ -838,122 +838,32 @@ result = <span class="f">read_jsonl</span>(<span class="s">"events.jsonl"</span>
 
                 <!-- PARQUET -->
                 <div id="tab-parquet" class="tab-pane active">
-                    <div
-                        style="
-                            display: grid;
-                            grid-template-columns: 1fr 1fr;
-                            gap: 2rem;
-                            align-items: start;
-                        "
-                    >
-                        <div>
-                            <h3 style="margin-bottom: 1rem">
-                                rugo.parquet API
-                            </h3>
-                            <table class="perf-table">
-                                <thead>
-                                    <tr>
-                                        <th>Function</th>
-                                        <th>Returns</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>
-                                            <code
-                                                >read_parquet(source, columns,
-                                                filters)</code
-                                            >
-                                        </td>
-                                        <td>
-                                            context manager → one Morsel per row
-                                            group
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <code>read_metadata(source)</code>
-                                        </td>
-                                        <td>
-                                            <code>ParquetMetadata</code>
-                                            (num_rows, schema_columns)
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <code
-                                                >write_parquet(morsel,
-                                                compression)</code
-                                            >
-                                        </td>
-                                        <td><code>bytes</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <code
-                                                >write_parquet_with_bounds(morsel)</code
-                                            >
-                                        </td>
-                                        <td>
-                                            <code
-                                                >(bytes, {col: (min,
-                                                max)})</code
-                                            >
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                            <p
-                                style="
-                                    margin-top: 1.25rem;
-                                    font-size: 0.85rem;
-                                    color: var(--muted);
-                                "
-                            >
-                                <code>source</code> is a filename or
-                                <code>bytes</code
-                                >/<code>bytearray</code>/<code>memoryview</code>.
-                                <code>filters</code> is a list of
-                                <code>(column, op, value)</code> tuples; pruning
-                                is at row-group granularity. Supported ops:
-                                <code
-                                    >= == != &lt; &lt;= &gt; &gt;= in "not
-                                    in"</code
-                                >.
-                            </p>
-                            <p
-                                style="
-                                    margin-top: 1rem;
-                                    font-size: 0.85rem;
-                                    color: var(--muted);
-                                "
-                            >
-                                <strong style="color: var(--text)"
-                                    >Decode support:</strong
-                                >
-                                int32/64, float32/64, boolean, byte_array ·
-                                UNCOMPRESSED, SNAPPY, ZSTD · PLAIN,
-                                RLE_DICTIONARY, DELTA_BINARY_PACKED,
-                                DELTA_BYTE_ARRAY
-                            </p>
-                            <p
-                                style="
-                                    margin-top: 1rem;
-                                    font-size: 0.85rem;
-                                    color: var(--muted);
-                                "
-                            >
-                                <strong style="color: var(--text)"
-                                    >Write support:</strong
-                                >
-                                INT8–64, FLOAT32/64, BOOL, VARCHAR, DATE32,
-                                TIME, TIMESTAMP64, INTERVAL, DECIMAL, ARRAY —
-                                ZSTD or uncompressed, per-column min/max stats,
-                                optional bloom filters.
-                            </p>
-                        </div>
-                        <div>
-                            <pre><span class="k">from</span> rugo <span class="k">import</span> parquet
+                    <table class="perf-table" style="margin-bottom:1.5rem">
+                        <thead><tr><th>Function</th><th>Returns</th></tr></thead>
+                        <tbody>
+                            <tr><td><code>read_parquet(source, columns, filters)</code></td><td>context manager → one Morsel per row group</td></tr>
+                            <tr><td><code>read_metadata(source)</code></td><td><code>ParquetMetadata</code> (num_rows, schema_columns)</td></tr>
+                            <tr><td><code>write_parquet(morsel, compression)</code></td><td><code>bytes</code></td></tr>
+                            <tr><td><code>write_parquet_with_bounds(morsel)</code></td><td><code>(bytes, {col: (min, max)})</code></td></tr>
+                        </tbody>
+                    </table>
+                    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.6rem">
+                        <code>source</code> is a filename or <code>bytes</code>/<code>bytearray</code>/<code>memoryview</code>.
+                        <code>filters</code> is a list of <code>(column, op, value)</code> tuples; pruning is at row-group granularity.
+                        Ops: <code>= == != &lt; &lt;= &gt; &gt;= in "not in"</code>.
+                    </p>
+                    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.6rem">
+                        <strong style="color:var(--text)">Decode:</strong>
+                        int32/64, float32/64, boolean, byte_array · UNCOMPRESSED, SNAPPY, ZSTD · PLAIN, RLE_DICTIONARY, DELTA_BINARY_PACKED, DELTA_BYTE_ARRAY
+                    </p>
+                    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem">
+                        <strong style="color:var(--text)">Write:</strong>
+                        INT8–64, FLOAT32/64, BOOL, VARCHAR, DATE32, TIME, TIMESTAMP64, INTERVAL, DECIMAL, ARRAY — ZSTD or uncompressed, per-column min/max stats, optional bloom filters.
+                    </p>
+                    <p style="font-size:0.85rem;color:var(--muted);border-left:3px solid var(--border);padding-left:1rem;margin-bottom:1.5rem">
+                        Rugo's Parquet advantage is <em>reading less</em>, not raw scan throughput. Row-group pruning and column projection reduce what is decoded; PyArrow's bulk scan is faster when all columns and rows are needed.
+                    </p>
+                    <pre><span class="k">from</span> rugo <span class="k">import</span> parquet
 
 <span class="c"># Metadata only — no column decode</span>
 meta = parquet.<span class="f">read_metadata</span>(<span class="s">"planets.parquet"</span>)
@@ -973,126 +883,35 @@ meta = parquet.<span class="f">read_metadata</span>(<span class="s">"planets.par
 data = parquet.<span class="f">write_parquet</span>(morsel)
 <span class="k">with</span> <span class="f">open</span>(<span class="s">"out.parquet"</span>, <span class="s">"wb"</span>) <span class="k">as</span> f:
     f.<span class="f">write</span>(data)</pre>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- CSV -->
                 <div id="tab-csv" class="tab-pane">
-                    <div
-                        style="
-                            display: grid;
-                            grid-template-columns: 1fr 1fr;
-                            gap: 2rem;
-                            align-items: start;
-                        "
-                    >
-                        <div>
-                            <h3 style="margin-bottom: 1rem">rugo.csv API</h3>
-                            <table class="perf-table">
-                                <thead>
-                                    <tr>
-                                        <th>Function</th>
-                                        <th>Returns</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>
-                                            <code
-                                                >read_csv(data, columns,
-                                                predicates, delimiter,
-                                                has_header, use_threads)</code
-                                            >
-                                        </td>
-                                        <td>result dict</td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <code
-                                                >write_csv(morsel, delimiter,
-                                                header)</code
-                                            >
-                                        </td>
-                                        <td><code>bytes</code> (RFC 4180)</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                            <p
-                                style="
-                                    margin-top: 1.25rem;
-                                    font-size: 0.85rem;
-                                    color: var(--muted);
-                                "
-                            >
-                                Result dict keys: <code>success</code>,
-                                <code>column_names</code>,
-                                <code>num_rows</code>,
-                                <code>columns</code> (list of Draken Vectors).
-                            </p>
-                            <p
-                                style="
-                                    margin-top: 1rem;
-                                    font-size: 0.85rem;
-                                    color: var(--muted);
-                                "
-                            >
-                                Type inference: <code>int64</code> →
-                                <code>float64</code> → <code>VARCHAR</code> →
-                                <code>null</code>. Parallel scan available via
-                                <code>use_threads=True</code>.
-                            </p>
-
-                            <h3
-                                style="margin-top: 2rem; margin-bottom: 0.75rem"
-                            >
-                                Performance vs PyArrow (wide file, 50 cols)
-                            </h3>
-                            <table class="perf-table">
-                                <thead>
-                                    <tr>
-                                        <th>Query shape</th>
-                                        <th>Rugo</th>
-                                        <th>PyArrow</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>SELECT *</td>
-                                        <td>~26 ms</td>
-                                        <td>~17 ms</td>
-                                    </tr>
-                                    <tr>
-                                        <td>SELECT 2 cols</td>
-                                        <td class="win">~9 ms</td>
-                                        <td class="lose">~7 ms</td>
-                                    </tr>
-                                    <tr>
-                                        <td>WHERE P90 (~10% pass)</td>
-                                        <td class="win">~13 ms</td>
-                                        <td class="lose">~27 ms</td>
-                                    </tr>
-                                    <tr>
-                                        <td>WHERE P99 (~1% pass)</td>
-                                        <td class="win">~10 ms</td>
-                                        <td class="lose">~23 ms</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                            <p
-                                style="
-                                    font-size: 0.8rem;
-                                    color: var(--muted);
-                                    margin-top: 0.5rem;
-                                "
-                            >
-                                200k rows, 55 MB. On narrow files PyArrow is
-                                faster across the board — crossover is driven by
-                                column skip + row elimination.
-                            </p>
-                        </div>
-                        <div>
-                            <pre><span class="k">from</span> rugo.csv <span class="k">import</span> read_csv, write_csv
+                    <table class="perf-table" style="margin-bottom:1.5rem">
+                        <thead><tr><th>Function</th><th>Returns</th></tr></thead>
+                        <tbody>
+                            <tr><td><code>read_csv(data, columns, predicates, delimiter, has_header, use_threads)</code></td><td>result dict</td></tr>
+                            <tr><td><code>write_csv(morsel, delimiter, header)</code></td><td><code>bytes</code> (RFC 4180)</td></tr>
+                        </tbody>
+                    </table>
+                    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.6rem">
+                        Result dict keys: <code>success</code>, <code>column_names</code>, <code>num_rows</code>, <code>columns</code> (list of Draken Vectors).
+                    </p>
+                    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem">
+                        Type inference: <code>int64</code> → <code>float64</code> → <code>VARCHAR</code> → <code>null</code>. Parallel scan via <code>use_threads=True</code>.
+                    </p>
+                    <h3 style="margin-bottom:0.75rem">Performance vs PyArrow — wide file (50 cols, 200k rows, 55 MB)</h3>
+                    <table class="perf-table" style="margin-bottom:0.5rem">
+                        <thead><tr><th>Query shape</th><th>Rugo</th><th>PyArrow</th></tr></thead>
+                        <tbody>
+                            <tr><td>SELECT *</td><td>~26 ms</td><td>~17 ms</td></tr>
+                            <tr><td>SELECT 2 cols</td><td class="win">~9 ms</td><td class="lose">~7 ms</td></tr>
+                            <tr><td>WHERE P90 (~10% pass)</td><td class="win">~13 ms</td><td class="lose">~27 ms</td></tr>
+                            <tr><td>WHERE P99 (~1% pass)</td><td class="win">~10 ms</td><td class="lose">~23 ms</td></tr>
+                        </tbody>
+                    </table>
+                    <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1.5rem">On narrow files PyArrow is faster across the board — the crossover is driven by how many columns can be skipped and how many rows are eliminated before the typed column build.</p>
+                    <pre><span class="k">from</span> rugo.csv <span class="k">import</span> read_csv, write_csv
 
 <span class="c"># Projected + filtered read</span>
 result = <span class="f">read_csv</span>(
@@ -1109,122 +928,34 @@ result = <span class="f">read_csv</span>(<span class="s">"data.tsv"</span>, deli
 
 <span class="c"># Write a Morsel to RFC 4180 bytes</span>
 csv_bytes = <span class="f">write_csv</span>(morsel, delimiter=<span class="s">","</span>, header=<span class="k">True</span>)</pre>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- JSONL -->
                 <div id="tab-jsonl" class="tab-pane">
-                    <div
-                        style="
-                            display: grid;
-                            grid-template-columns: 1fr 1fr;
-                            gap: 2rem;
-                            align-items: start;
-                        "
-                    >
-                        <div>
-                            <h3 style="margin-bottom: 1rem">rugo.jsonl API</h3>
-                            <table class="perf-table">
-                                <thead>
-                                    <tr>
-                                        <th>Function</th>
-                                        <th>Returns</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>
-                                            <code
-                                                >read_jsonl(data, columns,
-                                                predicates, ...)</code
-                                            >
-                                        </td>
-                                        <td>result dict</td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <code
-                                                >get_jsonl_schema(data,
-                                                sample_size)</code
-                                            >
-                                        </td>
-                                        <td><code>{"columns": [...]}</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <code>write_jsonl(morsel)</code>
-                                        </td>
-                                        <td><code>bytes</code></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                            <p
-                                style="
-                                    margin-top: 1.25rem;
-                                    font-size: 0.85rem;
-                                    color: var(--muted);
-                                "
-                            >
-                                Result dict keys: <code>success</code>,
-                                <code>column_names</code>,
-                                <code>num_rows</code>, <code>columns</code>,
-                                <code>schema</code>. Inferred types:
-                                <code>int64</code>, <code>double</code>,
-                                <code>boolean</code>, <code>string</code>,
-                                <code>bytes</code>, <code>object</code>,
-                                <code>null</code>, <code>array&lt;T&gt;</code>.
-                            </p>
-
-                            <h3
-                                style="margin-top: 2rem; margin-bottom: 0.75rem"
-                            >
-                                Performance vs PyArrow (116 MB, 1.5M rows)
-                            </h3>
-                            <table class="perf-table">
-                                <thead>
-                                    <tr>
-                                        <th>Query shape</th>
-                                        <th>Rugo</th>
-                                        <th>PyArrow</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>SELECT *</td>
-                                        <td>~67 ms</td>
-                                        <td>~53 ms</td>
-                                    </tr>
-                                    <tr>
-                                        <td>SELECT 1 col</td>
-                                        <td class="win">~33 ms</td>
-                                        <td class="lose">~53 ms</td>
-                                    </tr>
-                                    <tr>
-                                        <td>WHERE ~10% pass</td>
-                                        <td class="win">~15 ms</td>
-                                        <td class="lose">~53 ms</td>
-                                    </tr>
-                                    <tr>
-                                        <td>WHERE ~1% pass</td>
-                                        <td class="win">~7 ms</td>
-                                        <td class="lose">~53 ms</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                            <p
-                                style="
-                                    font-size: 0.8rem;
-                                    color: var(--muted);
-                                    margin-top: 0.5rem;
-                                "
-                            >
-                                5 cols. PyArrow multithreaded. Advantage grows
-                                with selectivity.
-                            </p>
-                        </div>
-                        <div>
-                            <pre><span class="k">from</span> rugo.jsonl <span class="k">import</span> get_jsonl_schema, read_jsonl, write_jsonl
+                    <table class="perf-table" style="margin-bottom:1.5rem">
+                        <thead><tr><th>Function</th><th>Returns</th></tr></thead>
+                        <tbody>
+                            <tr><td><code>read_jsonl(data, columns, predicates, ...)</code></td><td>result dict</td></tr>
+                            <tr><td><code>get_jsonl_schema(data, sample_size)</code></td><td><code>{"columns": [...]}</code></td></tr>
+                            <tr><td><code>write_jsonl(morsel)</code></td><td><code>bytes</code></td></tr>
+                        </tbody>
+                    </table>
+                    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem">
+                        Result dict keys: <code>success</code>, <code>column_names</code>, <code>num_rows</code>, <code>columns</code>, <code>schema</code>.
+                        Inferred types: <code>int64</code>, <code>double</code>, <code>boolean</code>, <code>string</code>, <code>bytes</code>, <code>object</code>, <code>null</code>, <code>array&lt;T&gt;</code>.
+                    </p>
+                    <h3 style="margin-bottom:0.75rem">Performance vs PyArrow — 116 MB, 1.5M rows, 5 cols (PyArrow multithreaded)</h3>
+                    <table class="perf-table" style="margin-bottom:0.5rem">
+                        <thead><tr><th>Query shape</th><th>Rugo</th><th>PyArrow</th></tr></thead>
+                        <tbody>
+                            <tr><td>SELECT *</td><td>~67 ms</td><td>~53 ms</td></tr>
+                            <tr><td>SELECT 1 col</td><td class="win">~33 ms</td><td class="lose">~53 ms</td></tr>
+                            <tr><td>WHERE ~10% pass</td><td class="win">~15 ms</td><td class="lose">~53 ms</td></tr>
+                            <tr><td>WHERE ~1% pass</td><td class="win">~7 ms</td><td class="lose">~53 ms</td></tr>
+                        </tbody>
+                    </table>
+                    <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1.5rem">Advantage grows with selectivity — PyArrow reads all columns regardless of projection.</p>
+                    <pre><span class="k">from</span> rugo.jsonl <span class="k">import</span> get_jsonl_schema, read_jsonl, write_jsonl
 
 <span class="c"># Infer schema from sample rows</span>
 schema = <span class="f">get_jsonl_schema</span>(<span class="s">"events.jsonl"</span>, sample_size=<span class="n">5</span>)
@@ -1246,8 +977,6 @@ result = <span class="f">read_jsonl</span>(
 
 <span class="c"># Write a Morsel to JSONL bytes</span>
 jsonl_bytes = <span class="f">write_jsonl</span>(morsel)</pre>
-                        </div>
-                    </div>
                 </div>
             </div>
         </section>
@@ -1403,7 +1132,7 @@ values = vec.<span class="f">to_pylist</span>()
             <div class="container">
                 <span
                     >Rugo is part of the
-                    <a href="https://opteryx.dev/">Opteryx</a> project — Apache
+                    <a href="https://opteryx.app/">Opteryx</a> project — Apache
                     2.0</span
                 >
                 <span>
