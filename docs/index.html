@@ -843,7 +843,7 @@ data = jsonl.<span class="f">write_jsonl</span>(morsel)</pre>
                     <table class="perf-table" style="margin-bottom:1.5rem">
                         <thead><tr><th>Function</th><th>Returns</th></tr></thead>
                         <tbody>
-                            <tr><td><code>read_parquet(source, columns, filters)</code></td><td>context manager → one Morsel per row group</td></tr>
+                            <tr><td><code>read_parquet(source, columns, predicates)</code></td><td>context manager → one Morsel per row group</td></tr>
                             <tr><td><code>read_metadata(source)</code></td><td><code>ParquetMetadata</code> (num_rows, schema_columns)</td></tr>
                             <tr><td><code>write_parquet(morsel, compression)</code></td><td><code>bytes</code></td></tr>
                             <tr><td><code>write_parquet_with_bounds(morsel)</code></td><td><code>(bytes, {col: (min, max)})</code></td></tr>
