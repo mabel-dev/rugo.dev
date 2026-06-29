@@ -776,34 +776,37 @@
 
                 <pre><span class="k">from</span> rugo <span class="k">import</span> parquet
 
-<span class="c"># Stream a projected, row-group-pruned read — no PyArrow, no NumPy</span>
-<span class="k">with</span> parquet.<span class="f">read_parquet</span>(
-    <span class="s">"planets.parquet"</span>,
-    columns=[<span class="s">"id"</span>, <span class="s">"name"</span>],
-    filters=[(<span class="s">"id"</span>, <span class="s">">"</span>, <span class="n">4</span>)],
-) <span class="k">as</span> reader:
+<span class="c"># Read — context manager, yields Morsels</span>
+<span class="k">with</span> parquet.<span class="f">read_parquet</span>(<span class="s">"planets.parquet"</span>, columns=[<span class="s">"id"</span>, <span class="s">"name"</span>], filters=[(<span class="s">"id"</span>, <span class="s">">"</span>, <span class="n">4</span>)]) <span class="k">as</span> reader:
     <span class="k">for</span> morsel <span class="k">in</span> reader:
         <span class="f">print</span>(morsel.<span class="f">column</span>(<span class="s">b"name"</span>).<span class="f">to_pylist</span>())
 
-<span class="c"># Write a Morsel to Parquet bytes</span>
+<span class="c"># Metadata — no column decode</span>
+meta = parquet.<span class="f">read_metadata</span>(<span class="s">"planets.parquet"</span>)
+<span class="f">print</span>(meta.num_rows, [c.name <span class="k">for</span> c <span class="k">in</span> meta.schema_columns])
+
+<span class="c"># Write</span>
 data = parquet.<span class="f">write_parquet</span>(morsel, compression=<span class="s">"zstd"</span>)</pre>
 
-                <pre
-                    style="margin-top: 1rem"
-                ><span class="k">from</span> rugo.csv <span class="k">import</span> read_csv, write_csv
+                <pre style="margin-top: 1rem"><span class="k">from</span> rugo <span class="k">import</span> csv
 
-result = <span class="f">read_csv</span>(<span class="s">"data.csv"</span>, columns=[<span class="s">"name"</span>], predicates=[(<span class="s">"age"</span>, <span class="s">">"</span>, <span class="n">30</span>)])
-<span class="k">if</span> result[<span class="s">"success"</span>]:
-    <span class="k">for</span> vec <span class="k">in</span> result[<span class="s">"columns"</span>]:
-        <span class="f">print</span>(vec.<span class="f">to_pylist</span>())</pre>
+<span class="c"># Same shape — context manager, yields Morsels</span>
+<span class="k">with</span> csv.<span class="f">read_csv</span>(<span class="s">"data.csv"</span>, columns=[<span class="s">"name"</span>], predicates=[(<span class="s">"age"</span>, <span class="s">">"</span>, <span class="n">30</span>)]) <span class="k">as</span> reader:
+    <span class="k">for</span> morsel <span class="k">in</span> reader:
+        <span class="f">print</span>(morsel.<span class="f">column</span>(<span class="s">b"name"</span>).<span class="f">to_pylist</span>())
 
-                <pre
-                    style="margin-top: 1rem"
-                ><span class="k">from</span> rugo.jsonl <span class="k">import</span> read_jsonl, write_jsonl
+meta = csv.<span class="f">read_metadata</span>(<span class="s">"data.csv"</span>)
+data = csv.<span class="f">write_csv</span>(morsel)</pre>
 
-result = <span class="f">read_jsonl</span>(<span class="s">"events.jsonl"</span>, columns=[<span class="s">"id"</span>, <span class="s">"status"</span>],
-                   predicates=[(<span class="s">"status"</span>, <span class="s">"=="</span>, <span class="s">"active"</span>)])
-<span class="f">print</span>(result[<span class="s">"num_rows"</span>], <span class="s">"rows matched"</span>)</pre>
+                <pre style="margin-top: 1rem"><span class="k">from</span> rugo <span class="k">import</span> jsonl
+
+<span class="c"># Same shape again</span>
+<span class="k">with</span> jsonl.<span class="f">read_jsonl</span>(<span class="s">"events.jsonl"</span>, columns=[<span class="s">"id"</span>, <span class="s">"status"</span>], predicates=[(<span class="s">"status"</span>, <span class="s">"=="</span>, <span class="s">"active"</span>)]) <span class="k">as</span> reader:
+    <span class="k">for</span> morsel <span class="k">in</span> reader:
+        <span class="f">print</span>(<span class="f">len</span>(morsel), <span class="s">"rows matched"</span>)
+
+meta = jsonl.<span class="f">read_metadata</span>(<span class="s">"events.jsonl"</span>)
+data = jsonl.<span class="f">write_jsonl</span>(morsel)</pre>
 
                 <p style="margin-top: 1.5rem">
                     A complete worked example on a real dataset is available in
@@ -889,12 +892,14 @@ data = parquet.<span class="f">write_parquet</span>(morsel)
                     <table class="perf-table" style="margin-bottom:1.5rem">
                         <thead><tr><th>Function</th><th>Returns</th></tr></thead>
                         <tbody>
-                            <tr><td><code>read_csv(data, columns, predicates, delimiter, has_header, use_threads)</code></td><td>result dict</td></tr>
+                            <tr><td><code>read_csv(source, columns, predicates, delimiter, has_header, use_threads)</code></td><td>context manager → one Morsel</td></tr>
+                            <tr><td><code>read_metadata(source)</code></td><td><code>CsvMetadata</code> (num_rows, schema_columns)</td></tr>
                             <tr><td><code>write_csv(morsel, delimiter, header)</code></td><td><code>bytes</code> (RFC 4180)</td></tr>
                         </tbody>
                     </table>
                     <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.6rem">
-                        Result dict keys: <code>success</code>, <code>column_names</code>, <code>num_rows</code>, <code>columns</code> (list of Draken Vectors).
+                        <code>source</code> is a filename or <code>bytes</code>/<code>bytearray</code>/<code>memoryview</code>.
+                        <code>predicates</code>: list of <code>(column, op, value)</code>; op in <code>== != &lt; &lt;= &gt; &gt;=</code>.
                     </p>
                     <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem">
                         Type inference: <code>int64</code> → <code>float64</code> → <code>VARCHAR</code> → <code>null</code>. Parallel scan via <code>use_threads=True</code>.
@@ -910,23 +915,27 @@ data = parquet.<span class="f">write_parquet</span>(morsel)
                         </tbody>
                     </table>
                     <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1.5rem">On narrow files PyArrow is faster across the board — the crossover is driven by how many columns can be skipped and how many rows are eliminated before the typed column build.</p>
-                    <pre><span class="k">from</span> rugo.csv <span class="k">import</span> read_csv, write_csv
+                    <pre><span class="k">from</span> rugo <span class="k">import</span> csv
+
+<span class="c"># Schema without reading all data</span>
+meta = csv.<span class="f">read_metadata</span>(<span class="s">"data.csv"</span>)
+<span class="f">print</span>(meta.num_rows, [c[<span class="s">"name"</span>] <span class="k">for</span> c <span class="k">in</span> meta.schema_columns])
 
 <span class="c"># Projected + filtered read</span>
-result = <span class="f">read_csv</span>(
+<span class="k">with</span> csv.<span class="f">read_csv</span>(
     <span class="s">"data.csv"</span>,
     columns=[<span class="s">"name"</span>, <span class="s">"score"</span>],
     predicates=[(<span class="s">"age"</span>, <span class="s">">"</span>, <span class="n">30</span>)],
-)
-<span class="k">if</span> result[<span class="s">"success"</span>]:
-    <span class="k">for</span> vec <span class="k">in</span> result[<span class="s">"columns"</span>]:
-        <span class="f">print</span>(vec.<span class="f">to_pylist</span>())
+) <span class="k">as</span> reader:
+    <span class="k">for</span> morsel <span class="k">in</span> reader:
+        <span class="f">print</span>(morsel.<span class="f">column</span>(<span class="s">b"name"</span>).<span class="f">to_pylist</span>())
 
 <span class="c"># TSV variant</span>
-result = <span class="f">read_csv</span>(<span class="s">"data.tsv"</span>, delimiter=<span class="s">"\t"</span>)
+<span class="k">with</span> csv.<span class="f">read_csv</span>(<span class="s">"data.tsv"</span>, delimiter=<span class="s">"\t"</span>) <span class="k">as</span> reader:
+    <span class="k">for</span> morsel <span class="k">in</span> reader: ...
 
-<span class="c"># Write a Morsel to RFC 4180 bytes</span>
-csv_bytes = <span class="f">write_csv</span>(morsel, delimiter=<span class="s">","</span>, header=<span class="k">True</span>)</pre>
+<span class="c"># Write</span>
+csv_bytes = csv.<span class="f">write_csv</span>(morsel)</pre>
                 </div>
 
                 <!-- JSONL -->
@@ -934,13 +943,16 @@ csv_bytes = <span class="f">write_csv</span>(morsel, delimiter=<span class="s">"
                     <table class="perf-table" style="margin-bottom:1.5rem">
                         <thead><tr><th>Function</th><th>Returns</th></tr></thead>
                         <tbody>
-                            <tr><td><code>read_jsonl(data, columns, predicates, ...)</code></td><td>result dict</td></tr>
-                            <tr><td><code>get_jsonl_schema(data, sample_size)</code></td><td><code>{"columns": [...]}</code></td></tr>
+                            <tr><td><code>read_jsonl(source, columns, predicates, ...)</code></td><td>context manager → one Morsel</td></tr>
+                            <tr><td><code>read_metadata(source)</code></td><td><code>JsonlMetadata</code> (num_rows, schema_columns)</td></tr>
                             <tr><td><code>write_jsonl(morsel)</code></td><td><code>bytes</code></td></tr>
                         </tbody>
                     </table>
+                    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.6rem">
+                        <code>source</code> is a filename or <code>bytes</code>/<code>bytearray</code>/<code>memoryview</code>.
+                        <code>predicates</code>: list of <code>(column, op, value)</code>; op in <code>== != &lt; &lt;= &gt; &gt;=</code>.
+                    </p>
                     <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem">
-                        Result dict keys: <code>success</code>, <code>column_names</code>, <code>num_rows</code>, <code>columns</code>, <code>schema</code>.
                         Inferred types: <code>int64</code>, <code>double</code>, <code>boolean</code>, <code>string</code>, <code>bytes</code>, <code>object</code>, <code>null</code>, <code>array&lt;T&gt;</code>.
                     </p>
                     <h3 style="margin-bottom:0.75rem">Performance vs PyArrow — 116 MB, 1.5M rows, 5 cols (PyArrow multithreaded)</h3>
@@ -954,28 +966,23 @@ csv_bytes = <span class="f">write_csv</span>(morsel, delimiter=<span class="s">"
                         </tbody>
                     </table>
                     <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1.5rem">Advantage grows with selectivity — PyArrow reads all columns regardless of projection.</p>
-                    <pre><span class="k">from</span> rugo.jsonl <span class="k">import</span> get_jsonl_schema, read_jsonl, write_jsonl
+                    <pre><span class="k">from</span> rugo <span class="k">import</span> jsonl
 
-<span class="c"># Infer schema from sample rows</span>
-schema = <span class="f">get_jsonl_schema</span>(<span class="s">"events.jsonl"</span>, sample_size=<span class="n">5</span>)
+<span class="c"># Schema without reading all data</span>
+meta = jsonl.<span class="f">read_metadata</span>(<span class="s">"events.jsonl"</span>)
+<span class="f">print</span>(meta.num_rows, [c[<span class="s">"name"</span>] <span class="k">for</span> c <span class="k">in</span> meta.schema_columns])
 
 <span class="c"># Projected + filtered read</span>
-result = <span class="f">read_jsonl</span>(
+<span class="k">with</span> jsonl.<span class="f">read_jsonl</span>(
     <span class="s">"events.jsonl"</span>,
     columns=[<span class="s">"id"</span>, <span class="s">"status"</span>],
     predicates=[(<span class="s">"status"</span>, <span class="s">"=="</span>, <span class="s">"active"</span>)],
-)
-<span class="k">if</span> result[<span class="s">"success"</span>]:
-    <span class="f">print</span>(result[<span class="s">"num_rows"</span>], <span class="s">"rows matched"</span>)
-    <span class="k">for</span> vec <span class="k">in</span> result[<span class="s">"columns"</span>]:
-        <span class="f">print</span>(vec.<span class="f">to_pylist</span>())
-
-<span class="c"># Read from bytes</span>
-<span class="k">with</span> <span class="f">open</span>(<span class="s">"events.jsonl"</span>, <span class="s">"rb"</span>) <span class="k">as</span> f:
-    result = <span class="f">read_jsonl</span>(f.<span class="f">read</span>())
+) <span class="k">as</span> reader:
+    <span class="k">for</span> morsel <span class="k">in</span> reader:
+        <span class="f">print</span>(<span class="f">len</span>(morsel), <span class="s">"rows matched"</span>)
 
 <span class="c"># Write a Morsel to JSONL bytes</span>
-jsonl_bytes = <span class="f">write_jsonl</span>(morsel)</pre>
+jsonl_bytes = jsonl.<span class="f">write_jsonl</span>(morsel)</pre>
                 </div>
             </div>
         </section>
