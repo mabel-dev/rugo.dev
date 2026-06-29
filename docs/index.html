@@ -777,7 +777,7 @@
                 <pre><span class="k">from</span> rugo <span class="k">import</span> parquet
 
 <span class="c"># Read — context manager, yields Morsels</span>
-<span class="k">with</span> parquet.<span class="f">read_parquet</span>(<span class="s">"planets.parquet"</span>, columns=[<span class="s">"id"</span>, <span class="s">"name"</span>], filters=[(<span class="s">"id"</span>, <span class="s">">"</span>, <span class="n">4</span>)]) <span class="k">as</span> reader:
+<span class="k">with</span> parquet.<span class="f">read_parquet</span>(<span class="s">"planets.parquet"</span>, columns=[<span class="s">"id"</span>, <span class="s">"name"</span>], predicates=[(<span class="s">"id"</span>, <span class="s">">"</span>, <span class="n">4</span>)]) <span class="k">as</span> reader:
     <span class="k">for</span> morsel <span class="k">in</span> reader:
         <span class="f">print</span>(morsel.<span class="f">column</span>(<span class="s">b"name"</span>).<span class="f">to_pylist</span>())
 
@@ -876,7 +876,7 @@ meta = parquet.<span class="f">read_metadata</span>(<span class="s">"planets.par
 <span class="k">with</span> parquet.<span class="f">read_parquet</span>(
     <span class="s">"planets.parquet"</span>,
     columns=[<span class="s">"id"</span>, <span class="s">"name"</span>],
-    filters=[(<span class="s">"id"</span>, <span class="s">">"</span>, <span class="n">4</span>)],
+    predicates=[(<span class="s">"id"</span>, <span class="s">">"</span>, <span class="n">4</span>)],
 ) <span class="k">as</span> reader:
     <span class="k">for</span> morsel <span class="k">in</span> reader:
         names = morsel.<span class="f">column</span>(<span class="s">b"name"</span>).<span class="f">to_pylist</span>()
@@ -1092,20 +1092,19 @@ values = vec.<span class="f">to_pylist</span>()
                             and design notes.
                         </p>
                     </a>
-                    <a
-                        class="feature-card"
-                        href="https://colab.research.google.com/drive/1EQeN0xB53sFZVOQ_MZiW4-W5-skW3WaX?usp=sharing"
-                        style="display: block; color: inherit"
-                    >
+                    <div class="feature-card">
                         <div class="feature-icon">🚀</div>
                         <h3>Example notebook</h3>
-                        <p style="color: var(--muted); font-size: 0.9rem">
+                        <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 0.75rem">
                             A complete workflow on a real dataset: schema
                             inspection, filtered streaming, aggregation, and
-                            format conversion. Run it in Google Colab or
-                            <a href="https://github.com/mabel-dev/opteryx-core/blob/main/rugo/space_missions.ipynb" style="color:var(--accent)">view on GitHub</a>.
+                            format conversion.
                         </p>
-                    </a>
+                        <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
+                            <a href="https://colab.research.google.com/drive/1EQeN0xB53sFZVOQ_MZiW4-W5-skW3WaX?usp=sharing" style="font-size:0.85rem;font-weight:600">Run in Colab →</a>
+                            <a href="https://github.com/mabel-dev/opteryx-core/blob/main/rugo/space_missions.ipynb" style="font-size:0.85rem;color:var(--muted)">View on GitHub</a>
+                        </div>
+                    </div>
                     <a
                         class="feature-card"
                         href="https://github.com/mabel-dev/opteryx-core/tree/main/rugo"
