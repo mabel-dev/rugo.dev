@@ -3,10 +3,10 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Rugo — Fast, dependency-free file engine for Python</title>
+        <title>Rugo — Fast, dependency-free Parquet engine for Python</title>
         <meta
             name="description"
-            content="Rugo reads and writes Parquet, CSV, and JSONL from Python. No PyArrow. No NumPy. 2.9 MB wheel. 2.6 ms import."
+            content="Rugo reads and writes Parquet, CSV, and JSONL from Python. No PyArrow, no Pandas, no NumPy. Thin, opinionated for low resource usage. 2.9 MB wheel. 2.6 ms import."
         />
         <style>
             :root {
@@ -101,6 +101,54 @@
             .nav-pip:hover {
                 background: #3a7de8;
                 text-decoration: none;
+            }
+
+            /* ── GITHUB WIDGET ── */
+            .gh-widget {
+                display: inline-flex;
+                align-items: center;
+                gap: 0;
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                overflow: hidden;
+                font-size: 0.8rem;
+                font-weight: 600;
+                text-decoration: none !important;
+                white-space: nowrap;
+            }
+            .gh-widget:hover {
+                border-color: var(--accent);
+            }
+            .gh-label {
+                display: flex;
+                align-items: center;
+                gap: 0.4rem;
+                background: var(--surface);
+                color: var(--muted);
+                padding: 0.3rem 0.7rem;
+                border-right: 1px solid var(--border);
+            }
+            .gh-label svg {
+                flex-shrink: 0;
+            }
+            .gh-label strong {
+                color: var(--text);
+            }
+            .gh-stat {
+                display: flex;
+                align-items: center;
+                gap: 0.3rem;
+                background: var(--code-bg);
+                color: var(--text);
+                padding: 0.3rem 0.65rem;
+                border-right: 1px solid var(--border);
+            }
+            .gh-stat:last-child {
+                border-right: none;
+            }
+            .gh-stat svg {
+                color: var(--muted);
+                flex-shrink: 0;
             }
 
             /* ── LAYOUT ── */
@@ -438,6 +486,11 @@
                 color: var(--text);
             }
 
+            @media (max-width: 900px) {
+                .gh-label strong {
+                    display: none;
+                }
+            }
             @media (max-width: 640px) {
                 nav {
                     padding: 0 1rem;
@@ -459,30 +512,78 @@
                 <a href="#why">Why Rugo</a>
                 <a href="#formats">Formats</a>
                 <a href="#quickstart">Quickstart</a>
-                <a href="#data-model">Data Model</a>
+                <a href="#data-model">Data&nbsp;Model</a>
                 <a
                     href="https://github.com/mabel-dev/opteryx-core/tree/main/rugo"
                     >Docs</a
                 >
             </div>
-            <a class="nav-pip" href="https://pypi.org/project/rugo/"
-                >pip install rugo</a
+            <a
+                class="gh-widget"
+                href="https://github.com/mabel-dev/opteryx-core"
+                target="_blank"
+                rel="noopener"
             >
+                <span class="gh-label">
+                    <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                        aria-hidden="true"
+                    >
+                        <path
+                            d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+                        />
+                    </svg>
+                    <strong>mabel-dev/opteryx-core</strong>
+                </span>
+                <span class="gh-stat">
+                    <svg
+                        width="13"
+                        height="13"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                    >
+                        <path
+                            d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"
+                        />
+                    </svg>
+                    <span id="gh-star-count">—</span>
+                </span>
+                <span class="gh-stat">
+                    <svg
+                        width="13"
+                        height="13"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                    >
+                        <path
+                            d="M5 3.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm0 2.122a2.25 2.25 0 10-1.5 0v.878A2.25 2.25 0 005.75 8.5h1.5v2.128a2.251 2.251 0 101.5 0V8.5h1.5a2.25 2.25 0 002.25-2.25v-.878a2.25 2.25 0 10-1.5 0v.878a.75.75 0 01-.75.75h-4.5A.75.75 0 015 6.25v-.878zm3.75 7.378a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm3-8.75a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"
+                        />
+                    </svg>
+                    <span id="gh-fork-count">—</span>
+                </span>
+            </a>
         </nav>
 
         <!-- ── HERO ── -->
         <section id="hero">
             <div class="container">
-                <div class="hero-badge">Zero runtime dependencies</div>
+                <div class="hero-badge">
+                    Thin · light · opinionated for low resource usage
+                </div>
                 <h1>
                     Read and write Parquet, CSV, and JSONL.<br /><em
-                        >No PyArrow. No NumPy.</em
+                        >No PyArrow. No Pandas. No NumPy.</em
                     >
                 </h1>
                 <p class="hero-sub">
-                    Rugo is a compiled C++/Cython file engine for Python. 2.9 MB
-                    wheel. 2.6 ms cold import. Built for serverless, containers,
-                    and anywhere 124 MB of Arrow C++ is too much to ask.
+                    Rugo is the file layer extracted from the
+                    <a href="https://opteryx.dev/">Opteryx</a> SQL engine. It
+                    was built to keep memory use low by pushing filters as early
+                    as possible — skipping columns you don't need and pruning
+                    row groups before any data is decoded.
                 </p>
                 <div class="hero-ctas">
                     <a class="btn-primary" href="#quickstart">Get started</a>
@@ -523,14 +624,16 @@
         <section id="why">
             <div class="container">
                 <div class="section-label">Why Rugo</div>
-                <h2>PyArrow is excellent. It is also enormous.</h2>
+                <h2>Thin by design. Opinionated about what not to load.</h2>
                 <p class="section-intro">
-                    At 124 MB installed and 137 ms to import, PyArrow drags the
-                    entire Arrow C++ runtime into every environment whether you
-                    use 5% of it or 100%. In serverless or containerised
-                    deployments, you pay for every millisecond of cold-start
-                    time and every megabyte. Rugo is built for those
-                    environments.
+                    Rugo was built as the file layer for the
+                    <a href="https://opteryx.dev/">Opteryx</a> SQL engine, where
+                    the constraint was simple: read as little data as possible,
+                    hold as little in memory as possible. Column projection and
+                    row-group pruning happen before any decoding. The result is
+                    a library that is fast on selective queries, tiny on disk,
+                    and carries no PyArrow, Pandas, or NumPy into your
+                    environment.
                 </p>
 
                 <table class="cmp-table">
@@ -642,14 +745,15 @@
                         >Where PyArrow is faster:</strong
                     >
                     bulk full-table decoding. PyArrow's Arrow C++ engine is
-                    highly optimised for raw throughput. Rugo's primary design
-                    goal is <em>reading less</em> — projection and row-group
-                    pruning — not maximising raw scan speed. If you are
-                    streaming entire large tables into memory as fast as
-                    possible, PyArrow is the right tool. If you are running in a
-                    constrained environment, routing selective queries, or
-                    simply do not want 124 MB of Arrow C++ in your dependency
-                    tree, rugo is for you.
+                    highly optimised for raw throughput, and that is a decade of
+                    effort rugo does not try to replicate. If you are streaming
+                    entire large tables into memory as fast as possible, PyArrow
+                    is the right tool. Rugo is opinionated in the other
+                    direction: it is built to <em>read less</em> — push filters
+                    early, skip columns, prune row groups — so that less data
+                    ever enters memory in the first place. If that trade-off
+                    fits your workload, or you simply cannot afford 124 MB of
+                    Arrow C++ in your dependency tree, rugo is for you.
                 </p>
             </div>
         </section>
@@ -1312,6 +1416,20 @@ values = vec.<span class="f">to_pylist</span>()
         </footer>
 
         <script>
+            fetch("https://api.github.com/repos/mabel-dev/opteryx-core")
+                .then((r) => r.json())
+                .then((d) => {
+                    const fmt = (n) =>
+                        n >= 1000 ? (n / 1000).toFixed(1) + "k" : n;
+                    document.getElementById("gh-star-count").textContent = fmt(
+                        d.stargazers_count,
+                    );
+                    document.getElementById("gh-fork-count").textContent = fmt(
+                        d.forks_count,
+                    );
+                })
+                .catch(() => {});
+
             function showTab(name) {
                 document
                     .querySelectorAll(".tab")
