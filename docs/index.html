@@ -761,10 +761,10 @@
                         <div class="feature-icon">⚡</div>
                         <h3>Serverless-first</h3>
                         <p style="color: var(--muted); font-size: 0.9rem">
-                            AWS Lambda and GCP Cloud Functions bill by the
-                            millisecond. A 29 ms PyArrow import adds real cost
-                            to every cold start. Rugo imports in 5 ms — 6×
-                            faster, with 7× less installed footprint.
+                            AWS Lambda and GCP Cloud Functions bill by memory
+                            and package size. At 17 MB installed and a 5 ms
+                            cold import, rugo fits where PyArrow's 124 MB
+                            footprint doesn't.
                         </p>
                     </div>
                     <div class="feature-card">
