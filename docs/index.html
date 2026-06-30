@@ -6,7 +6,7 @@
         <title>Rugo — Fast, dependency-free Parquet engine for Python</title>
         <meta
             name="description"
-            content="Rugo reads and writes Parquet, CSV, and JSONL from Python. No PyArrow, no Pandas, no NumPy. Thin, opinionated for low resource usage. 2.9 MB wheel. 2.6 ms import."
+            content="Rugo reads and writes Parquet, CSV, and JSONL from Python. No PyArrow, no Pandas, no NumPy. Thin, opinionated for low resource usage. 17 MB installed. 5 ms import."
         />
         <link rel="icon" type="image/svg+xml" href="favicon.svg" />
         <style>
@@ -503,6 +503,88 @@
                     gap: 1.25rem;
                 }
             }
+        .dm-details {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 0.75rem;
+            overflow: hidden;
+        }
+        .dm-details summary {
+            display: flex;
+            align-items: baseline;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            cursor: pointer;
+            list-style: none;
+            user-select: none;
+        }
+        .dm-details summary::-webkit-details-marker { display: none; }
+        .dm-details summary::before {
+            content: "▶";
+            font-size: 0.65rem;
+            color: var(--accent);
+            transition: transform 0.15s;
+            flex-shrink: 0;
+        }
+        .dm-details[open] summary::before { transform: rotate(90deg); }
+        .dm-details summary h3 { margin: 0; font-size: 1rem; }
+        .dm-details summary p { margin: 0; color: var(--muted); font-size: 0.85rem; }
+        .dm-details-body { padding: 0 1.25rem 1.25rem; }
+
+        .api-ref { margin-bottom: 1.5rem; }
+        .api-fn {
+            font-size: 0.8rem;
+            padding: 0.4rem 0.75rem;
+            background: var(--surface2);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 4px 4px 0;
+            margin-top: 0.4rem;
+            margin-bottom: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0 0.25rem;
+            align-items: baseline;
+        }
+        .api-fn code { white-space: nowrap; }
+        .api-ret { color: var(--muted); flex: 1; min-width: 0; }
+        .api-params {
+            margin: 0 0 0.25rem 0;
+            padding: 0;
+            border-left: 3px solid var(--border);
+            margin-left: 0;
+        }
+        .api-params > div {
+            display: grid;
+            grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+            gap: 0.5rem;
+            padding: 0.35rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.8rem;
+        }
+        .api-params > div:last-child { border-bottom: none; }
+        .api-params dt { color: var(--text); }
+        .api-params dd { margin: 0; color: var(--muted); }
+
+        pre {
+            position: relative;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--muted);
+            font-size: 0.72rem;
+            padding: 0.2rem 0.5rem;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.15s, color 0.15s;
+        }
+        pre:hover .copy-btn { opacity: 1; }
+        .copy-btn.copied { color: #4ade80; border-color: #4ade80; }
         </style>
     </head>
     <body>
@@ -596,19 +678,13 @@
                 </div>
                 <div class="hero-stats">
                     <div class="stat">
-                        <div class="stat-val"><em>2.9 MB</em></div>
+                        <div class="stat-val"><em>5 ms</em></div>
                         <div class="stat-label">
-                            wheel size (PyArrow: ~23 MB)
+                            cold import (PyArrow: 29 ms)
                         </div>
                     </div>
                     <div class="stat">
-                        <div class="stat-val"><em>2.6 ms</em></div>
-                        <div class="stat-label">
-                            cold import (PyArrow: 137 ms)
-                        </div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-val"><em>7.7 MB</em></div>
+                        <div class="stat-val"><em>17 MB</em></div>
                         <div class="stat-label">
                             installed footprint (PyArrow: 124 MB)
                         </div>
@@ -647,13 +723,8 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td>Wheel size</td>
-                            <td class="win">2.9 MB</td>
-                            <td class="lose">~23 MB</td>
-                        </tr>
-                        <tr>
                             <td>Installed footprint</td>
-                            <td class="win">7.7 MB</td>
+                            <td class="win">17 MB</td>
                             <td class="lose">124 MB</td>
                         </tr>
                         <tr>
@@ -663,13 +734,8 @@
                         </tr>
                         <tr>
                             <td>Cold import time</td>
-                            <td class="win">2.6 ms</td>
-                            <td class="lose">137 ms</td>
-                        </tr>
-                        <tr>
-                            <td>Memory at import</td>
-                            <td class="win">134 KB</td>
-                            <td class="lose">260 KB</td>
+                            <td class="win">5 ms</td>
+                            <td class="lose">29 ms</td>
                         </tr>
                         <tr>
                             <td>Schema read (footer only)</td>
@@ -696,9 +762,9 @@
                         <h3>Serverless-first</h3>
                         <p style="color: var(--muted); font-size: 0.9rem">
                             AWS Lambda and GCP Cloud Functions bill by the
-                            millisecond. A 137 ms PyArrow import adds real cost
-                            to every cold start. Rugo imports in 2.6 ms — over
-                            50× faster.
+                            millisecond. A 29 ms PyArrow import adds real cost
+                            to every cold start. Rugo imports in 5 ms — 6×
+                            faster, with 7× less installed footprint.
                         </p>
                     </div>
                     <div class="feature-card">
@@ -745,16 +811,9 @@
                     <strong style="color: var(--text)"
                         >Where PyArrow is faster:</strong
                     >
-                    bulk full-table decoding. PyArrow's Arrow C++ engine is
-                    highly optimised for raw throughput, and that is a decade of
-                    effort rugo does not try to replicate. If you are streaming
-                    entire large tables into memory as fast as possible, PyArrow
-                    is the right tool. Rugo is opinionated in the other
-                    direction: it is built to <em>read less</em> — push filters
-                    early, skip columns, prune row groups — so that less data
-                    ever enters memory in the first place. If that trade-off
-                    fits your workload, or you simply cannot afford 124 MB of
-                    Arrow C++ in your dependency tree, rugo is for you.
+                    full-table scans with no filtering. Rugo does not compete
+                    on decode throughput — it competes on how little it has to
+                    decode in the first place.
                 </p>
             </div>
         </section>
@@ -779,7 +838,7 @@
 <span class="c"># Read — context manager, yields Morsels</span>
 <span class="k">with</span> parquet.<span class="f">read_parquet</span>(<span class="s">"planets.parquet"</span>, columns=[<span class="s">"id"</span>, <span class="s">"name"</span>], predicates=[(<span class="s">"id"</span>, <span class="s">">"</span>, <span class="n">4</span>)]) <span class="k">as</span> reader:
     <span class="k">for</span> morsel <span class="k">in</span> reader:
-        <span class="f">print</span>(morsel.<span class="f">column</span>(<span class="s">b"name"</span>).<span class="f">to_pylist</span>())
+        <span class="f">print</span>(morsel.<span class="f">column</span>(<span class="s">"name"</span>).<span class="f">to_pylist</span>())
 
 <span class="c"># Metadata — no column decode</span>
 meta = parquet.<span class="f">read_metadata</span>(<span class="s">"planets.parquet"</span>)
@@ -793,7 +852,7 @@ data = parquet.<span class="f">write_parquet</span>(morsel, compression=<span cl
 <span class="c"># Same shape — context manager, yields Morsels</span>
 <span class="k">with</span> csv.<span class="f">read_csv</span>(<span class="s">"data.csv"</span>, columns=[<span class="s">"name"</span>], predicates=[(<span class="s">"age"</span>, <span class="s">">"</span>, <span class="n">30</span>)]) <span class="k">as</span> reader:
     <span class="k">for</span> morsel <span class="k">in</span> reader:
-        <span class="f">print</span>(morsel.<span class="f">column</span>(<span class="s">b"name"</span>).<span class="f">to_pylist</span>())
+        <span class="f">print</span>(morsel.<span class="f">column</span>(<span class="s">"name"</span>).<span class="f">to_pylist</span>())
 
 meta = csv.<span class="f">read_metadata</span>(<span class="s">"data.csv"</span>)
 data = csv.<span class="f">write_csv</span>(morsel)</pre>
@@ -840,20 +899,24 @@ data = jsonl.<span class="f">write_jsonl</span>(morsel)</pre>
 
                 <!-- PARQUET -->
                 <div id="tab-parquet" class="tab-pane active">
-                    <table class="perf-table" style="margin-bottom:1.5rem">
-                        <thead><tr><th>Function</th><th>Returns</th></tr></thead>
-                        <tbody>
-                            <tr><td><code>read_parquet(source, columns, predicates)</code></td><td>context manager → one Morsel per row group</td></tr>
-                            <tr><td><code>read_metadata(source)</code></td><td><code>ParquetMetadata</code> (num_rows, schema_columns)</td></tr>
-                            <tr><td><code>write_parquet(morsel, compression)</code></td><td><code>bytes</code></td></tr>
-                            <tr><td><code>write_parquet_with_bounds(morsel)</code></td><td><code>(bytes, {col: (min, max)})</code></td></tr>
-                        </tbody>
-                    </table>
-                    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.6rem">
-                        <code>source</code> is a filename or <code>bytes</code>/<code>bytearray</code>/<code>memoryview</code>.
-                        <code>filters</code> is a list of <code>(column, op, value)</code> tuples; pruning is at row-group granularity.
-                        Ops: <code>= == != &lt; &lt;= &gt; &gt;= in "not in"</code>.
-                    </p>
+                    <div class="api-ref">
+                        <div class="api-fn"><code>read_parquet(source, columns, predicates)</code> <span class="api-ret">→ context manager, one Morsel per row group</span></div>
+                        <dl class="api-params">
+                            <div><dt><code>source: str | bytes</code></dt><dd>filename or buffer</dd></div>
+                            <div><dt><code>columns: list[str] = None</code></dt><dd>columns to read; None = all</dd></div>
+                            <div><dt><code>predicates: list[tuple] = None</code></dt><dd><code>(col, op, val)</code> — ops: <code>== != &lt; &lt;= &gt; &gt;= in "not in"</code>. Row-group pruning then row-level filter.</dd></div>
+                        </dl>
+                        <div class="api-fn"><code>read_metadata(source)</code> <span class="api-ret">→ ParquetMetadata</span></div>
+                        <dl class="api-params">
+                            <div><dt><code>source: str | bytes</code></dt><dd>reads footer only; no column decode</dd></div>
+                        </dl>
+                        <div class="api-fn"><code>write_parquet(morsel, compression, bloom_filters, max_rows_per_row_group)</code> <span class="api-ret">→ bytes</span></div>
+                        <dl class="api-params">
+                            <div><dt><code>compression: str</code></dt><dd><code>"zstd"</code> or <code>"none"</code></dd></div>
+                            <div><dt><code>bloom_filters: bool | list[str]</code></dt><dd>True = all eligible cols; False = none; list = named cols only</dd></div>
+                            <div><dt><code>max_rows_per_row_group: int</code></dt><dd>pass <code>0</code> for a single row group</dd></div>
+                        </dl>
+                    </div>
                     <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.6rem">
                         <strong style="color:var(--text)">Decode:</strong>
                         int32/64, float32/64, boolean, byte_array · UNCOMPRESSED, SNAPPY, ZSTD · PLAIN, RLE_DICTIONARY, DELTA_BINARY_PACKED, DELTA_BYTE_ARRAY
@@ -879,7 +942,7 @@ meta = parquet.<span class="f">read_metadata</span>(<span class="s">"planets.par
     predicates=[(<span class="s">"id"</span>, <span class="s">">"</span>, <span class="n">4</span>)],
 ) <span class="k">as</span> reader:
     <span class="k">for</span> morsel <span class="k">in</span> reader:
-        names = morsel.<span class="f">column</span>(<span class="s">b"name"</span>).<span class="f">to_pylist</span>()
+        names = morsel.<span class="f">column</span>(<span class="s">"name"</span>).<span class="f">to_pylist</span>()
 
 <span class="c"># Write (ZSTD default)</span>
 data = parquet.<span class="f">write_parquet</span>(morsel)
@@ -890,19 +953,27 @@ data = parquet.<span class="f">write_parquet</span>(morsel)
                 <!-- CSV -->
                 <div id="tab-csv" class="tab-pane">
                     <table class="perf-table" style="margin-bottom:1.5rem">
-                        <thead><tr><th>Function</th><th>Returns</th></tr></thead>
-                        <tbody>
-                            <tr><td><code>read_csv(source, columns, predicates, delimiter, has_header, use_threads)</code></td><td>context manager → one Morsel</td></tr>
-                            <tr><td><code>read_metadata(source)</code></td><td><code>CsvMetadata</code> (num_rows, schema_columns)</td></tr>
-                            <tr><td><code>write_csv(morsel, delimiter, header)</code></td><td><code>bytes</code> (RFC 4180)</td></tr>
-                        </tbody>
-                    </table>
-                    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.6rem">
-                        <code>source</code> is a filename or <code>bytes</code>/<code>bytearray</code>/<code>memoryview</code>.
-                        <code>predicates</code>: list of <code>(column, op, value)</code>; op in <code>== != &lt; &lt;= &gt; &gt;=</code>.
-                    </p>
+                    <div class="api-ref">
+                        <div class="api-fn"><code>read_csv(source, columns, predicates, delimiter, has_header)</code> <span class="api-ret">→ context manager, one Morsel</span></div>
+                        <dl class="api-params">
+                            <div><dt><code>source: str | bytes</code></dt><dd>filename or buffer</dd></div>
+                            <div><dt><code>columns: list[str] = None</code></dt><dd>columns to read; None = all</dd></div>
+                            <div><dt><code>predicates: list[tuple] = None</code></dt><dd><code>(col, op, val)</code> — ops: <code>== != &lt; &lt;= &gt; &gt;=</code></dd></div>
+                            <div><dt><code>delimiter: str = ","</code></dt><dd>single character; use <code>"\t"</code> for TSV</dd></div>
+                            <div><dt><code>has_header: bool = True</code></dt><dd>first row is column names</dd></div>
+                        </dl>
+                        <div class="api-fn"><code>read_metadata(source)</code> <span class="api-ret">→ CsvMetadata</span></div>
+                        <dl class="api-params">
+                            <div><dt><code>source: str | bytes</code></dt><dd>scans full file for row count; infers schema from sample</dd></div>
+                        </dl>
+                        <div class="api-fn"><code>write_csv(morsel, delimiter, header)</code> <span class="api-ret">→ bytes (RFC 4180)</span></div>
+                        <dl class="api-params">
+                            <div><dt><code>delimiter: str = ","</code></dt><dd></dd></div>
+                            <div><dt><code>header: bool = True</code></dt><dd>include column name row</dd></div>
+                        </dl>
+                    </div>
                     <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem">
-                        Type inference: <code>int64</code> → <code>float64</code> → <code>VARCHAR</code> → <code>null</code>. Parallel scan via <code>use_threads=True</code>.
+                        Type inference: <code>int64</code> → <code>float64</code> → <code>VARCHAR</code> → <code>null</code>.
                     </p>
                     <h3 style="margin-bottom:0.75rem">Performance vs PyArrow — wide file (50 cols, 200k rows, 55 MB)</h3>
                     <table class="perf-table" style="margin-bottom:0.5rem">
@@ -928,7 +999,7 @@ meta = csv.<span class="f">read_metadata</span>(<span class="s">"data.csv"</span
     predicates=[(<span class="s">"age"</span>, <span class="s">">"</span>, <span class="n">30</span>)],
 ) <span class="k">as</span> reader:
     <span class="k">for</span> morsel <span class="k">in</span> reader:
-        <span class="f">print</span>(morsel.<span class="f">column</span>(<span class="s">b"name"</span>).<span class="f">to_pylist</span>())
+        <span class="f">print</span>(morsel.<span class="f">column</span>(<span class="s">"name"</span>).<span class="f">to_pylist</span>())
 
 <span class="c"># TSV variant</span>
 <span class="k">with</span> csv.<span class="f">read_csv</span>(<span class="s">"data.tsv"</span>, delimiter=<span class="s">"\t"</span>) <span class="k">as</span> reader:
@@ -941,19 +1012,23 @@ csv_bytes = csv.<span class="f">write_csv</span>(morsel)</pre>
                 <!-- JSONL -->
                 <div id="tab-jsonl" class="tab-pane">
                     <table class="perf-table" style="margin-bottom:1.5rem">
-                        <thead><tr><th>Function</th><th>Returns</th></tr></thead>
-                        <tbody>
-                            <tr><td><code>read_jsonl(source, columns, predicates, ...)</code></td><td>context manager → one Morsel</td></tr>
-                            <tr><td><code>read_metadata(source)</code></td><td><code>JsonlMetadata</code> (num_rows, schema_columns)</td></tr>
-                            <tr><td><code>write_jsonl(morsel)</code></td><td><code>bytes</code></td></tr>
-                        </tbody>
-                    </table>
-                    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.6rem">
-                        <code>source</code> is a filename or <code>bytes</code>/<code>bytearray</code>/<code>memoryview</code>.
-                        <code>predicates</code>: list of <code>(column, op, value)</code>; op in <code>== != &lt; &lt;= &gt; &gt;=</code>.
-                    </p>
+                    <div class="api-ref">
+                        <div class="api-fn"><code>read_jsonl(source, columns, predicates, explicit_schema, infer_schema)</code> <span class="api-ret">→ context manager, one Morsel</span></div>
+                        <dl class="api-params">
+                            <div><dt><code>source: str | bytes</code></dt><dd>filename or buffer</dd></div>
+                            <div><dt><code>columns: list[str] = None</code></dt><dd>columns to read; None = all</dd></div>
+                            <div><dt><code>predicates: list[tuple] = None</code></dt><dd><code>(col, op, val)</code> — ops: <code>== != &lt; &lt;= &gt; &gt;=</code></dd></div>
+                            <div><dt><code>explicit_schema: dict = None</code></dt><dd>override inferred types per column</dd></div>
+                            <div><dt><code>infer_schema: bool = True</code></dt><dd>sample rows to determine types</dd></div>
+                        </dl>
+                        <div class="api-fn"><code>read_metadata(source)</code> <span class="api-ret">→ JsonlMetadata</span></div>
+                        <dl class="api-params">
+                            <div><dt><code>source: str | bytes</code></dt><dd>scans full file; infers schema from sample</dd></div>
+                        </dl>
+                        <div class="api-fn"><code>write_jsonl(morsel)</code> <span class="api-ret">→ bytes</span></div>
+                    </div>
                     <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem">
-                        Inferred types: <code>int64</code>, <code>double</code>, <code>boolean</code>, <code>string</code>, <code>bytes</code>, <code>object</code>, <code>null</code>, <code>array&lt;T&gt;</code>.
+                        Inferred types: <code>int64</code>, <code>float64</code>, <code>bool</code>, <code>str</code>, <code>bytes</code>, <code>null</code>, <code>array[T]</code>.
                     </p>
                     <h3 style="margin-bottom:0.75rem">Performance vs PyArrow — 116 MB, 1.5M rows, 5 cols (PyArrow multithreaded)</h3>
                     <table class="perf-table" style="margin-bottom:0.5rem">
@@ -997,55 +1072,50 @@ jsonl_bytes = jsonl.<span class="f">write_jsonl</span>(morsel)</pre>
                     inside the wheel. There are two objects you will encounter.
                 </p>
 
-                <div class="dm-grid">
-                    <div class="feature-card">
-                        <h3>Vector</h3>
-                        <p
-                            style="
-                                color: var(--muted);
-                                font-size: 0.9rem;
-                                margin-bottom: 1rem;
-                            "
-                        >
-                            A single typed column. Call
-                            <code>vector.to_pylist()</code> to get a Python list
-                            of values.
-                        </p>
-                        <pre
-                            style="font-size: 0.8rem"
-                        >vec = morsel.<span class="f">column</span>(<span class="s">b"name"</span>)
-values = vec.<span class="f">to_pylist</span>()
-<span class="c"># ["Mercury", "Venus", ...]</span></pre>
-                        <p
-                            style="
-                                color: var(--muted);
-                                font-size: 0.85rem;
-                                margin-top: 0.75rem;
-                            "
-                        >
-                            Note: column keys are <strong>bytes</strong>, not
-                            strings.
-                        </p>
+                <details class="dm-details">
+                    <summary><h3>Vector</h3><p>A single typed column (similar to an Arrow Array).</p></summary>
+                    <div class="dm-details-body">
+                        <div class="api-ref" style="margin-bottom:0.75rem">
+                            <div class="api-fn"><code>to_pylist()</code> <span class="api-ret">→ list &nbsp;·&nbsp; materialise as a Python list</span></div>
+                            <div class="api-fn"><code>is_null()</code> <span class="api-ret">→ Vector[bool] &nbsp;·&nbsp; null mask, one bool per row</span></div>
+                            <div class="api-fn"><code>null_bitmap()</code> <span class="api-ret">→ bytes &nbsp;·&nbsp; raw 1-bit-per-row null bitmap</span></div>
+                            <div class="api-fn"><code>in_list(values)</code> <span class="api-ret">→ Vector[bool] &nbsp;·&nbsp; membership test</span></div>
+                            <div class="api-fn"><code>between(lower, upper)</code> <span class="api-ret">→ Vector[bool] &nbsp;·&nbsp; inclusive range test</span></div>
+                            <div class="api-fn"><code>sum() / min() / max()</code> <span class="api-ret">→ scalar &nbsp;·&nbsp; typed reductions; null-aware</span></div>
+                            <div class="api-fn"><code>take(indices)</code> <span class="api-ret">→ Vector &nbsp;·&nbsp; gather rows by index list</span></div>
+                            <div class="api-fn"><code>to_arrow()</code> <span class="api-ret">→ pyarrow.Array &nbsp;·&nbsp; interop; requires PyArrow at runtime</span></div>
+                            <div class="api-fn"><code>type</code> <span class="api-ret">property &nbsp;·&nbsp; Draken type tag (e.g. <code>DRAKEN_VARCHAR</code>)</span></div>
+                            <div class="api-fn"><code>len(vec)</code> <span class="api-ret">→ int &nbsp;·&nbsp; row count</span></div>
+                        </div>
+                        <pre style="font-size:0.8rem">vec = morsel.<span class="f">column</span>(<span class="s">"name"</span>)
+values = vec.<span class="f">to_pylist</span>()  <span class="c"># ["Mercury", "Venus", …]</span></pre>
                     </div>
-                    <div class="feature-card">
-                        <h3>Morsel</h3>
-                        <p
-                            style="
-                                color: var(--muted);
-                                font-size: 0.9rem;
-                                margin-bottom: 1rem;
-                            "
-                        >
-                            A batch of rows across several columns — a chunk of
-                            a table. One Parquet row group produces one Morsel.
-                        </p>
-                        <pre
-                            style="font-size: 0.8rem"
-                        ><span class="k">for</span> morsel <span class="k">in</span> reader:
+                </details>
+                <details class="dm-details">
+                    <summary><h3>Morsel</h3><p>A batch of rows across columns (similar to an Arrow RecordBatch).</p></summary>
+                    <div class="dm-details-body">
+                        <div class="api-ref" style="margin-bottom:0.75rem">
+                            <div class="api-fn"><code>column(name: str)</code> <span class="api-ret">→ Vector &nbsp;·&nbsp; return a single column by name</span></div>
+                            <div class="api-fn"><code>column_names</code> <span class="api-ret">property → list[bytes] &nbsp;·&nbsp; ordered column names</span></div>
+                            <div class="api-fn"><code>column_types</code> <span class="api-ret">property → list &nbsp;·&nbsp; Draken type per column</span></div>
+                            <div class="api-fn"><code>schema</code> <span class="api-ret">property → list[dict] &nbsp;·&nbsp; name + type per column</span></div>
+                            <div class="api-fn"><code>select(col_names: list)</code> <span class="api-ret">→ Morsel &nbsp;·&nbsp; project to a subset of columns</span></div>
+                            <div class="api-fn"><code>rename(new_names: list)</code> <span class="api-ret">→ Morsel &nbsp;·&nbsp; rename columns in order</span></div>
+                            <div class="api-fn"><code>filter_mask(mask: Vector[bool])</code> <span class="api-ret">→ Morsel &nbsp;·&nbsp; keep rows where mask is true</span></div>
+                            <div class="api-fn"><code>take(indices)</code> <span class="api-ret">→ Morsel &nbsp;·&nbsp; gather rows by index list</span></div>
+                            <div class="api-fn"><code>slice(offset, length)</code> <span class="api-ret">→ Morsel &nbsp;·&nbsp; contiguous row window</span></div>
+                            <div class="api-fn"><code>combine(morsels)</code> <span class="api-ret">classmethod → Morsel &nbsp;·&nbsp; concatenate a list of Morsels</span></div>
+                            <div class="api-fn"><code>from_vectors(col_names, col_vecs)</code> <span class="api-ret">classmethod → Morsel &nbsp;·&nbsp; construct from column name/vector pairs</span></div>
+                            <div class="api-fn"><code>to_arrow()</code> <span class="api-ret">→ pyarrow.Table &nbsp;·&nbsp; interop; requires PyArrow at runtime</span></div>
+                            <div class="api-fn"><code>len(morsel)</code> <span class="api-ret">→ int &nbsp;·&nbsp; row count</span></div>
+                            <div class="api-fn"><code>num_columns</code> <span class="api-ret">property → int &nbsp;·&nbsp; column count</span></div>
+                            <div class="api-fn"><code>nbytes</code> <span class="api-ret">property → int &nbsp;·&nbsp; approximate memory footprint in bytes</span></div>
+                        </div>
+                        <pre style="font-size:0.8rem"><span class="k">for</span> morsel <span class="k">in</span> reader:
     <span class="f">print</span>(<span class="f">len</span>(morsel), <span class="s">"rows"</span>)
-    vec = morsel.<span class="f">column</span>(<span class="s">b"id"</span>)</pre>
+    vec = morsel.<span class="f">column</span>(<span class="s">"id"</span>)</pre>
                     </div>
-                </div>
+                </details>
 
                 <p
                     style="
@@ -1152,6 +1222,25 @@ values = vec.<span class="f">to_pylist</span>()
         </footer>
 
         <script>
+            document.addEventListener("DOMContentLoaded", () => {
+                document.querySelectorAll("pre").forEach((pre) => {
+                    const btn = document.createElement("button");
+                    btn.className = "copy-btn";
+                    btn.textContent = "copy";
+                    btn.addEventListener("click", () => {
+                        navigator.clipboard.writeText(pre.innerText).then(() => {
+                            btn.textContent = "copied";
+                            btn.classList.add("copied");
+                            setTimeout(() => {
+                                btn.textContent = "copy";
+                                btn.classList.remove("copied");
+                            }, 1500);
+                        });
+                    });
+                    pre.appendChild(btn);
+                });
+            });
+
             fetch("https://api.github.com/repos/mabel-dev/opteryx-core")
                 .then((r) => r.json())
                 .then((d) => {
