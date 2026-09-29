@@ -8,7 +8,7 @@
         </title>
         <meta
             name="description"
-            content="Rolling response-time stats over 1 GB of JSONL traffic logs, three ways. pandas needed 2,500 MB of RAM. rugo needed 5 MB. All three returned the same 899,041 rows."
+            content="Rolling response-time stats over 1 GB of JSONL traffic logs, three ways. pandas needed 2,500 MB of RAM. rugo added about 5 MB of native overhead. All three returned the same 899,041 rows."
         />
         <!-- This benchmark is also published on the Opteryx engineering blog,
              which points its canonical here. Self-referencing canonical so both
@@ -54,8 +54,8 @@
                 <p class="lede">
                     Same question, same file, same answer:
                     <strong>899,041 matching rows</strong>. pandas needed
-                    <strong>2,500 MB of RAM</strong> to produce it. rugo needed
-                    <strong>5 MB</strong> — 500× less — and finished 11× sooner.
+                    <strong>2,500 MB of RAM</strong> to produce it. rugo added about
+                    <strong>5 MB</strong> of native overhead and finished 11× sooner.
                     If you have ever had a log-analysis script die in a 512 MB
                     container, that ratio is the whole story.
                 </p>
@@ -93,7 +93,7 @@
                             <tr class="highlight">
                                 <td><strong>rugo</strong></td>
                                 <td class="win">1.23 s</td>
-                                <td class="win">~5 MB</td>
+                                <td class="win">~5 MB native overhead</td>
                                 <td>899,041</td>
                             </tr>
                         </tbody>
@@ -165,8 +165,8 @@ entries = []
                 <p>
                     <strong>7 seconds total</strong>, and that is before you
                     write a single line of the rolling-average calculation.
-                    Memory stays reasonable at ~42 MB because the work is
-                    streamed, but you are hand-rolling the statistics yourself.
+                    Memory stays modest at ~42 MB, but you are hand-rolling the
+                    statistics yourself.
                 </p>
 
                 <h2>Approach 2: pandas</h2>
@@ -239,8 +239,8 @@ values = []
 
                 <p>
                     Results arrive as Morsels — batches of rows streamed from
-                    the file — so memory is bounded by the batch, not the file.
-                    Peak RSS was <strong>~5 MB</strong>.
+                    the file — so the reader's own working set stays small.
+                    Native overhead was <strong>~5 MB</strong>.
                 </p>
 
                 <p><strong>1.23 seconds.</strong> Same answer.</p>
@@ -278,7 +278,7 @@ values = []
                                 <td class="win">1.23 s</td>
                                 <td>899,041</td>
                                 <td>1,488.77</td>
-                                <td class="win">~5 MB</td>
+                                <td class="win">~5 MB native overhead</td>
                             </tr>
                         </tbody>
                     </table>

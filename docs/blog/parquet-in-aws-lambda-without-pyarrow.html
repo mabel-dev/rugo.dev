@@ -12,11 +12,7 @@
      publishing a "read Parquet in Lambda" guide while knowing the reader can
      silently drop every row would be indefensible.
 
-  2. The Formats section on the landing page lists the Parquet decode set as
-     "UNCOMPRESSED, SNAPPY, ZSTD". GZIP and LZ4 also decode correctly. That list
-     needs correcting; this article deliberately does not repeat it.
-
-  3. The benchmark AWS stack has been torn down. To re-run, see the scripts in
+  2. The benchmark AWS stack has been torn down. To re-run, see the scripts in
      the session scratchpad (build_lambdas.py, handlers.py, measure_coldstart.py).
   ===============================================================================
 -->
@@ -64,8 +60,8 @@
                     A Lambda deployment package can be
                     <strong>250 MB unzipped</strong>. PyArrow uses
                     <strong>61%</strong> of that on its own. Polars uses
-                    <strong>86%</strong> and cannot be uploaded through the
-                    Lambda API at all. rugo uses <strong>4.6%</strong>. Those
+                    <strong>86%</strong> and cannot be uploaded directly to
+                    Lambda — it has to go via S3. rugo uses <strong>4.6%</strong>. Those
                     are measured numbers, and so is the more awkward one further
                     down: rugo is the slowest reader of the four.
                 </p>
@@ -190,7 +186,7 @@ for the CreateFunction operation</code></pre>
 
                 <pre><code>pip install rugo \
   --target ./package \
-  --platform manylinux_2_28_x86_64 \
+  --platform manylinux_2_34_x86_64 \
   --python-version 3.12 \
   --only-binary=:all: \
   --implementation cp
@@ -208,9 +204,9 @@ aws lambda create-function \
   --environment "Variables={BUCKET=your-bucket,KEY=events.parquet}"</code></pre>
 
                 <p>
-                    <code>manylinux_2_28_x86_64</code> matters. Lambda's
-                    <code>python3.12</code> runtime is Amazon Linux 2023, which
-                    is new enough for those wheels. Pinning the older
+                    <code>manylinux_2_34_x86_64</code> matters. Lambda's
+                    <code>python3.12</code> runtime is Amazon Linux 2023
+                    (glibc 2.34), which is new enough for those wheels. Pinning the older
                     <code>manylinux2014</code> tag silently resolves some
                     libraries to much older releases than you asked for — that
                     happened while preparing this article, and produced a

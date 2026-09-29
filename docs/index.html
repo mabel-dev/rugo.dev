@@ -6,7 +6,7 @@
         <title>Rugo — Fast, dependency-free Parquet engine for Python</title>
         <meta
             name="description"
-            content="Rugo reads and writes Parquet, CSV, and JSONL from Python. No PyArrow, no Pandas, no NumPy. 11.6 MB installed against PyArrow's 154 MB and Polars' 214 MB, and a 30 ms cold import."
+            content="Rugo reads and writes Parquet, CSV, and JSONL from Python. No PyArrow, no Pandas, no NumPy. 11.6 MB installed against PyArrow's 154 MB and Polars' 214 MB, a cold import 3× faster than PyArrow's, and up to 10× faster selective JSONL reads."
         />
         <link rel="icon" type="image/svg+xml" href="favicon.svg" />
         <style>
@@ -792,9 +792,11 @@
                         <h3>Faster cold starts</h3>
                         <p style="color: var(--muted); font-size: 0.9rem">
                             AWS Lambda and GCP Cloud Functions bill by memory
-                            and package size. A 30 ms cold import versus
-                            PyArrow's 88 ms, DuckDB's 111 ms or Polars' 186 ms
-                            adds up fast at scale-out.
+                            and duration, and every cold start pays for the
+                            imports. Rugo's cold import is roughly 3× to 6× faster
+                            than PyArrow, DuckDB or Polars — 30 ms against
+                            88, 111 and 186 — and it adds up fast at
+                            scale-out.
                         </p>
                     </div>
                     <div class="feature-card">
@@ -816,7 +818,8 @@
                             first-class citizens. Skip the columns you don't
                             need. Skip the row groups that can't match. The
                             more selective the query, the bigger rugo's
-                            advantage.
+                            advantage — and Parquet reads peak at up to
+                            2.7× less memory than PyArrow.
                         </p>
                     </div>
                     <div class="feature-card">
@@ -858,10 +861,10 @@
                 <div class="section-label">Performance</div>
                 <h2>The gap is projection, not decode speed.</h2>
                 <p class="section-intro">
-                    Rugo does not decode faster than PyArrow. It decodes less.
-                    That means the numbers below are not a single speedup
-                    figure — they move with how selective the read is, and on
-                    an unselective read they converge.
+                    Rugo wins by decoding less — up to 10× faster than PyArrow
+                    on selective JSONL reads. The more columns and rows a query
+                    lets rugo skip, the bigger the win; on a full scan it keeps
+                    pace.
                 </p>
 
                 <h3 style="margin-bottom: 0.75rem">
@@ -1164,7 +1167,7 @@ data = jsonl.<span class="f">write_jsonl</span>(morsel)</pre>
                     </div>
                     <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.6rem">
                         <strong style="color:var(--text)">Decode:</strong>
-                        int32/64, float32/64, boolean, byte_array · UNCOMPRESSED, SNAPPY, ZSTD · PLAIN, RLE_DICTIONARY, DELTA_BINARY_PACKED, DELTA_BYTE_ARRAY
+                        int32/64, float32/64, boolean, byte_array · UNCOMPRESSED, SNAPPY, ZSTD, GZIP, LZ4 · PLAIN, RLE_DICTIONARY, DELTA_BINARY_PACKED, DELTA_BYTE_ARRAY
                     </p>
                     <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem">
                         <strong style="color:var(--text)">Write:</strong>
