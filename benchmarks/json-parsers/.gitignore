@@ -1,0 +1,5 @@
+data/
+deps/
+build/
+.venv
+aws/.state
