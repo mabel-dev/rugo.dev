@@ -8,9 +8,11 @@
 //               (simdjson needs 64 bytes) can read past the end without a copy. On Linux
 //               each chunk is pre-faulted with MADV_POPULATE_READ (batched page-table
 //               population) before it is parsed. Mapping happens inside the timed region.
-//   * Schedule  Files are cut into ~32 MiB chunks at newline boundaries and handed to
-//               worker threads from one shared queue, so 100 files on 32 threads never
-//               leaves threads idle for a final partial "round" of files.
+//   * Schedule  Input is cut into ~128 MiB chunks (Opteryx's JSONL chunk size; smaller only
+//               when the input gives fewer than 4 chunks per thread) at newline
+//               boundaries and handed to worker threads from one shared queue. simdjson,
+//               yyjson and sonic cannot parallelise inside a file themselves: this is
+//               parallelism the harness gives them (and how Opteryx drives rugo).
 //   * Results   A parser fills a `Row` with the fields a workload needs; `Acc::commit`
 //               does the counting, hashing and copying the same way for every parser.
 //               Hash maps are ankerl::unordered_dense for all parsers.
@@ -19,6 +21,9 @@
 //
 // A driver implements:  struct Driver { explicit Driver(const Config&);
 //                                       void run_chunk(const Chunk&, Acc&); };
+// or, for a reader that parallelises inside a file itself (rugo), sets kWholeFile and
+// implements load(data, size) / rows() / docs() / rejected() / emit(begin, end, Acc&) /
+// release(): see bench_main.
 // and calls bench_main<Driver>(argc, argv, "<parser>", "<version>", "<api>").
 #pragma once
 
@@ -154,6 +159,7 @@ inline uint64_t crc32(std::string_view s) {
 struct Acc {
     W w;
     uint64_t docs = 0, rejected = 0;
+    bool docs_unknown = false;  // a reader that filters in-scan can't count the docs it skipped
     // filter: the matching rows' `did`, materialised as a column (bytes + offsets)
     Arena arena;
     std::vector<std::string_view> out;
@@ -309,7 +315,7 @@ struct Config {
     std::string api;        // driver-specific API selector (e.g. "ondemand" / "dom")
     int threads = 1;
     int repeat = 1;
-    size_t chunk = 32u << 20;
+    size_t chunk = 128u << 20;  // = Opteryx's JSONL chunk size
     size_t batch = 1u << 20;  // simdjson stream window
     bool route = true;        // freq_hi aggregation: row routing (default) or merge
     bool populate = true;
@@ -380,29 +386,59 @@ int bench_main(int argc, char** argv, const char* parser, const char* version) {
         std::vector<Mapped> files;
         files.reserve(cfg.files.size());
         for (auto& f : cfg.files) files.push_back(map_file(f));
-        std::vector<Chunk> chunks = make_chunks(files, cfg.chunk);
-
         std::vector<std::unique_ptr<Acc>> accs;
         for (int t = 0; t < cfg.threads; ++t) accs.emplace_back(new Acc(cfg.w, cfg.route));
-        std::atomic<size_t> next{0};
-        std::vector<std::thread> pool;
-        for (int t = 0; t < cfg.threads; ++t) {
-            pool.emplace_back([&, t]() {
-                Driver d(cfg);
-                Acc& acc = *accs[t];
-                for (size_t i; (i = next.fetch_add(1)) < chunks.size();) {
-                    populate(chunks[i], cfg.populate);
-                    d.run_chunk(chunks[i], acc);
+        long long docs_override = -1;  // whole-file drivers report what the reader counted
+
+        if constexpr (requires { Driver::kWholeFile; }) {
+            // A reader with its own parallelism (rugo): it reads each whole file with up to
+            // cfg.threads threads, then the harness's threads walk the resulting columns
+            // (row ranges) into the same accumulators every other driver uses.
+            Driver d(cfg);
+            docs_override = 0;
+            for (auto& f : files) {
+                d.load(f.data, f.size);
+                const long long dd = d.docs();  // -1: the reader can't say (rows filtered in-scan)
+                docs_override = (dd < 0 || docs_override == -2) ? -2 : docs_override + dd;
+                accs[0]->rejected += d.rejected();
+                const size_t n = d.rows();
+                std::vector<std::thread> pool;
+                for (int t = 0; t < cfg.threads; ++t) {
+                    pool.emplace_back([&, t]() {
+                        const size_t b = n * t / cfg.threads, e = n * (t + 1) / cfg.threads;
+                        d.emit(b, e, *accs[t]);
+                    });
                 }
-            });
+                for (auto& th : pool) th.join();
+                d.release();
+            }
+        } else {
+            // 128 MiB (Opteryx's size) unless the input is too small to give every thread at
+        // least 4 chunks; then smaller, so a quick check on a few files isn't starved.
+        size_t total = 0;
+        for (auto& f : files) total += f.size;
+        const size_t fair = std::max<size_t>(1u << 20, total / (size_t(cfg.threads) * 4));
+        std::vector<Chunk> chunks = make_chunks(files, std::min(cfg.chunk, fair));
+            std::atomic<size_t> next{0};
+            std::vector<std::thread> pool;
+            for (int t = 0; t < cfg.threads; ++t) {
+                pool.emplace_back([&, t]() {
+                    Driver d(cfg);
+                    Acc& acc = *accs[t];
+                    for (size_t i; (i = next.fetch_add(1)) < chunks.size();) {
+                        populate(chunks[i], cfg.populate);
+                        d.run_chunk(chunks[i], acc);
+                    }
+                });
+            }
+            for (auto& th : pool) th.join();
         }
-        for (auto& th : pool) th.join();
 
         // ---- merge (timed): the result must exist in one place, as a query engine's would
         Acc& a0 = *accs[0];
         for (int t = 1; t < cfg.threads; ++t) {
             Acc& a = *accs[t];
-            a0.docs += a.docs; a0.rejected += a.rejected;
+            a0.docs += a.docs; a0.rejected += a.rejected; a0.docs_unknown |= a.docs_unknown;
             switch (cfg.w) {
                 case W::filter_hi: case W::filter_lo:
                     a0.out.insert(a0.out.end(), a.out.begin(), a.out.end());  // views stay valid
@@ -443,6 +479,9 @@ int bench_main(int argc, char** argv, const char* parser, const char* version) {
             for (auto& th : mp) th.join();
         }
         double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+        const std::string docs_json = docs_override >= 0 ? std::to_string(docs_override)
+                                    : (docs_override == -2 || a0.docs_unknown) ? std::string("null")
+                                    : std::to_string(a0.docs);
 
         // ---- untimed: digest + report
         size_t bytes = 0;
@@ -475,10 +514,10 @@ int bench_main(int argc, char** argv, const char* parser, const char* version) {
         }
         std::printf("{\"parser\":\"%s\",\"version\":\"%s\",\"api\":\"%s\",\"workload\":\"%s\","
                     "\"threads\":%d,\"agg\":\"%s\",\"run\":%d,\"files\":%zu,\"bytes\":%zu,\"seconds\":%.6f,"
-                    "\"docs\":%llu,\"rejected\":%llu,\"result\":%s}\n",
+                    "\"docs\":%s,\"rejected\":%llu,\"result\":%s}\n",
                     parser, version, cfg.api.c_str(), wname(cfg.w), cfg.threads,
                     cfg.w == W::freq_hi ? (cfg.route ? "route" : "merge") : "", rep, files.size(),
-                    bytes, secs, (unsigned long long)a0.docs, (unsigned long long)a0.rejected,
+                    bytes, secs, docs_json.c_str(), (unsigned long long)a0.rejected,
                     res.c_str());
         std::fflush(stdout);
         accs.clear();

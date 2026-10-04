@@ -121,7 +121,7 @@ def main():
     parts = [f"# JSON parser benchmark: {', '.join(x.name for x in dirs)}\n"]
     for x in dirs:
         parts += ["```", (x / "env.txt").read_text().strip(), "```\n"]
-    for name in ("multi", "single"):
+    for name in ("multi", "onecore", "single"):  # "single" = the one-core pass in runs before 2026-10-04 21:00
         ps = [x / f"raw_{name}.jsonl" for x in dirs if (x / f"raw_{name}.jsonl").exists()]
         if ps:
             parts.append(f"## Pass: {name}\n")

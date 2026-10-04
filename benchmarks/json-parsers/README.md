@@ -16,8 +16,12 @@ events, one JSON document per line, ~480 bytes per document. `./fetch_data.sh 10
 downloads the first 100 files (100M documents, 47.8 GB decompressed), the same files
 JSONBench uses at its 100m scale.
 
-Of the first 100M documents, a handful are genuinely invalid JSON (e.g. `file_0005` has
-raw control characters inside strings). Every method skips them and carries on.
+**The headline layout is one file.** Real data rarely arrives in tidy ~480 MB pieces, so
+`run.sh` concatenates the files byte for byte into one 47.8 GB file (`--layout single`, the
+default). `--layout files` runs on the 100 files as JSONBench ships them.
+
+Of the first 100M documents, 32 lines are genuinely invalid JSON (e.g. `file_0005` has raw
+control characters inside strings). Every method skips them and carries on.
 
 ## Workloads
 
@@ -45,14 +49,17 @@ reader can beat touching every byte once, so each result is also shown as a % of
 | yyjson `dom` | `yyjson_read_opts` per line, strict | every document fully | DOM per document |
 | sonic-cpp `dom` | `Document::Parse` per line | every document fully | DOM per document |
 | sonic-cpp `ondemand` | `GetOnDemand(line, pointer)` per field | only the path to each target | raw JSON text of each target |
-| rugo `read_jsonl` | projection + predicate pushdown, from Python | structural, per line | typed columns |
+| rugo `chunked` | its C++ reader (the calls under `read_jsonl`), fed 128 MiB chunks one thread each, as Opteryx drives it; projection + predicate pushdown, prefilter on | structural, per line | typed columns (draken vectors) |
+| rugo `whole` | the same reader given a whole file with its own threads, as `read_jsonl(path)` does (per-file layout only, see caveats) | as above | as above |
 | Opteryx `sql` | `READ_JSONL(..., ignore_errors => true)` + SQL, from Python | as rugo | a result table |
 
 simdjson, yyjson and sonic-cpp are libraries, so each workload is a short hand-written loop
-per parser, in `cpp/bench_*.cpp`. Read them. rugo is a reader with no GROUP BY, so it runs
-the filter and min/max workloads in full but only the **extraction** part of the counting
-workloads. Opteryx runs everything in full. rugo projects one level of nesting
-(`key->>'sub'`), so `deep` and `langs` are Opteryx-only on that side.
+per parser, in `cpp/bench_*.cpp`. Read them. rugo is called from C++ too
+(`cpp/bench_rugo.cpp`), built from the opteryx-core release tag with the same flags. It
+reads the columns a workload needs (filters pushed down), and the harness then counts
+from those columns with the same hash-map code as every other parser. rugo projects one
+level of nesting (`key->>'sub'`), so `deep` and `langs` are Opteryx-only on that side.
+Opteryx runs everything in full, from Python, as people use it.
 
 ## What we did so the parsers run at full speed
 
@@ -73,10 +80,13 @@ We tried to answer in advance the "of course it was slow, you used it wrong" obj
 - **No copies, no I/O differences.** Files are mmap'd, with readable padding after every
   file so simdjson needs no copy. Chunks are pre-faulted (`MADV_POPULATE_READ`). All
   C/C++ drivers share this code (`cpp/common.hpp`).
-- **No idle threads.** Files are cut into ~32 MiB chunks at line boundaries and pulled from
-  one queue, so 100 files on 32 threads leave no stragglers.
+- **Parallelism inside one file.** simdjson, yyjson and sonic can't split a file across
+  threads themselves, so the harness does it for them: the input is cut into 128 MiB
+  chunks at line boundaries, pulled from one queue by every thread. This is the same
+  scheme (and chunk size) Opteryx uses to drive rugo, and rugo `chunked` uses it too. A
+  user of those libraries would have to write this themselves.
 - **The same hash map for everyone** (ankerl::unordered_dense). High-cardinality counts
-  use per-thread partitioned maps merged in parallel. The merge is timed: the answer
+  route each key to a partition owned by one thread (as a query engine does). That step is timed: the answer
   has to exist in one place.
 - **Malformed lines don't stop anyone.** simdjson's streams stop at the first error, so
   the driver re-reads that region one line at a time and restarts after it. All valid
@@ -91,12 +101,18 @@ We tried to answer in advance the "of course it was slow, you used it wrong" obj
   the unread rest of a line. sonic `ondemand` validates almost nothing, so it accepts the
   malformed lines the others reject, and its answer can differ by those rows (shown as
   `DIFF`). rugo and Opteryx check structure per line.
-- **Output differs.** The C/C++ loops keep only what each workload needs. rugo and Opteryx
-  build typed columns and a result table and go through Python. Being faster than a C
-  loop is not expected; how close they get is the point.
-- **"Single core" means one core, not one thread.** The single pass pins every process to
-  one CPU with `taskset`. rugo has no thread-count setting, so its pool time-slices on
-  that core. Opteryx gets `MAX_EXECUTION_WORKERS=1`.
+- **Output differs.** The simdjson/yyjson/sonic loops keep only what each workload needs.
+  rugo builds typed columns first (then the harness counts from them). Opteryx builds
+  a result table and runs from Python.
+- **rugo `whole` can't read a buffer over 4 GiB** at opteryx-0.9.155: its 32-bit offsets
+  overflow, giving wrong answers (rows silently dropped) or an exception. That includes
+  the public `rugo.jsonl.read_jsonl(path)` on a file over 4 GiB. Opteryx is unaffected (it
+  feeds rugo 128 MiB chunks). So `whole` only runs on the per-file layout and the
+  one-core pass.
+- **One core** (the `onecore` pass, one ~480 MB file) pins every process to one CPU with `taskset`, and every driver is told
+  to use one thread (rugo `max_threads = 1`, Opteryx `MAX_EXECUTION_WORKERS=1`).
+- **Build flags:** every C/C++ driver, rugo included, is built `-march=native`. The Opteryx
+  row uses the PyPI wheel, built `-march=haswell` (AVX2, no AVX-512).
 - **Warm page cache, not disk.** Files are read twice before each pass and residency is
   logged (`fincore`). Cold reads on a cloud volume measure the volume.
 - Best of 5 timed runs after one warm-up, in one process per measurement. Python import
@@ -116,7 +132,7 @@ PYTHON=python3.14 ./setup_python.sh
 ./report.py results/<stamp>      # tables -> results/<stamp>/report.md
 ```
 
-`./run.sh --files 10 --repeat 2` is a quick check. `aws/ec2.sh up | run | down` does the
+`./run.sh --files 10 --repeat 2` is a quick check; `--layout files` uses the separate files. `aws/ec2.sh up | run | down` does the
 whole thing on a temporary EC2 instance and tears it down afterwards.
 
 ## Layout
@@ -127,8 +143,8 @@ cpp/bench_simdjson.cpp   simdjson On-Demand + DOM
 cpp/bench_yyjson.cpp     yyjson
 cpp/bench_sonic.cpp      sonic-cpp DOM + GetOnDemand
 cpp/bench_floor.cpp      newline-count floor
+cpp/bench_rugo.cpp       rugo's C++ JSONL reader (sources from opteryx-core, OPTERYX_CORE_REF)
 py/bench_opteryx.py      Opteryx SQL
-py/bench_rugo.py         rugo read_jsonl
 run.sh / report.py       matrix runner / summary
 results/<stamp>/         env.txt, raw_<pass>.jsonl (one line per run), progress.log, report.md
 ```
