@@ -1,0 +1,249 @@
+{
+  "date": "2026-10-10T00:15:34+00:00",
+  "machine": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "cpu": "arm",
+    "python": "3.13"
+  },
+  "footprint": {
+    "rugo": {
+      "version": "0.4.43",
+      "installed_mb": 7.3,
+      "cold_import_ms": 12.4,
+      "n_packages": 1
+    },
+    "duckdb": {
+      "version": "1.5.6",
+      "installed_mb": 46.0,
+      "cold_import_ms": 31.7,
+      "n_packages": 1
+    },
+    "fastparquet": {
+      "version": "2026.9.0",
+      "installed_mb": 69.6,
+      "cold_import_ms": 537.1,
+      "n_packages": 8
+    },
+    "pyarrow": {
+      "version": "26.0.0",
+      "installed_mb": 126.7,
+      "cold_import_ms": 38.7,
+      "n_packages": 1
+    },
+    "polars": {
+      "version": "2.0.0",
+      "installed_mb": 170.5,
+      "cold_import_ms": 160.5,
+      "n_packages": 2
+    }
+  },
+  "queries": {
+    "jsonl/select1/rugo": {
+      "best_ms": 16.73,
+      "median_ms": 18.75,
+      "rows": 200000,
+      "rss_after_import_mb": 43.6,
+      "peak_rss_mb": 672.6
+    },
+    "jsonl/select1/pyarrow": {
+      "best_ms": 248.55,
+      "median_ms": 255.57,
+      "rows": 200000,
+      "rss_after_import_mb": 52.6,
+      "peak_rss_mb": 1207.8
+    },
+    "jsonl/p10/rugo": {
+      "best_ms": 15.7,
+      "median_ms": 17.21,
+      "rows": 19894,
+      "rss_after_import_mb": 43.5,
+      "peak_rss_mb": 720.3
+    },
+    "jsonl/p10/pyarrow": {
+      "best_ms": 310.81,
+      "median_ms": 322.45,
+      "rows": 19894,
+      "rss_after_import_mb": 51.9,
+      "peak_rss_mb": 1236.6
+    },
+    "jsonl/p1/rugo": {
+      "best_ms": 15.01,
+      "median_ms": 15.89,
+      "rows": 2003,
+      "rss_after_import_mb": 43.7,
+      "peak_rss_mb": 692.8
+    },
+    "jsonl/p1/pyarrow": {
+      "best_ms": 292.92,
+      "median_ms": 299.96,
+      "rows": 2003,
+      "rss_after_import_mb": 52.2,
+      "peak_rss_mb": 1220.9
+    },
+    "jsonl/select_star/rugo": {
+      "best_ms": 90.23,
+      "median_ms": 91.76,
+      "rows": 200000,
+      "rss_after_import_mb": 43.5,
+      "peak_rss_mb": 1987.4
+    },
+    "jsonl/select_star/pyarrow": {
+      "best_ms": 263.71,
+      "median_ms": 266.6,
+      "rows": 200000,
+      "rss_after_import_mb": 52.1,
+      "peak_rss_mb": 1198.2
+    },
+    "csv/select_star/rugo": {
+      "best_ms": 23.02,
+      "median_ms": 23.51,
+      "rows": 200000,
+      "rss_after_import_mb": 43.7,
+      "peak_rss_mb": 527.6
+    },
+    "csv/select_star/pyarrow": {
+      "best_ms": 22.08,
+      "median_ms": 22.9,
+      "rows": 200000,
+      "rss_after_import_mb": 52.0,
+      "peak_rss_mb": 362.2
+    },
+    "csv/select1/rugo": {
+      "best_ms": 12.4,
+      "median_ms": 12.7,
+      "rows": 200000,
+      "rss_after_import_mb": 43.6,
+      "peak_rss_mb": 293.3
+    },
+    "csv/select1/pyarrow": {
+      "best_ms": 9.53,
+      "median_ms": 9.86,
+      "rows": 200000,
+      "rss_after_import_mb": 52.3,
+      "peak_rss_mb": 257.4
+    },
+    "csv/p10/rugo": {
+      "best_ms": 10.9,
+      "median_ms": 11.35,
+      "rows": 20009,
+      "rss_after_import_mb": 43.3,
+      "peak_rss_mb": 280.5
+    },
+    "csv/p10/pyarrow": {
+      "best_ms": 10.67,
+      "median_ms": 11.14,
+      "rows": 20009,
+      "rss_after_import_mb": 51.9,
+      "peak_rss_mb": 253.8
+    },
+    "csv/p1/rugo": {
+      "best_ms": 10.75,
+      "median_ms": 11.28,
+      "rows": 1967,
+      "rss_after_import_mb": 43.6,
+      "peak_rss_mb": 281.5
+    },
+    "csv/p1/pyarrow": {
+      "best_ms": 10.27,
+      "median_ms": 10.77,
+      "rows": 1967,
+      "rss_after_import_mb": 52.1,
+      "peak_rss_mb": 257.7
+    },
+    "parquet/broad/rugo": {
+      "best_ms": 28.64,
+      "median_ms": 28.83,
+      "rows": 1839649,
+      "rss_after_import_mb": 44.2,
+      "peak_rss_mb": 75.6
+    },
+    "parquet/broad/pyarrow": {
+      "best_ms": 3.81,
+      "median_ms": 4.87,
+      "rows": 1839649,
+      "rss_after_import_mb": 45.9,
+      "peak_rss_mb": 202.1
+    },
+    "parquet/broad/duckdb": {
+      "best_ms": 3.53,
+      "median_ms": 3.67,
+      "rows": 1839649,
+      "rss_after_import_mb": 48.4,
+      "peak_rss_mb": 111.5
+    },
+    "parquet/broad/polars": {
+      "best_ms": 2.62,
+      "median_ms": 2.76,
+      "rows": 1839649,
+      "rss_after_import_mb": 68.0,
+      "peak_rss_mb": 188.0
+    },
+    "parquet/selective/rugo": {
+      "best_ms": 24.04,
+      "median_ms": 24.28,
+      "rows": 40048,
+      "rss_after_import_mb": 44.0,
+      "peak_rss_mb": 69.5
+    },
+    "parquet/selective/pyarrow": {
+      "best_ms": 2.77,
+      "median_ms": 3.16,
+      "rows": 40048,
+      "rss_after_import_mb": 46.0,
+      "peak_rss_mb": 179.7
+    },
+    "parquet/selective/duckdb": {
+      "best_ms": 2.95,
+      "median_ms": 3.0,
+      "rows": 40048,
+      "rss_after_import_mb": 48.4,
+      "peak_rss_mb": 105.3
+    },
+    "parquet/selective/polars": {
+      "best_ms": 2.55,
+      "median_ms": 2.67,
+      "rows": 40048,
+      "rss_after_import_mb": 67.7,
+      "peak_rss_mb": 181.2
+    },
+    "parquet/pruned/rugo": {
+      "best_ms": 2.08,
+      "median_ms": 2.15,
+      "rows": 50000,
+      "rss_after_import_mb": 44.4,
+      "peak_rss_mb": 54.5
+    },
+    "parquet/pruned/pyarrow": {
+      "best_ms": 1.27,
+      "median_ms": 1.37,
+      "rows": 50000,
+      "rss_after_import_mb": 45.9,
+      "peak_rss_mb": 73.0
+    },
+    "parquet/pruned/duckdb": {
+      "best_ms": 1.98,
+      "median_ms": 2.07,
+      "rows": 50000,
+      "rss_after_import_mb": 48.3,
+      "peak_rss_mb": 56.7
+    },
+    "parquet/pruned/polars": {
+      "best_ms": 1.88,
+      "median_ms": 1.99,
+      "rows": 50000,
+      "rss_after_import_mb": 67.8,
+      "peak_rss_mb": 114.1
+    }
+  },
+  "versions": {
+    "rugo": "0.4.43",
+    "pyarrow": "26.0.0",
+    "duckdb": "1.5.6",
+    "polars": "2.0.0"
+  },
+  "data": {
+    "wide.jsonl": 393.3,
+    "events.parquet": 80.0,
+    "wide.csv": 82.6
+  }
+}

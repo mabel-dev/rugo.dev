@@ -6,7 +6,7 @@
         <title>Rugo — Fast, dependency-free Parquet engine for Python</title>
         <meta
             name="description"
-            content="Rugo reads and writes Parquet, CSV, and JSONL from Python. No PyArrow, no Pandas, no NumPy. 11.6 MB installed against PyArrow's 154 MB and Polars' 214 MB, a cold import 3× faster than PyArrow's, and up to 10× faster selective JSONL reads."
+            content="Rugo reads and writes Parquet, CSV, and JSONL from Python. No PyArrow, no Pandas, no NumPy. 7.3 MB installed against PyArrow's 127 MB and Polars' 171 MB, a cold import 3× faster than PyArrow's, and up to 20× faster selective JSONL reads."
         />
         <link rel="icon" type="image/svg+xml" href="favicon.svg" />
         <style>
@@ -669,7 +669,7 @@
         <section id="hero">
             <div class="container">
                 <div class="hero-badge">
-                    Parquet, CSV and JSONL in 11.6 MB. No PyArrow.
+                    Parquet, CSV and JSONL in 7.3 MB. No PyArrow.
                 </div>
                 <h1>
                     Read and write Parquet, CSV, and JSONL.<br /><em
@@ -692,35 +692,35 @@
                         </thead>
                         <tbody>
                             <tr class="row-rugo">
-                                <td><strong>rugo</strong> 0.4.30</td>
-                                <td class="win">11.6 MB</td>
-                                <td class="win">30 ms</td>
+                                <td><strong>rugo</strong> 0.4.43</td>
+                                <td class="win">7.3 MB</td>
+                                <td class="win">12 ms</td>
                                 <td>nothing</td>
                             </tr>
                             <tr>
-                                <td>duckdb 1.5.5</td>
-                                <td class="lose">58.6 MB</td>
-                                <td class="lose">111 ms</td>
+                                <td>duckdb 1.5.6</td>
+                                <td class="lose">46.0 MB</td>
+                                <td class="lose">30 ms</td>
                                 <td class="lose">nothing</td>
                             </tr>
                             <tr>
-                                <td>fastparquet 2026.5.0</td>
-                                <td class="lose">147.3 MB</td>
-                                <td class="lose">435 ms</td>
+                                <td>fastparquet 2026.9.0</td>
+                                <td class="lose">69.6 MB</td>
+                                <td class="lose">532 ms</td>
                                 <td class="lose">
                                     pandas, numpy, cramjam, fsspec
                                 </td>
                             </tr>
                             <tr>
-                                <td>pyarrow 25.0.1</td>
-                                <td class="lose">153.7 MB</td>
-                                <td class="lose">88 ms</td>
+                                <td>pyarrow 26.0.0</td>
+                                <td class="lose">126.7 MB</td>
+                                <td class="lose">38 ms</td>
                                 <td class="lose">nothing</td>
                             </tr>
                             <tr>
-                                <td>polars 1.43.2</td>
-                                <td class="lose">213.8 MB</td>
-                                <td class="lose">186 ms</td>
+                                <td>polars 2.0.0</td>
+                                <td class="lose">170.5 MB</td>
+                                <td class="lose">161 ms</td>
                                 <td class="lose">polars-runtime-32</td>
                             </tr>
                         </tbody>
@@ -731,17 +731,18 @@
                         puts into <code>site-packages</code>, transitive
                         dependencies included, with a fresh virtualenv per
                         library so no library is measured in an environment
-                        another has touched. Debian 12, linux x86_64, CPython
-                        3.12.12, measured 2026-08-14. Cold import is the
+                        another has touched. macOS 26.6 on Apple silicon (arm64),
+                        CPython 3.13, measured 2026-10-10. Cold import is the
                         wall-clock cost of importing each library's Parquet
                         entry point in a fresh interpreter, over and above bare
                         interpreter startup, best of 15 runs.
                         <br /><br />
                         The wheel sizes shown on PyPI are compressed downloads
                         and are smaller than any of these numbers — rugo's
-                        x86_64 wheel is 4.4 MB compressed and 11.6 MB installed.
-                        Footprint also varies by platform: rugo's macOS arm64
-                        wheel is 3.1 MB compressed.
+                        macOS arm64 wheel is 2.9 MB compressed and 7.3 MB
+                        installed. Footprint also varies by platform: rugo's
+                        Linux x86_64 wheel, the one AWS Lambda uses, is 4.3 MB
+                        compressed and larger once installed.
                     </p>
                 </div>
 
@@ -793,9 +794,9 @@
                         <p style="color: var(--muted); font-size: 0.9rem">
                             AWS Lambda and GCP Cloud Functions bill by memory
                             and duration, and every cold start pays for the
-                            imports. Rugo's cold import is roughly 3× to 6× faster
-                            than PyArrow, DuckDB or Polars — 30 ms against
-                            88, 111 and 186 — and it adds up fast at
+                            imports. Rugo's cold import is roughly 2.5× to 13× faster
+                            than DuckDB, PyArrow or Polars — 12 ms against
+                            30, 38 and 161 — and it adds up fast at
                             scale-out.
                         </p>
                     </div>
@@ -803,7 +804,7 @@
                         <div class="feature-icon">📦</div>
                         <h3>Smaller packages &amp; images</h3>
                         <p style="color: var(--muted); font-size: 0.9rem">
-                            At 13× smaller than PyArrow and 18× smaller than
+                            At 17× smaller than PyArrow and 23× smaller than
                             Polars, rugo shrinks Lambda deployment packages and
                             container images, speeds up deploys, and leaves
                             almost all of AWS Lambda's 250 MB unzipped limit
@@ -819,7 +820,7 @@
                             need. Skip the row groups that can't match. The
                             more selective the query, the bigger rugo's
                             advantage — and Parquet reads peak at up to
-                            2.7× less memory than PyArrow.
+                            2.6× less memory than PyArrow.
                         </p>
                     </div>
                     <div class="feature-card">
@@ -846,11 +847,13 @@
                     <strong style="color: var(--text)"
                         >Where PyArrow is faster:</strong
                     >
-                    full-table scans with no filtering. PyArrow's Parquet
-                    engine has had over a decade of optimisation poured into
-                    raw decode throughput — Rugo doesn't compete there. It
-                    competes on how little it has to decode in the first
-                    place.
+                    reading Parquet. PyArrow's Parquet engine has had over a
+                    decade of optimisation poured into raw decode throughput,
+                    and in our benchmark it was faster than rugo on every
+                    Parquet query shape — about 7× on a broad scan (4 ms
+                    against 29 ms), and still ahead on selective and pruned
+                    reads. Rugo doesn't compete there. On Parquet it competes
+                    on footprint, cold start and peak memory.
                 </p>
             </div>
         </section>
@@ -861,14 +864,14 @@
                 <div class="section-label">Performance</div>
                 <h2>The gap is projection, not decode speed.</h2>
                 <p class="section-intro">
-                    Rugo wins by decoding less — up to 10× faster than PyArrow
+                    Rugo wins by decoding less — up to 20× faster than PyArrow
                     on selective JSONL reads. The more columns and rows a query
-                    lets rugo skip, the bigger the win; on a full scan it keeps
-                    pace.
+                    lets rugo skip, the bigger the win; even on a full scan it
+                    is about 2.6× faster.
                 </p>
 
                 <h3 style="margin-bottom: 0.75rem">
-                    JSONL — 1M rows, 110 cols, 2.7 GB
+                    JSONL — 1M rows, 110 cols, 2.0 GB
                 </h3>
                 <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 1rem">
                     This is the case that shows the architecture. PyArrow reads
@@ -888,44 +891,47 @@
                     <tbody>
                         <tr>
                             <td>SELECT 1 col</td>
-                            <td class="win">~166 ms</td>
-                            <td class="lose">~1.53 s</td>
-                            <td class="win">9.2× faster</td>
+                            <td class="win">~76 ms</td>
+                            <td class="lose">~1.24 s</td>
+                            <td class="win">16× faster</td>
                         </tr>
                         <tr>
                             <td>WHERE ~10% pass</td>
-                            <td class="win">~160 ms</td>
-                            <td class="lose">~1.72 s</td>
-                            <td class="win">10.8× faster</td>
+                            <td class="win">~72 ms</td>
+                            <td class="lose">~1.65 s</td>
+                            <td class="win">23× faster</td>
                         </tr>
                         <tr>
                             <td>WHERE ~1% pass</td>
-                            <td class="win">~160 ms</td>
-                            <td class="lose">~1.72 s</td>
-                            <td class="win">10.8× faster</td>
+                            <td class="win">~70 ms</td>
+                            <td class="lose">~1.55 s</td>
+                            <td class="win">22× faster</td>
                         </tr>
                         <tr>
                             <td>SELECT *</td>
-                            <td class="win">~1.40 s</td>
-                            <td class="lose">~1.52 s</td>
-                            <td>1.1× faster</td>
+                            <td class="win">~471 ms</td>
+                            <td class="lose">~1.25 s</td>
+                            <td class="win">2.6× faster</td>
                         </tr>
                     </tbody>
                 </table>
                 <p style="font-size: 0.8rem; color: var(--muted); margin-bottom: 2.5rem">
-                    Best of 3 runs, PyArrow multithreaded. Note the last row:
-                    with no projection and no filter the advantage nearly
-                    vanishes, which is the honest shape of this design.
+                    Best of 5 runs, rugo 0.4.43 against PyArrow 26.0.0
+                    (multithreaded), CPython 3.13 on an Apple-silicon Mac,
+                    measured 2026-10-10. Note the last row: with no projection
+                    and no filter the gap narrows to 2.6×, and rugo's peak
+                    memory on that full scan is about twice PyArrow's — the
+                    advantage is in what a query lets rugo skip.
                 </p>
 
                 <h3 style="margin-bottom: 0.75rem">
-                    CSV — wide file, 50 cols, 200k rows, 67 MB
+                    CSV — wide file, 50 cols, 200k rows, 83 MB
                 </h3>
                 <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 1rem">
-                    CSV is the weaker case, and the table shows it. Rugo is at
-                    parity on a full scan and at parity on projection; the gap
-                    only opens once a predicate eliminates rows before the typed
-                    column build.
+                    CSV is the weaker case, and the table shows it. Rugo is
+                    somewhat slower than PyArrow on a full scan and on
+                    projection, and only reaches parity once a predicate
+                    eliminates rows before the typed column build.
                 </p>
                 <table class="perf-table" style="margin-bottom: 0.5rem">
                     <thead>
@@ -939,32 +945,33 @@
                     <tbody>
                         <tr>
                             <td>SELECT *</td>
-                            <td>~23 ms</td>
-                            <td>~21 ms</td>
-                            <td class="lose">10% slower</td>
+                            <td>~25 ms</td>
+                            <td>~22 ms</td>
+                            <td class="lose">12% slower</td>
                         </tr>
                         <tr>
                             <td>SELECT 2 cols</td>
-                            <td>~8 ms</td>
-                            <td>~8 ms</td>
-                            <td>parity</td>
+                            <td>~12 ms</td>
+                            <td>~10 ms</td>
+                            <td class="lose">20% slower</td>
                         </tr>
                         <tr>
                             <td>WHERE P90 (~10% pass)</td>
-                            <td class="win">~11 ms</td>
-                            <td class="lose">~22 ms</td>
-                            <td class="win">2.0× faster</td>
+                            <td>~11 ms</td>
+                            <td>~11 ms</td>
+                            <td>parity</td>
                         </tr>
                         <tr>
                             <td>WHERE P99 (~1% pass)</td>
-                            <td class="win">~9 ms</td>
-                            <td class="lose">~21 ms</td>
-                            <td class="win">2.3× faster</td>
+                            <td>~10 ms</td>
+                            <td>~10 ms</td>
+                            <td>parity</td>
                         </tr>
                     </tbody>
                 </table>
                 <p style="font-size: 0.8rem; color: var(--muted)">
-                    On narrow CSV files PyArrow is faster across the board. The
+                    Same machine and versions as the JSONL table, best of 5
+                    runs. On narrow CSV files PyArrow is faster across the board. The
                     crossover is driven by how many columns can be skipped and
                     how many rows are eliminated before the typed column build —
                     a narrow file gives Rugo nothing to skip.
@@ -1174,7 +1181,7 @@ data = jsonl.<span class="f">write_jsonl</span>(morsel)</pre>
                         INT8–64, FLOAT32/64, BOOL, VARCHAR, DATE32, TIME, TIMESTAMP64, INTERVAL, DECIMAL, ARRAY — ZSTD or uncompressed, per-column min/max stats, optional bloom filters.
                     </p>
                     <p style="font-size:0.85rem;color:var(--muted);border-left:3px solid var(--border);padding-left:1rem;margin-bottom:1.5rem">
-                        Rugo's Parquet advantage is <em>reading less</em>, not raw scan throughput. Row-group pruning and column projection reduce what is decoded; PyArrow's bulk scan is faster when all columns and rows are needed.
+                        Rugo's Parquet advantage is <em>reading less</em>, not raw scan throughput. Row-group pruning and column projection reduce what is decoded and keep peak memory low, but PyArrow still decodes faster: in our benchmark it was quicker on every Parquet query shape, selective ones included.
                     </p>
                     <pre><span class="k">from</span> rugo <span class="k">import</span> parquet
 
