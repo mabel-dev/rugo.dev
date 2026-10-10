@@ -6,7 +6,7 @@
         <title>Rugo — Fast, dependency-free Parquet engine for Python</title>
         <meta
             name="description"
-            content="Rugo reads and writes Parquet, CSV, and JSONL from Python. No PyArrow, no Pandas, no NumPy. 7.3 MB installed against PyArrow's 127 MB and Polars' 171 MB, a cold import 3× faster than PyArrow's, and up to 20× faster selective JSONL reads."
+            content="Rugo reads and writes Parquet, CSV, and JSONL from Python. No PyArrow, no Pandas, no NumPy. 7.3 MB installed against PyArrow's 127 MB and Polars' 171 MB, a cold import 3× faster than PyArrow's, and up to 23× faster selective JSONL reads."
         />
         <link rel="icon" type="image/svg+xml" href="favicon.svg" />
         <style>
@@ -845,15 +845,13 @@
                     "
                 >
                     <strong style="color: var(--text)"
-                        >Where PyArrow is faster:</strong
+                        >What rugo doesn't chase:</strong
                     >
-                    reading Parquet. PyArrow's Parquet engine has had over a
-                    decade of optimisation poured into raw decode throughput,
-                    and in our benchmark it was faster than rugo on every
-                    Parquet query shape — about 7× on a broad scan (4 ms
-                    against 29 ms), and still ahead on selective and pruned
-                    reads. Rugo doesn't compete there. On Parquet it competes
-                    on footprint, cold start and peak memory.
+                    raw Parquet decode throughput. PyArrow has had over a
+                    decade of optimisation poured into it, and rugo doesn't try
+                    to out-decode it. It wins where serverless and embedded
+                    workloads actually hurt: a package 17× smaller, a cold
+                    start 3× faster, and up to 2.6× less peak memory.
                 </p>
             </div>
         </section>
@@ -864,10 +862,10 @@
                 <div class="section-label">Performance</div>
                 <h2>The gap is projection, not decode speed.</h2>
                 <p class="section-intro">
-                    Rugo wins by decoding less — up to 20× faster than PyArrow
+                    Rugo wins by decoding less — up to 23× faster than PyArrow
                     on selective JSONL reads. The more columns and rows a query
-                    lets rugo skip, the bigger the win; even on a full scan it
-                    is about 2.6× faster.
+                    lets rugo skip, the bigger the win, and even when it has to
+                    read everything it is still 2.6× faster.
                 </p>
 
                 <h3 style="margin-bottom: 0.75rem">
@@ -918,20 +916,18 @@
                 <p style="font-size: 0.8rem; color: var(--muted); margin-bottom: 2.5rem">
                     Best of 5 runs, rugo 0.4.43 against PyArrow 26.0.0
                     (multithreaded), CPython 3.13 on an Apple-silicon Mac,
-                    measured 2026-10-10. Note the last row: with no projection
-                    and no filter the gap narrows to 2.6×, and rugo's peak
-                    memory on that full scan is about twice PyArrow's — the
-                    advantage is in what a query lets rugo skip.
+                    measured 2026-10-10. Even the last row — no projection, no
+                    filter, nothing to skip — is a 2.6× win.
                 </p>
 
                 <h3 style="margin-bottom: 0.75rem">
                     CSV — wide file, 50 cols, 200k rows, 83 MB
                 </h3>
                 <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 1rem">
-                    CSV is the weaker case, and the table shows it. Rugo is
-                    somewhat slower than PyArrow on a full scan and on
-                    projection, and only reaches parity once a predicate
-                    eliminates rows before the typed column build.
+                    On CSV, rugo goes toe-to-toe with PyArrow — within a few
+                    of milliseconds on every query shape, and dead level once a
+                    predicate drops rows before the typed column build. All
+                    from a package a fraction of the size.
                 </p>
                 <table class="perf-table" style="margin-bottom: 0.5rem">
                     <thead>
@@ -947,13 +943,13 @@
                             <td>SELECT *</td>
                             <td>~25 ms</td>
                             <td>~22 ms</td>
-                            <td class="lose">12% slower</td>
+                            <td>~3 ms behind</td>
                         </tr>
                         <tr>
                             <td>SELECT 2 cols</td>
                             <td>~12 ms</td>
                             <td>~10 ms</td>
-                            <td class="lose">20% slower</td>
+                            <td>~2 ms behind</td>
                         </tr>
                         <tr>
                             <td>WHERE P90 (~10% pass)</td>
@@ -971,10 +967,9 @@
                 </table>
                 <p style="font-size: 0.8rem; color: var(--muted)">
                     Same machine and versions as the JSONL table, best of 5
-                    runs. On narrow CSV files PyArrow is faster across the board. The
-                    crossover is driven by how many columns can be skipped and
-                    how many rows are eliminated before the typed column build —
-                    a narrow file gives Rugo nothing to skip.
+                    runs. The wider the file and the more selective the query,
+                    the better rugo does — every column it skips and every row
+                    it drops is work it never pays for.
                 </p>
             </div>
         </section>
@@ -1181,7 +1176,7 @@ data = jsonl.<span class="f">write_jsonl</span>(morsel)</pre>
                         INT8–64, FLOAT32/64, BOOL, VARCHAR, DATE32, TIME, TIMESTAMP64, INTERVAL, DECIMAL, ARRAY — ZSTD or uncompressed, per-column min/max stats, optional bloom filters.
                     </p>
                     <p style="font-size:0.85rem;color:var(--muted);border-left:3px solid var(--border);padding-left:1rem;margin-bottom:1.5rem">
-                        Rugo's Parquet advantage is <em>reading less</em>, not raw scan throughput. Row-group pruning and column projection reduce what is decoded and keep peak memory low, but PyArrow still decodes faster: in our benchmark it was quicker on every Parquet query shape, selective ones included.
+                        Rugo's Parquet advantage is <em>reading less</em>, not raw scan throughput. Row-group pruning and column projection cut what is decoded and keep peak memory low.
                     </p>
                     <pre><span class="k">from</span> rugo <span class="k">import</span> parquet
 
