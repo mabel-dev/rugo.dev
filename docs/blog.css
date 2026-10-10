@@ -12,6 +12,7 @@
     --muted: #7a8099;
     --green: #3ecf8e;
     --red: #f56565;
+    --amber: #f5b942;
     --code-bg: #11131a;
     --radius: 8px;
 }
@@ -129,6 +130,20 @@ article,
     border: 1px solid var(--border);
     border-radius: 100px;
     padding: 0.15rem 0.7rem;
+}
+
+.post-notice {
+    margin-top: 1.5rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--amber);
+    border-radius: var(--radius);
+}
+.post-notice a {
+    font-weight: 600;
 }
 
 /* ── ARTICLE BODY ── */
