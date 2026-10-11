@@ -544,6 +544,36 @@
         .dm-details summary p { margin: 0; color: var(--muted); font-size: 0.85rem; }
         .dm-details-body { padding: 0 1.25rem 1.25rem; }
 
+        /* Small print: disclaimers and methodology, collapsed by default. */
+        details.caveat {
+            font-size: 0.8rem;
+            line-height: 1.6;
+            color: var(--muted);
+            border-left: 3px solid var(--border);
+            padding-left: 1rem;
+            margin-top: 1rem;
+        }
+        details.caveat summary {
+            cursor: pointer;
+            list-style: none;
+            user-select: none;
+            color: var(--muted);
+            font-weight: 600;
+        }
+        details.caveat summary::-webkit-details-marker { display: none; }
+        details.caveat summary::before {
+            content: "▶";
+            display: inline-block;
+            font-size: 0.55rem;
+            margin-right: 0.5rem;
+            color: var(--accent);
+            transition: transform 0.15s;
+        }
+        details.caveat[open] summary::before { transform: rotate(90deg); }
+        details.caveat summary:hover { color: var(--text); }
+        details.caveat p { margin: 0.5rem 0 0; }
+        details.caveat strong { color: var(--text); }
+
         .api-ref { margin-bottom: 1.5rem; }
         .api-fn {
             font-size: 0.8rem;
@@ -725,8 +755,9 @@
                             </tr>
                         </tbody>
                     </table>
-                    <p class="cmp-basis">
-                        <strong>How this was measured.</strong> Installed size
+                    <details class="caveat">
+                        <summary>How this was measured</summary>
+                        <p>Installed size
                         is everything <code>pip install &lt;package&gt;</code>
                         puts into <code>site-packages</code>, transitive
                         dependencies included, with a fresh virtualenv per
@@ -742,8 +773,8 @@
                         macOS arm64 wheel is 2.9 MB compressed and 7.3 MB
                         installed. Footprint also varies by platform: rugo's
                         Linux x86_64 wheel, the one AWS Lambda uses, is 4.3 MB
-                        compressed and larger once installed.
-                    </p>
+                        compressed and larger once installed.</p>
+                    </details>
                 </div>
 
                 <p class="hero-sub">
@@ -835,24 +866,14 @@
                     </div>
                 </div>
 
-                <p
-                    style="
-                        margin-top: 2.5rem;
-                        font-size: 0.9rem;
-                        color: var(--muted);
-                        border-left: 3px solid var(--border);
-                        padding-left: 1rem;
-                    "
-                >
-                    <strong style="color: var(--text)"
-                        >What rugo doesn't chase:</strong
-                    >
-                    raw Parquet decode throughput. PyArrow has had over a
+                <details class="caveat" style="margin-top: 2.5rem; margin-bottom: 0">
+                    <summary>What rugo doesn't chase</summary>
+                    <p>Raw Parquet decode throughput. PyArrow has had over a
                     decade of optimisation poured into it, and rugo doesn't try
                     to out-decode it. It wins where serverless and embedded
                     workloads actually hurt: a package 17× smaller, a cold
-                    start 3× faster, and up to 2.6× less peak memory.
-                </p>
+                    start 3× faster, and up to 2.6× less peak memory.</p>
+                </details>
             </div>
         </section>
 
@@ -913,12 +934,13 @@
                         </tr>
                     </tbody>
                 </table>
-                <p style="font-size: 0.8rem; color: var(--muted); margin-bottom: 2.5rem">
-                    Best of 5 runs, rugo 0.4.43 against PyArrow 26.0.0
+                <details class="caveat" style="margin-bottom: 2.5rem">
+                    <summary>How this was measured</summary>
+                    <p>Best of 5 runs, rugo 0.4.43 against PyArrow 26.0.0
                     (multithreaded), CPython 3.13 on an Apple-silicon Mac,
                     measured 2026-10-10. Even the last row — no projection, no
-                    filter, nothing to skip — is a 2.6× win.
-                </p>
+                    filter, nothing to skip — is a 2.6× win.</p>
+                </details>
 
                 <h3 style="margin-bottom: 0.75rem">
                     CSV — wide file, 50 cols, 200k rows, 83 MB
@@ -965,25 +987,30 @@
                         </tr>
                     </tbody>
                 </table>
-                <p style="font-size: 0.8rem; color: var(--muted)">
-                    Same machine and versions as the JSONL table, best of 5
+                <details class="caveat">
+                    <summary>How this was measured</summary>
+                    <p>Same machine and versions as the JSONL table, best of 5
                     runs. The wider the file and the more selective the query,
                     the better rugo does — every column it skips and every row
-                    it drops is work it never pays for.
-                </p>
+                    it drops is work it never pays for.</p>
+                </details>
 
                 <h3 style="margin: 2.5rem 0 0.75rem">
                     Avro — 200k rows, 20 fields, deflate, 21.6 MB
                 </h3>
-                <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 1rem">
+                <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 0.5rem">
                     Against the two Python Avro readers: fastavro, and
                     <code>avro</code>, the Apache project's reference
-                    implementation. Rugo reads Avro only — it doesn't write it.
-                    Rugo returns typed columns while the others return one
-                    Python dict per record, so rugo is also timed with every
-                    column converted to Python values: that's the
-                    like-for-like column if you want Python objects at the end.
+                    implementation.
                 </p>
+                <details class="caveat" style="margin-bottom: 1rem">
+                    <summary>Why there are two rugo columns</summary>
+                    <p>Rugo reads Avro only — it doesn't write it. Rugo returns
+                    typed columns while the others return one Python dict per
+                    record, so rugo is also timed with every column converted to
+                    Python values: that's the like-for-like column if you want
+                    Python objects at the end.</p>
+                </details>
                 <div style="overflow-x: auto; margin-bottom: 0.5rem">
                 <table class="perf-table" style="margin-bottom: 0">
                     <thead>
@@ -1013,8 +1040,9 @@
                     </tbody>
                 </table>
                 </div>
-                <p style="font-size: 0.8rem; color: var(--muted)">
-                    Best of 5 runs, each reader on one thread, decoding the same
+                <details class="caveat">
+                    <summary>How this was measured</summary>
+                    <p>Best of 5 runs, each reader on one thread, decoding the same
                     in-memory file: rugo 0.5.0, fastavro 1.13.1, avro 1.12.2,
                     CPython 3.13 on an Apple-silicon Mac, measured 2026-10-11.
                     That's 7.8× faster than fastavro and 50× faster than
@@ -1027,8 +1055,8 @@
                     fastavro, with an event-stream mix of types: scalars,
                     strings, nullable unions, enums, timestamps, decimals and
                     nested records, arrays and maps. Reproduce it with
-                    <a href="https://github.com/mabel-dev/rugo.dev/blob/main/benchmarks/measure_avro.py"><code>benchmarks/measure_avro.py</code></a>.
-                </p>
+                    <a href="https://github.com/mabel-dev/rugo.dev/blob/main/benchmarks/measure_avro.py"><code>benchmarks/measure_avro.py</code></a>.</p>
+                </details>
             </div>
         </section>
 
@@ -1255,9 +1283,10 @@ meta = avro.<span class="f">read_metadata</span>(<span class="s">"events.avro"</
                         <strong style="color:var(--text)">Write:</strong>
                         INT8–64, FLOAT32/64, BOOL, VARCHAR, DATE32, TIME, TIMESTAMP64, INTERVAL, DECIMAL, ARRAY — ZSTD or uncompressed, per-column min/max stats, optional bloom filters.
                     </p>
-                    <p style="font-size:0.85rem;color:var(--muted);border-left:3px solid var(--border);padding-left:1rem;margin-bottom:1.5rem">
-                        Rugo's Parquet advantage is <em>reading less</em>, not raw scan throughput. Row-group pruning and column projection cut what is decoded and keep peak memory low.
-                    </p>
+                    <details class="caveat" style="margin-bottom: 1.5rem">
+                        <summary>Where the Parquet advantage comes from</summary>
+                        <p>Rugo's Parquet advantage is <em>reading less</em>, not raw scan throughput. Row-group pruning and column projection cut what is decoded and keep peak memory low.</p>
+                    </details>
                     <pre><span class="k">from</span> rugo <span class="k">import</span> parquet
 
 <span class="c"># Metadata only — no column decode</span>
@@ -1408,13 +1437,13 @@ jsonl_bytes = jsonl.<span class="f">write_jsonl</span>(morsel)</pre>
                         <strong style="color:var(--text)">Decode:</strong>
                         null, deflate, snappy, zstandard codecs · all primitive types, enum, fixed, date, time, timestamp-millis/-micros, decimal (up to 38 digits), arrays of scalars · records, maps and arrays of nested values arrive as JSON text · unions of <code>["null", T]</code>
                     </p>
-                    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem">
-                        <strong style="color:var(--text)">Reader only.</strong>
-                        Rugo doesn't write Avro. Avro carries no statistics, so
+                    <details class="caveat" style="margin-bottom: 1.5rem">
+                        <summary>Reader only — rugo doesn't write Avro</summary>
+                        <p>Avro carries no statistics, so
                         there's no <code>predicates</code> argument — filter
                         the morsels you get back. Avro timings are in
-                        <a href="#performance">Performance</a>.
-                    </p>
+                        <a href="#performance">Performance</a>.</p>
+                    </details>
                     <pre><span class="k">from</span> rugo <span class="k">import</span> avro
 
 <span class="c"># Writer schema and codec, from the header — no record decoded</span>
