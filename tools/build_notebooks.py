@@ -56,7 +56,7 @@ Every example uses the same dataset: 4,630 orbital launch attempts, from Sputnik
 
 
 INSTALL = code("""
-%pip install -q rugo
+%pip install -q rugo pandas
 """)
 
 
@@ -71,45 +71,74 @@ print(f"{filename}: {{os.path.getsize('{filename}'):,}} bytes")
 """)
 
 
+TO_PANDAS = code("""
+import pandas as pd
+
+
+# Every morsel a rugo reader yields, as one pandas DataFrame.
+def to_pandas(reader):
+    frames = [
+        pd.DataFrame({name.decode(): morsel.column(name).to_pylist() for name in morsel.column_names})
+        for morsel in reader
+    ]
+    return pd.concat(frames, ignore_index=True)
+""")
+
+PANDAS_INTRO = md("""
+## Load a file into pandas
+
+Rugo doesn't need pandas, but it's easy to hand data over: each column's `to_pylist()` gives the values, and a dict of lists is a DataFrame. This little helper does it for every morsel a reader yields.
+""")
+
 PYTHON_VALUES = md("""
 ## Get Python values
 
-A morsel holds typed columns. `column(name).to_pylist()` turns one into a Python list - only do this for the columns you need, since it's the step that creates a Python object per value.
+A morsel holds typed columns. `column(name).to_pylist()` turns one into a Python list.
 """)
 
 # ---------------------------------------------------------------- parquet
 notebook("parquet", [
-    header("parquet", "Read and write Parquet with rugo",
-           "Rugo reads and writes Parquet with no PyArrow, pandas or NumPy. This notebook reads a file's schema without decoding it, reads only the columns and rows you ask for, and writes Parquet back out."),
+    header("parquet", "How to use rugo with Parquet",
+           "Read a Parquet file, look at its schema, read only the columns and rows you need, load it into pandas, and write Parquet back out - with rugo, which needs no PyArrow, pandas or NumPy of its own."),
     INSTALL,
     download("space_missions.parquet"),
     md("""
-## Read the schema, not the data
+## Read a file
 
-`read_metadata` reads the file footer only - the row count and column types, with no column decoded.
+`read_parquet` is a context manager that yields **morsels** - batches of typed columns, one per row group.
 """),
     code("""
 from rugo import parquet
 
-meta = parquet.read_metadata("space_missions.parquet")
-print(meta.num_rows, "rows in", meta.num_row_groups, "row group(s)")
-for column in meta.schema_columns:
-    print(f"{column.name:16} {column.logical_type:14} nullable={column.nullable}")
-"""),
-    md("""
-## Read the whole file
-
-`read_parquet` is a context manager that yields one **morsel** - a batch of typed columns - per row group.
-"""),
-    code("""
 with parquet.read_parquet("space_missions.parquet") as reader:
     for morsel in reader:
         print(morsel)
 """),
     md("""
-## Read only what you need
+## Look at the schema without reading the data
 
-`columns` picks the columns; `predicates` filters rows. Row groups whose statistics show they can't match are skipped before they're decoded, then the surviving rows are filtered exactly.
+`read_metadata` reads only the file footer: the row count and the column types.
+"""),
+    code("""
+meta = parquet.read_metadata("space_missions.parquet")
+print(meta.num_rows, "rows")
+for column in meta.schema_columns:
+    print(f"{column.name:16} {column.logical_type}")
+"""),
+    md("""
+## Read only some columns
+
+Name the columns you want; the others are never decoded.
+"""),
+    code("""
+with parquet.read_parquet("space_missions.parquet", columns=["Company", "Mission", "Price"]) as reader:
+    for morsel in reader:
+        print(morsel)
+"""),
+    md("""
+## Filter rows as you read
+
+`predicates` is a list of `(column, operator, value)`. Row groups that can't match are skipped using the file's statistics, then the remaining rows are filtered exactly. Operators: `== != < <= > >= in "not in"`.
 """),
     code("""
 with parquet.read_parquet(
@@ -117,81 +146,102 @@ with parquet.read_parquet(
     columns=["Company", "Mission", "Price"],
     predicates=[("Company", "==", "SpaceX"), ("Price", "<", 60.0)],
 ) as reader:
-    spacex = next(iter(reader))
-
-print(spacex.num_rows, "cheap SpaceX launches")
-print(spacex)
+    for morsel in reader:
+        print(morsel.num_rows, "rows")
+        print(morsel)
 """),
     PYTHON_VALUES,
     code("""
-missions = spacex.column("Mission").to_pylist()
-prices = spacex.column("Price").to_pylist()
+with parquet.read_parquet("space_missions.parquet", columns=["Mission"]) as reader:
+    missions = [name for morsel in reader for name in morsel.column("Mission").to_pylist()]
 print(missions[:5])
-print("average price:", round(sum(prices) / len(prices), 2), "($M)")
+"""),
+    PANDAS_INTRO,
+    TO_PANDAS,
+    code("""
+with parquet.read_parquet("space_missions.parquet", predicates=[("Company", "==", "SpaceX")]) as reader:
+    df = to_pandas(reader)
+
+df.head()
 """),
     md("""
-## Write Parquet
+## Write a file
 
-`write_parquet` turns a morsel into Parquet bytes (zstd-compressed by default). Read it back to check it round-trips.
+`write_parquet` turns a morsel into Parquet bytes (zstd-compressed by default).
 """),
     code("""
-data = parquet.write_parquet(spacex)
-with open("spacex.parquet", "wb") as f:
-    f.write(data)
+with parquet.read_parquet("space_missions.parquet", predicates=[("Mission_Status", "==", "Success")]) as reader:
+    successes = next(iter(reader))
 
-print(len(data), "bytes;", parquet.read_metadata("spacex.parquet").num_rows, "rows read back")
-"""),
-    md("""
-## Stream batches at constant memory
-
-`open_parquet_writer` writes one row group per call to `write_row_group`, passing bytes to your sink as it goes, so a large conversion never holds the whole file in memory.
-"""),
-    code("""
 with open("successes.parquet", "wb") as f:
+    f.write(parquet.write_parquet(successes))
+
+print(parquet.read_metadata("successes.parquet").num_rows, "rows written")
+"""),
+    md("""
+## Write a big file a batch at a time
+
+`open_parquet_writer` writes one row group per `write_row_group` call and passes the bytes to your sink as it goes, so memory stays flat however large the output.
+"""),
+    code("""
+with open("copy.parquet", "wb") as f:
     with parquet.open_parquet_writer(f.write) as writer:
-        with parquet.read_parquet(
-            "space_missions.parquet", predicates=[("Mission_Status", "==", "Success")]
-        ) as reader:
+        with parquet.read_parquet("space_missions.parquet") as reader:
             for morsel in reader:
                 writer.write_row_group(morsel)
 
-print(parquet.read_metadata("successes.parquet").num_rows, "successful launches written")
+print(parquet.read_metadata("copy.parquet").num_rows, "rows written")
+"""),
+    md("""
+## Convert to another format
+
+Rugo's readers and writers share the morsel, so converting is a read and a write. Here Parquet becomes CSV.
+"""),
+    code("""
+from rugo import csv
+
+with parquet.read_parquet("space_missions.parquet") as reader:
+    with open("space_missions.csv", "wb") as f:
+        for i, morsel in enumerate(reader):
+            f.write(csv.write_csv(morsel, header=(i == 0)))
+
+print(open("space_missions.csv").readline())
 """),
 ])
 
 # ---------------------------------------------------------------- csv
 notebook("csv", [
-    header("csv", "Read and write CSV with rugo",
-           "Rugo reads and writes CSV with no PyArrow, pandas or NumPy. Column types are inferred from a sample, or declared up front; columns and rows you don't ask for are dropped as the file is parsed."),
+    header("csv", "How to use rugo with CSV",
+           "Read a CSV file, check its inferred types, read only the columns and rows you need, load it into pandas, and write CSV - with rugo, which needs no PyArrow, pandas or NumPy of its own."),
     INSTALL,
     download("space_missions.csv"),
     md("""
-## Read the schema
+## Read a file
 
-`read_metadata` counts the rows and infers each column's type from the first rows. The first launches in this file have no price, so `Price` shows as text here; `read_csv` samples non-empty values instead, and reads it as a float.
+`read_csv` is a context manager that yields a **morsel** - a batch of typed columns. Column types are inferred from a sample of each column's values.
 """),
     code("""
 from rugo import csv
 
+with csv.read_csv("space_missions.csv") as reader:
+    for morsel in reader:
+        print(morsel)
+"""),
+    md("""
+## Look at the schema
+
+`read_metadata` counts the rows and infers each column's type from the first rows. The first launches in this file have no price, so `Price` shows as text here; `read_csv` samples non-empty values instead, and reads it as a float.
+"""),
+    code("""
 meta = csv.read_metadata("space_missions.csv")
 print(meta.num_rows, "rows")
 for column in meta.schema_columns:
     print(column)
 """),
     md("""
-## Read the whole file
+## Declare the types you know
 
-`read_csv` is a context manager that yields a **morsel** - a batch of typed columns.
-"""),
-    code("""
-with csv.read_csv("space_missions.csv") as reader:
-    for morsel in reader:
-        print(morsel)
-"""),
-    md("""
-## Declare types you already know
-
-Inference picks numbers and text. The launch time is ISO-8601 text in the file; declare it with `explicit_schema` and it's parsed straight into a timestamp.
+Pass `explicit_schema` and a column is parsed straight into that type. The launch time is ISO-8601 text in the file; declare it as a timestamp.
 """),
     code("""
 with csv.read_csv("space_missions.csv", explicit_schema={"Lauched_at": "TIMESTAMP[us]"}) as reader:
@@ -201,9 +251,17 @@ for name, kind in zip(morsel.column_names, morsel.column_types):
     print(f"{name.decode():16} {kind}")
 """),
     md("""
-## Read only what you need
+## Read only some columns
+"""),
+    code("""
+with csv.read_csv("space_missions.csv", columns=["Company", "Mission", "Price"]) as reader:
+    for morsel in reader:
+        print(morsel)
+"""),
+    md("""
+## Filter rows as you read
 
-`columns` picks the columns; `predicates` filters rows as they're parsed. A predicate value must match the column's type - `Price` is a float, so compare it with a float.
+`predicates` is a list of `(column, operator, value)`, applied as the file is parsed. The value must match the column's type - `Price` is a float, so compare it with a float.
 """),
     code("""
 with csv.read_csv(
@@ -218,46 +276,83 @@ print(expensive)
 """),
     PYTHON_VALUES,
     code("""
-companies = expensive.column("Company").to_pylist()
-print(sorted(set(companies)))
+print(sorted(set(expensive.column("Company").to_pylist())))
+"""),
+    PANDAS_INTRO,
+    TO_PANDAS,
+    code("""
+with csv.read_csv("space_missions.csv", explicit_schema={"Lauched_at": "TIMESTAMP[us]"}) as reader:
+    df = to_pandas(reader)
+
+df.head()
 """),
     md("""
-## Write CSV
+## Write a file
 
-`write_csv` turns a morsel into RFC 4180 CSV bytes. Pass `delimiter="\\t"` for TSV, and read it back the same way.
+`write_csv` turns a morsel into RFC 4180 CSV bytes. Pass `delimiter="\\t"` for tab-separated output, and read it back the same way.
 """),
     code("""
+with open("expensive.csv", "wb") as f:
+    f.write(csv.write_csv(expensive))
+
 with open("expensive.tsv", "wb") as f:
     f.write(csv.write_csv(expensive, delimiter="\\t"))
 
 with csv.read_csv("expensive.tsv", delimiter="\\t") as reader:
     print(next(iter(reader)).num_rows, "rows read back from the TSV")
 """),
+    md("""
+## Convert to Parquet
+
+Rugo's readers and writers share the morsel, so converting is a read and a write - and the Parquet file keeps the types, including the declared timestamp.
+"""),
+    code("""
+from rugo import parquet
+
+with csv.read_csv("space_missions.csv", explicit_schema={"Lauched_at": "TIMESTAMP[us]"}) as reader:
+    with open("space_missions.parquet", "wb") as f:
+        with parquet.open_parquet_writer(f.write) as writer:
+            for morsel in reader:
+                writer.write_row_group(morsel)
+
+for column in parquet.read_metadata("space_missions.parquet").schema_columns:
+    print(f"{column.name:16} {column.logical_type}")
+"""),
 ])
 
 # ---------------------------------------------------------------- jsonl
 notebook("jsonl", [
-    header("jsonl", "Read and write JSON Lines with rugo",
-           "Rugo reads and writes JSON Lines (one JSON object per line) with no PyArrow, pandas or NumPy. Fields you don't ask for are skipped without being parsed into values, and rows are filtered as they're read."),
+    header("jsonl", "How to use rugo with JSON Lines",
+           "Read a JSON Lines file (one JSON object per line), set the types you need, read only the fields and rows you need, load it into pandas, and write JSON Lines - with rugo, which needs no PyArrow, pandas or NumPy of its own."),
     INSTALL,
     download("space_missions.jsonl"),
     md("""
-## Read the schema
+## Read a file
 
-`read_metadata` counts the lines and infers each field's type from the first few rows - which, as the next step shows, isn't always enough.
+`read_jsonl` is a context manager that yields a **morsel** - a batch of typed columns. Types are inferred from the first few rows.
 """),
     code("""
 from rugo import jsonl
 
+with jsonl.read_jsonl("space_missions.jsonl") as reader:
+    for morsel in reader:
+        print(morsel)
+"""),
+    md("""
+## Look at the schema
+
+`read_metadata` counts the lines and infers each field's type from the first few rows.
+"""),
+    code("""
 meta = jsonl.read_metadata("space_missions.jsonl")
 print(meta.num_rows, "rows")
 for column in meta.schema_columns:
     print(column)
 """),
     md("""
-## Declare types inference can't see
+## Declare the types you know
 
-Types are inferred from a small sample - here the first launches have no price, so `Price` looks like text. `explicit_schema` declares a field's type; the launch time is declared as a timestamp too.
+The first launches have no price, so a small sample sees `Price` as text. `explicit_schema` sets a field's type; the launch time is declared as a timestamp too. (`infer_sample_size=1000` would also find the float.)
 """),
     code("""
 SCHEMA = {"Price": "FLOAT64", "Lauched_at": "TIMESTAMP[us]"}
@@ -267,12 +362,21 @@ with jsonl.read_jsonl("space_missions.jsonl", explicit_schema=SCHEMA) as reader:
 
 for name, kind in zip(morsel.column_names, morsel.column_types):
     print(f"{name.decode():16} {kind}")
-print(morsel)
 """),
     md("""
-## Read only what you need
+## Read only some fields
 
-`columns` picks fields; `predicates` filters rows as they're read. Declare types only for the fields you read.
+Fields you don't name are skipped without being turned into values.
+"""),
+    code("""
+with jsonl.read_jsonl("space_missions.jsonl", columns=["Company", "Mission"]) as reader:
+    for morsel in reader:
+        print(morsel)
+"""),
+    md("""
+## Filter rows as you read
+
+`predicates` is a list of `(column, operator, value)`, applied as lines are read. Declare types only for the fields you read.
 """),
     code("""
 with jsonl.read_jsonl(
@@ -289,70 +393,109 @@ print(spacex)
     PYTHON_VALUES,
     code("""
 prices = [p for p in spacex.column("Price").to_pylist() if p is not None]
-print(len(prices), "with a price; cheapest", min(prices), "most expensive", max(prices), "($M)")
+print("cheapest", min(prices), "- most expensive", max(prices), "($M)")
+"""),
+    PANDAS_INTRO,
+    TO_PANDAS,
+    code("""
+with jsonl.read_jsonl("space_missions.jsonl", explicit_schema=SCHEMA) as reader:
+    df = to_pandas(reader)
+
+df.head()
 """),
     md("""
-## Write JSON Lines
+## Write a file
 
-`write_jsonl` turns a morsel into JSON Lines bytes. Read it back to check it round-trips.
+`write_jsonl` turns a morsel into JSON Lines bytes.
 """),
     code("""
 with open("spacex.jsonl", "wb") as f:
     f.write(jsonl.write_jsonl(spacex))
 
 print(open("spacex.jsonl").readline())
-print(jsonl.read_metadata("spacex.jsonl").num_rows, "rows read back")
+print(jsonl.read_metadata("spacex.jsonl").num_rows, "rows written")
+"""),
+    md("""
+## Convert to Parquet
+
+Rugo's readers and writers share the morsel, so converting is a read and a write - with the declared types carried into the Parquet file.
+"""),
+    code("""
+from rugo import parquet
+
+with jsonl.read_jsonl("space_missions.jsonl", explicit_schema=SCHEMA) as reader:
+    with open("space_missions.parquet", "wb") as f:
+        with parquet.open_parquet_writer(f.write) as writer:
+            for morsel in reader:
+                writer.write_row_group(morsel)
+
+for column in parquet.read_metadata("space_missions.parquet").schema_columns:
+    print(f"{column.name:16} {column.logical_type}")
 """),
 ])
 
 # ---------------------------------------------------------------- avro
 notebook("avro", [
-    header("avro", "Read Avro with rugo",
-           "Rugo **reads** Avro object container files - the format Kafka sinks, Hadoop-era data lakes and Iceberg manifests are written in - with no PyArrow, pandas or NumPy. **It doesn't write Avro**: it's a reader only. The last section times it against fastavro and the Apache `avro` package."),
+    header("avro", "How to use rugo with Avro",
+           "Read an Avro file, look at its schema, read only the fields you need, filter rows, load it into pandas, and convert it to Parquet - with rugo, which needs no PyArrow, pandas or NumPy of its own. **Rugo reads Avro; it doesn't write it.**"),
     INSTALL,
     download("space_missions.avro"),
     md("""
-## Read the schema, not the data
+## Read a file
 
-An Avro file carries its writer schema in its header. `read_metadata` returns it, with the codec, without decoding a record.
+`read_avro` is a context manager that yields **morsels** - batches of typed columns, made of whole Avro blocks. Logical types are decoded (the launch time arrives as a timestamp), enums arrive as their symbol, and a nested record arrives as JSON text.
 """),
     code("""
 from rugo import avro
 
+with avro.read_avro("space_missions.avro") as reader:
+    for morsel in reader:
+        print(morsel)
+"""),
+    md("""
+## Look at the schema without reading the data
+
+An Avro file carries the schema it was written with in its header. `read_metadata` returns it, with the compression codec, without decoding a record. `["null", "double"]` is how Avro spells a nullable column; `Rocket` is a nested record.
+"""),
+    code("""
 meta = avro.read_metadata("space_missions.avro")
 print("codec:", meta.codec)
 for field in meta.schema["fields"]:
     print(f"{field['name']:16} {field['type']}")
 """),
     md("""
-`["null", "double"]` is how Avro spells a nullable column. `Rocket` is a nested record holding a name and an enum.
+## Read only some fields
 
-## Read the whole file
-
-`read_avro` is a context manager that yields **morsels** - batches of typed columns, made of whole Avro blocks. Logical types are decoded (the launch time arrives as a timestamp), enums arrive as their symbol, and a nested record arrives as JSON text.
-"""),
-    code("""
-with avro.read_avro("space_missions.avro") as reader:
-    for morsel in reader:
-        print(morsel)
-"""),
-    md("""
-## Read only the fields you need
-
-`columns` picks fields. A dotted name reads one field out of a nested record as an ordinary column. Avro has no statistics, so there's no `predicates` argument - filter the morsel's values instead.
+Name the fields you want. A dotted name reads one field out of a nested record as an ordinary column.
 """),
     code("""
 with avro.read_avro(
     "space_missions.avro",
     columns=["Company", "Mission", "Rocket.Name", "Rocket.Status"],
 ) as reader:
-    morsel = next(iter(reader))
+    for morsel in reader:
+        print(morsel)
+"""),
+    md("""
+## Filter rows
 
-print(morsel)
-active = [name for name, status in zip(morsel.column("Rocket.Name").to_pylist(),
-                                       morsel.column("Rocket.Status").to_pylist())
-          if status == "Active"]
-print(len(set(active)), "rockets still active")
+An Avro file has no statistics a reader could use to skip records, so there's no `predicates` argument: read the fields you need and filter the values.
+"""),
+    code("""
+with avro.read_avro("space_missions.avro", columns=["Company", "Mission", "Price"]) as reader:
+    rows = [
+        (company, mission, price)
+        for morsel in reader
+        for company, mission, price in zip(
+            morsel.column("Company").to_pylist(),
+            morsel.column("Mission").to_pylist(),
+            morsel.column("Price").to_pylist(),
+        )
+        if company == "SpaceX" and price is not None and price < 60
+    ]
+
+print(len(rows), "cheap SpaceX launches")
+print(rows[:3])
 """),
     md("""
 ## Read through a reader schema
@@ -371,114 +514,32 @@ reader_schema = {
 }
 
 with avro.read_avro("space_missions.avro", reader_schema=reader_schema) as reader:
-    print(next(iter(reader)))
+    for morsel in reader:
+        print(morsel)
+"""),
+    PANDAS_INTRO,
+    TO_PANDAS,
+    code("""
+with avro.read_avro("space_missions.avro", columns=["Company", "Mission", "Price", "Rocket.Name"]) as reader:
+    df = to_pandas(reader)
+
+df[df["Company"] == "SpaceX"].head()
 """),
     md("""
-## Compare with fastavro and the Apache `avro` package
+## Convert to Parquet
 
-Rugo doesn't write Avro, so fastavro writes a 100,000-row test file: 20 fields, deflate-compressed, in the mix of an event stream. Each reader then reads it twice - every field, and just 3 fields (rugo is given `columns`; the others are given a reader schema of those fields, which is how they skip the rest).
-
-rugo returns typed columns, while fastavro and `avro` return a Python dict per record, so rugo is also timed with every column converted to Python values (`rugo+pylist`) - the fair comparison if you want Python objects at the end.
+Rugo doesn't write Avro, but it writes Parquet, CSV and JSON Lines - and readers and writers share the morsel, so converting is a read and a write. The Avro schema's types are carried into the Parquet file.
 """),
     code("""
-%pip install -q fastavro avro
-"""),
-    code("""
-import datetime, decimal, io, random
-import fastavro
+from rugo import parquet
 
-WORDS = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel"]
-schema = {"type": "record", "name": "Event", "fields": [
-    {"name": "id", "type": "long"}, {"name": "user_id", "type": "long"},
-    {"name": "small", "type": "int"}, {"name": "amount", "type": "double"},
-    {"name": "ratio", "type": "float"}, {"name": "flag", "type": "boolean"},
-    {"name": "event", "type": "string"},
-    {"name": "country", "type": {"type": "enum", "name": "Country", "symbols": ["AU", "DE", "GB", "JP", "US"]}},
-    {"name": "name", "type": "string"}, {"name": "url", "type": "string"},
-    {"name": "note", "type": ["null", "string"]}, {"name": "score", "type": ["double", "null"]},
-    {"name": "created_at", "type": {"type": "long", "logicalType": "timestamp-micros"}},
-    {"name": "event_date", "type": {"type": "int", "logicalType": "date"}},
-    {"name": "price", "type": {"type": "bytes", "logicalType": "decimal", "precision": 12, "scale": 2}},
-    {"name": "session", "type": {"type": "fixed", "name": "Session", "size": 16}},
-    {"name": "counter", "type": ["null", "long"]},
-    {"name": "device", "type": {"type": "record", "name": "Device", "fields": [
-        {"name": "os", "type": "string"}, {"name": "model", "type": ["null", "string"]}]}},
-    {"name": "tags", "type": {"type": "array", "items": "string"}},
-    {"name": "metrics", "type": {"type": "map", "values": "double"}},
-]}
+with avro.read_avro("space_missions.avro") as reader:
+    with open("space_missions.parquet", "wb") as f:
+        with parquet.open_parquet_writer(f.write) as writer:
+            for morsel in reader:
+                writer.write_row_group(morsel)
 
-def records(n, rnd=random.Random(42)):
-    start = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
-    for i in range(n):
-        yield {"id": i, "user_id": rnd.randrange(5_000_000), "small": rnd.randrange(-1000, 1000),
-               "amount": rnd.uniform(0, 10_000), "ratio": rnd.random(), "flag": rnd.random() < 0.3,
-               "event": rnd.choice(["click", "view", "purchase"]),
-               "country": rnd.choice(["AU", "DE", "GB", "JP", "US"]),
-               "name": " ".join(rnd.choice(WORDS) for _ in range(rnd.randint(1, 4))),
-               "url": f"https://example.com/{rnd.choice(WORDS)}/{rnd.randrange(1_000_000)}",
-               "note": None if rnd.random() < 0.7 else rnd.choice(WORDS),
-               "score": None if rnd.random() < 0.1 else rnd.gauss(50, 15),
-               "created_at": start + datetime.timedelta(seconds=i),
-               "event_date": start.date() + datetime.timedelta(days=rnd.randrange(365)),
-               "price": decimal.Decimal(rnd.randrange(-10_000_000, 100_000_000)).scaleb(-2),
-               "session": rnd.randbytes(16), "counter": None if rnd.random() < 0.5 else rnd.randrange(1 << 40),
-               "device": {"os": rnd.choice(["ios", "android"]), "model": None if rnd.random() < 0.2 else "m1"},
-               "tags": [rnd.choice(WORDS) for _ in range(rnd.randint(0, 3))],
-               "metrics": {rnd.choice(WORDS): rnd.random() for _ in range(rnd.randint(0, 3))}}
-
-buffer = io.BytesIO()
-fastavro.writer(buffer, fastavro.parse_schema(schema), records(100_000), codec="deflate", sync_interval=64_000)
-data = buffer.getvalue()
-print(f"{len(data):,} bytes")
-"""),
-    code("""
-import json, time
-from avro.datafile import DataFileReader
-from avro.io import DatumReader
-from avro.schema import parse
-
-NARROW = ["id", "amount", "country"]
-narrow_schema = {**schema, "fields": [f for f in schema["fields"] if f["name"] in NARROW]}
-
-def rugo_read(columns, to_python=False):
-    with avro.read_avro(data, columns=columns) as reader:
-        for morsel in reader:
-            if to_python:
-                for name in morsel.column_names:
-                    morsel.column(name).to_pylist()
-
-def fastavro_read(columns):
-    for _ in fastavro.reader(io.BytesIO(data), reader_schema=narrow_schema if columns else None):
-        pass
-
-def apache_read(columns):
-    readers_schema = parse(json.dumps(narrow_schema)) if columns else None
-    for _ in DataFileReader(io.BytesIO(data), DatumReader(readers_schema=readers_schema)):
-        pass
-
-readers = {
-    "rugo": lambda c: rugo_read(c),
-    "rugo+pylist": lambda c: rugo_read(c, to_python=True),
-    "fastavro": fastavro_read,
-    "avro (Apache)": apache_read,
-}
-
-def best_of(fn, columns, runs):
-    times = []
-    for _ in range(runs):
-        start = time.perf_counter()
-        fn(columns)
-        times.append(time.perf_counter() - start)
-    return min(times)
-
-for label, columns in (("every field", None), ("3 fields", NARROW)):
-    print(label)
-    base = best_of(readers["rugo"], columns, 3)
-    for name, fn in readers.items():
-        seconds = base if name == "rugo" else best_of(fn, columns, 1 if name.startswith("avro") else 3)
-        print(f"  {name:14} {seconds * 1000:9.1f} ms   {seconds / base:6.1f}x rugo")
-"""),
-    md("""
-Timings depend on the machine - on Colab you share one with other notebooks, so expect some noise. The published comparison, measured on a quiet machine with a script you can run yourself, is at [rugo.dev](https://rugo.dev/#performance).
+for column in parquet.read_metadata("space_missions.parquet").schema_columns:
+    print(f"{column.name:16} {column.logical_type}")
 """),
 ])
