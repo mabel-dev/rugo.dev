@@ -984,7 +984,8 @@
                     column converted to Python values: that's the
                     like-for-like column if you want Python objects at the end.
                 </p>
-                <table class="perf-table" style="margin-bottom: 0.5rem">
+                <div style="overflow-x: auto; margin-bottom: 0.5rem">
+                <table class="perf-table" style="margin-bottom: 0">
                     <thead>
                         <tr>
                             <th>Query shape</th>
@@ -1011,6 +1012,7 @@
                         </tr>
                     </tbody>
                 </table>
+                </div>
                 <p style="font-size: 0.8rem; color: var(--muted)">
                     Best of 5 runs, each reader on one thread, decoding the same
                     in-memory file: rugo 0.5.0, fastavro 1.13.1, avro 1.12.2,
