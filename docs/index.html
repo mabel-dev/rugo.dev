@@ -672,7 +672,7 @@
                     Parquet, CSV and JSONL in 7.3 MB. No PyArrow.
                 </div>
                 <h1>
-                    Read and write Parquet, CSV, and JSONL.<br /><em
+                    Read and write Parquet, CSV, and JSONL. Read Avro.<br /><em
                         >No PyArrow. No Pandas. No NumPy.</em
                     >
                 </h1>
@@ -971,6 +971,62 @@
                     the better rugo does — every column it skips and every row
                     it drops is work it never pays for.
                 </p>
+
+                <h3 style="margin: 2.5rem 0 0.75rem">
+                    Avro — 200k rows, 20 fields, deflate, 21.6 MB
+                </h3>
+                <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 1rem">
+                    Against the two Python Avro readers: fastavro, and
+                    <code>avro</code>, the Apache project's reference
+                    implementation. Rugo reads Avro only — it doesn't write it.
+                    Rugo returns typed columns while the others return one
+                    Python dict per record, so rugo is also timed with every
+                    column converted to Python values: that's the
+                    like-for-like column if you want Python objects at the end.
+                </p>
+                <table class="perf-table" style="margin-bottom: 0.5rem">
+                    <thead>
+                        <tr>
+                            <th>Query shape</th>
+                            <th>Rugo</th>
+                            <th>Rugo → Python</th>
+                            <th>fastavro</th>
+                            <th>avro (Apache)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Every field</td>
+                            <td class="win">~116 ms</td>
+                            <td class="win">~213 ms</td>
+                            <td class="lose">~912 ms</td>
+                            <td class="lose">~5.81 s</td>
+                        </tr>
+                        <tr>
+                            <td>3 of 20 fields</td>
+                            <td class="win">~81 ms</td>
+                            <td class="win">~88 ms</td>
+                            <td class="lose">~712 ms</td>
+                            <td class="lose">~3.48 s</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p style="font-size: 0.8rem; color: var(--muted)">
+                    Best of 5 runs, each reader on one thread, decoding the same
+                    in-memory file: rugo 0.5.0, fastavro 1.13.1, avro 1.12.2,
+                    CPython 3.13 on an Apple-silicon Mac, measured 2026-10-11.
+                    That's 7.8× faster than fastavro and 50× faster than
+                    <code>avro</code> reading every field, and still 4.3× and
+                    27× once rugo's columns are turned into Python values.
+                    fastavro and <code>avro</code> skip fields through a reader
+                    schema; rugo is given <code>columns</code>. They are
+                    smaller installs — 3.1 MB and 0.5 MB against rugo's
+                    8.1 MB, which covers four formats. The file is written by
+                    fastavro, with an event-stream mix of types: scalars,
+                    strings, nullable unions, enums, timestamps, decimals and
+                    nested records, arrays and maps. Reproduce it with
+                    <a href="https://github.com/mabel-dev/rugo.dev/blob/main/benchmarks/measure_avro.py"><code>benchmarks/measure_avro.py</code></a>.
+                </p>
             </div>
         </section>
 
@@ -1022,11 +1078,11 @@
         <section id="quickstart">
             <div class="container">
                 <div class="section-label">Quickstart</div>
-                <h2>One install, three formats.</h2>
+                <h2>One install, four formats.</h2>
                 <p class="section-intro">
-                    Rugo reads and writes Parquet, CSV, and JSONL. The API is
-                    the same shape across all three: pass a path or bytes, get
-                    columnar data back.
+                    Rugo reads and writes Parquet, CSV, and JSONL, and reads
+                    Avro. The API is the same shape across all four: pass a
+                    path or bytes, get columnar data back.
                 </p>
 
                 <div class="install-block" style="margin-bottom: 2.5rem">
@@ -1075,6 +1131,15 @@ data = csv.<span class="f">write_csv</span>(morsel)</pre>
 
 meta = jsonl.<span class="f">read_metadata</span>(<span class="s">"events.jsonl"</span>)
 data = jsonl.<span class="f">write_jsonl</span>(morsel)</pre>
+
+                    <pre style="margin-top: 1rem"><span class="k">from</span> rugo <span class="k">import</span> avro
+
+<span class="c"># Same shape — reader only; rugo doesn't write Avro</span>
+<span class="k">with</span> avro.<span class="f">read_avro</span>(<span class="s">"events.avro"</span>, columns=[<span class="s">"id"</span>, <span class="s">"device.os"</span>]) <span class="k">as</span> reader:
+    <span class="k">for</span> morsel <span class="k">in</span> reader:
+        <span class="f">print</span>(morsel.<span class="f">column</span>(<span class="s">"device.os"</span>).<span class="f">to_pylist</span>())
+
+meta = avro.<span class="f">read_metadata</span>(<span class="s">"events.avro"</span>)   <span class="c"># writer schema + codec</span></pre>
                 </div>
 
                 <!-- CLI -->
@@ -1113,6 +1178,15 @@ data = jsonl.<span class="f">write_jsonl</span>(morsel)</pre>
                 </div>
 
                 <p style="margin-top: 1.5rem">
+                    Each format has a notebook you can run in your browser,
+                    on the same 4,630 space launches:
+                    <a href="https://colab.research.google.com/github/mabel-dev/rugo.dev/blob/main/docs/notebooks/parquet.ipynb">Parquet</a>,
+                    <a href="https://colab.research.google.com/github/mabel-dev/rugo.dev/blob/main/docs/notebooks/csv.ipynb">CSV</a>,
+                    <a href="https://colab.research.google.com/github/mabel-dev/rugo.dev/blob/main/docs/notebooks/jsonl.ipynb">JSONL</a> and
+                    <a href="https://colab.research.google.com/github/mabel-dev/rugo.dev/blob/main/docs/notebooks/avro.ipynb">Avro</a>
+                    (Google Colab).
+                </p>
+                <p style="margin-top: 0.75rem">
                     A complete worked example on a real dataset is available in
                     <a href="https://colab.research.google.com/drive/1EQeN0xB53sFZVOQ_MZiW4-W5-skW3WaX?usp=sharing">Google Colab</a>
                     or as a
@@ -1125,11 +1199,12 @@ data = jsonl.<span class="f">write_jsonl</span>(morsel)</pre>
         <section id="formats">
             <div class="container">
                 <div class="section-label">Formats</div>
-                <h2>Parquet, CSV, JSONL — read and write.</h2>
+                <h2>Parquet, CSV, JSONL — read and write. Avro — read.</h2>
                 <p class="section-intro">
-                    All three formats support column projection and predicate
-                    filtering. Writers produce standard output readable by any
-                    compliant tool.
+                    Every format supports column projection; Parquet, CSV and
+                    JSONL also filter rows with predicates. Writers produce
+                    standard output readable by any compliant tool. Avro is
+                    reader-only — rugo doesn't write it.
                 </p>
 
                 <div class="tabs">
@@ -1139,6 +1214,9 @@ data = jsonl.<span class="f">write_jsonl</span>(morsel)</pre>
                     <button class="tab" onclick="showTab('csv')">CSV</button>
                     <button class="tab" onclick="showTab('jsonl')">
                         JSONL
+                    </button>
+                    <button class="tab" onclick="showTab('avro')">
+                        Avro
                     </button>
                 </div>
 
@@ -1204,6 +1282,10 @@ data = parquet.<span class="f">write_parquet</span>(morsel)
     <span class="k">with</span> parquet.<span class="f">open_parquet_writer</span>(f.write) <span class="k">as</span> writer:
         <span class="k">for</span> batch <span class="k">in</span> batches:
             writer.<span class="f">write_row_group</span>(batch)</pre>
+                    <p style="font-size:0.85rem;margin-top:1rem">
+                        <a href="https://colab.research.google.com/github/mabel-dev/rugo.dev/blob/main/docs/notebooks/parquet.ipynb" style="font-weight:600">Run the Parquet notebook in Colab →</a>
+                        <span style="color:var(--muted)">· <a href="notebooks/parquet.ipynb" style="color:var(--muted)">download .ipynb</a></span>
+                    </p>
                 </div>
 
                 <!-- CSV -->
@@ -1254,6 +1336,10 @@ meta = csv.<span class="f">read_metadata</span>(<span class="s">"data.csv"</span
 
 <span class="c"># Write</span>
 csv_bytes = csv.<span class="f">write_csv</span>(morsel)</pre>
+                    <p style="font-size:0.85rem;margin-top:1rem">
+                        <a href="https://colab.research.google.com/github/mabel-dev/rugo.dev/blob/main/docs/notebooks/csv.ipynb" style="font-weight:600">Run the CSV notebook in Colab →</a>
+                        <span style="color:var(--muted)">· <a href="notebooks/csv.ipynb" style="color:var(--muted)">download .ipynb</a></span>
+                    </p>
                 </div>
 
                 <!-- JSONL -->
@@ -1296,6 +1382,62 @@ meta = jsonl.<span class="f">read_metadata</span>(<span class="s">"events.jsonl"
 
 <span class="c"># Write a Morsel to JSONL bytes</span>
 jsonl_bytes = jsonl.<span class="f">write_jsonl</span>(morsel)</pre>
+                    <p style="font-size:0.85rem;margin-top:1rem">
+                        <a href="https://colab.research.google.com/github/mabel-dev/rugo.dev/blob/main/docs/notebooks/jsonl.ipynb" style="font-weight:600">Run the JSONL notebook in Colab →</a>
+                        <span style="color:var(--muted)">· <a href="notebooks/jsonl.ipynb" style="color:var(--muted)">download .ipynb</a></span>
+                    </p>
+                </div>
+
+                <!-- AVRO -->
+                <div id="tab-avro" class="tab-pane">
+                    <div class="api-ref">
+                        <div class="api-fn"><code>read_avro(source, columns, reader_schema)</code> <span class="api-ret">→ context manager, Morsels of whole Avro blocks (up to 65,536 rows each)</span></div>
+                        <dl class="api-params">
+                            <div><dt><code>source: str | bytes</code></dt><dd>filename or buffer — an Avro object container file</dd></div>
+                            <div><dt><code>columns: list[str] = None</code></dt><dd>fields to read; None = all. A dotted name (<code>"device.os"</code>) reads one field out of a nested record as a plain column</dd></div>
+                            <div><dt><code>reader_schema: dict | str = None</code></dt><dd>the schema to read the file as: fields matched by name (or by field id, as Iceberg writes them), missing fields take their default, int→long→float→double widen</dd></div>
+                        </dl>
+                        <div class="api-fn"><code>read_metadata(source)</code> <span class="api-ret">→ AvroMetadata</span></div>
+                        <dl class="api-params">
+                            <div><dt><code>source: str | bytes</code></dt><dd>reads the header only: writer schema, codec, metadata map</dd></div>
+                        </dl>
+                    </div>
+                    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.6rem">
+                        <strong style="color:var(--text)">Decode:</strong>
+                        null, deflate, snappy, zstandard codecs · all primitive types, enum, fixed, date, time, timestamp-millis/-micros, decimal (up to 38 digits), arrays of scalars · records, maps and arrays of nested values arrive as JSON text · unions of <code>["null", T]</code>
+                    </p>
+                    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem">
+                        <strong style="color:var(--text)">Reader only.</strong>
+                        Rugo doesn't write Avro. Avro carries no statistics, so
+                        there's no <code>predicates</code> argument — filter
+                        the morsels you get back. Avro timings are in
+                        <a href="#performance">Performance</a>.
+                    </p>
+                    <pre><span class="k">from</span> rugo <span class="k">import</span> avro
+
+<span class="c"># Writer schema and codec, from the header — no record decoded</span>
+meta = avro.<span class="f">read_metadata</span>(<span class="s">"launches.avro"</span>)
+<span class="f">print</span>(meta.codec, meta.columns)
+
+<span class="c"># Projected read — dotted names reach into nested records</span>
+<span class="k">with</span> avro.<span class="f">read_avro</span>(
+    <span class="s">"launches.avro"</span>,
+    columns=[<span class="s">"Company"</span>, <span class="s">"Rocket.Name"</span>],
+) <span class="k">as</span> reader:
+    <span class="k">for</span> morsel <span class="k">in</span> reader:
+        <span class="f">print</span>(morsel.<span class="f">column</span>(<span class="s">"Rocket.Name"</span>).<span class="f">to_pylist</span>())
+
+<span class="c"># Read through a reader schema — drop, add (with defaults) or widen fields</span>
+schema = {<span class="s">"type"</span>: <span class="s">"record"</span>, <span class="s">"name"</span>: <span class="s">"Launch"</span>, <span class="s">"fields"</span>: [
+    {<span class="s">"name"</span>: <span class="s">"Mission"</span>, <span class="s">"type"</span>: <span class="s">"string"</span>},
+    {<span class="s">"name"</span>: <span class="s">"Source"</span>, <span class="s">"type"</span>: <span class="s">"string"</span>, <span class="s">"default"</span>: <span class="s">"archive"</span>},
+]}
+<span class="k">with</span> avro.<span class="f">read_avro</span>(<span class="s">"launches.avro"</span>, reader_schema=schema) <span class="k">as</span> reader:
+    <span class="k">for</span> morsel <span class="k">in</span> reader: ...</pre>
+                    <p style="font-size:0.85rem;margin-top:1rem">
+                        <a href="https://colab.research.google.com/github/mabel-dev/rugo.dev/blob/main/docs/notebooks/avro.ipynb" style="font-weight:600">Run the Avro notebook in Colab →</a>
+                        <span style="color:var(--muted)">· <a href="notebooks/avro.ipynb" style="color:var(--muted)">download .ipynb</a></span>
+                    </p>
                 </div>
             </div>
         </section>
@@ -1456,6 +1598,20 @@ values = vec.<span class="f">to_pylist</span>()  <span class="c"># ["Mercury", "
                         <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
                             <a href="https://colab.research.google.com/drive/1EQeN0xB53sFZVOQ_MZiW4-W5-skW3WaX?usp=sharing" style="font-size:0.85rem;font-weight:600">Run in Colab →</a>
                             <a href="https://github.com/mabel-dev/opteryx-core/blob/main/rugo/space_missions.ipynb" style="font-size:0.85rem;color:var(--muted)">View on GitHub</a>
+                        </div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🧪</div>
+                        <h3>Try each format</h3>
+                        <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 0.75rem">
+                            One notebook per format — read, select, filter and
+                            write (Avro: read only) — runnable in your browser.
+                        </p>
+                        <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
+                            <a href="https://colab.research.google.com/github/mabel-dev/rugo.dev/blob/main/docs/notebooks/parquet.ipynb" style="font-size:0.85rem;font-weight:600">Parquet →</a>
+                            <a href="https://colab.research.google.com/github/mabel-dev/rugo.dev/blob/main/docs/notebooks/csv.ipynb" style="font-size:0.85rem;font-weight:600">CSV →</a>
+                            <a href="https://colab.research.google.com/github/mabel-dev/rugo.dev/blob/main/docs/notebooks/jsonl.ipynb" style="font-size:0.85rem;font-weight:600">JSONL →</a>
+                            <a href="https://colab.research.google.com/github/mabel-dev/rugo.dev/blob/main/docs/notebooks/avro.ipynb" style="font-size:0.85rem;font-weight:600">Avro →</a>
                         </div>
                     </div>
                     <a
