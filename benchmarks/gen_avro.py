@@ -2,8 +2,8 @@
 
     python gen_avro.py <out.avro> <rows> <codec>
 
-Called by measure_avro.py inside its virtualenv. rugo has no Avro writer, so
-fastavro writes the file every reader is timed on.
+Called by measure_avro.py inside its virtualenv. fastavro writes the file every
+reader is timed on, so no reader is timed on its own writer's output.
 
 20 fields in roughly the mix of an event or log stream: fixed-width scalars,
 short and long strings, fixed(16), nullable unions in both branch orders,

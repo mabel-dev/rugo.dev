@@ -1,0 +1,245 @@
+{
+  "date": "2026-10-16T14:16:06+00:00",
+  "machine": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "cpu": "arm",
+    "python": "3.14",
+    "cores": 18
+  },
+  "rows": 200000,
+  "reps": 5,
+  "versions": {
+    "rugo": "0.5.2 opteryx-rugo version 0.9.167 (build 3692) (source build, not on PyPI)",
+    "fastavro": "1.13.1",
+    "avro": "1.12.2"
+  },
+  "writes": {
+    "null/rugo": {
+      "best_ms": 4.7,
+      "median_ms": 5.2,
+      "bytes": 48937356,
+      "rows": 200000
+    },
+    "null/rugo-1t": {
+      "best_ms": 22.3,
+      "median_ms": 22.5,
+      "bytes": 48937356,
+      "rows": 200000
+    },
+    "null/fastavro": {
+      "best_ms": 1051.6,
+      "median_ms": 1070.7,
+      "bytes": 49000057,
+      "rows": 200000
+    },
+    "null/avro": {
+      "best_ms": 7311.7,
+      "median_ms": 7362.9,
+      "bytes": 48952459,
+      "rows": 200000
+    },
+    "deflate/rugo": {
+      "best_ms": 33.1,
+      "median_ms": 34.2,
+      "bytes": 23353640,
+      "rows": 200000
+    },
+    "deflate/rugo-1t": {
+      "best_ms": 353.6,
+      "median_ms": 357.6,
+      "bytes": 23353640,
+      "rows": 200000
+    },
+    "deflate/fastavro": {
+      "best_ms": 1610.4,
+      "median_ms": 1634.3,
+      "bytes": 25362648,
+      "rows": 200000
+    },
+    "deflate/avro": {
+      "best_ms": 8133.0,
+      "median_ms": 8188.3,
+      "bytes": 23849307,
+      "rows": 200000
+    },
+    "zstandard/rugo": {
+      "best_ms": 13.1,
+      "median_ms": 13.9,
+      "bytes": 23601381,
+      "rows": 200000
+    },
+    "zstandard/rugo-1t": {
+      "best_ms": 119.7,
+      "median_ms": 120.3,
+      "bytes": 23601381,
+      "rows": 200000
+    },
+    "zstandard/fastavro": {
+      "best_ms": 1170.0,
+      "median_ms": 1174.5,
+      "bytes": 25824194,
+      "rows": 200000
+    },
+    "zstandard/avro": {
+      "best_ms": 7648.8,
+      "median_ms": 7683.6,
+      "bytes": 24568628,
+      "rows": 200000
+    }
+  },
+  "schema": {
+    "type": "record",
+    "name": "Event",
+    "namespace": "rugo",
+    "fields": [
+      {
+        "name": "id",
+        "type": "long"
+      },
+      {
+        "name": "user_id",
+        "type": "long"
+      },
+      {
+        "name": "small",
+        "type": "int"
+      },
+      {
+        "name": "amount",
+        "type": "double"
+      },
+      {
+        "name": "ratio",
+        "type": "float"
+      },
+      {
+        "name": "flag",
+        "type": "boolean"
+      },
+      {
+        "name": "event",
+        "type": {
+          "type": "enum",
+          "name": "event_enum",
+          "namespace": "rugo",
+          "symbols": [
+            "click",
+            "logout",
+            "purchase",
+            "search",
+            "share",
+            "signup",
+            "view"
+          ]
+        }
+      },
+      {
+        "name": "country",
+        "type": {
+          "type": "enum",
+          "name": "country_enum",
+          "namespace": "rugo",
+          "symbols": [
+            "AU",
+            "BR",
+            "CA",
+            "CN",
+            "DE",
+            "ES",
+            "FR",
+            "GB",
+            "IN",
+            "IT",
+            "JP",
+            "KR",
+            "MX",
+            "NL",
+            "NZ",
+            "PL",
+            "SE",
+            "SG",
+            "US",
+            "ZA"
+          ]
+        }
+      },
+      {
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "name": "url",
+        "type": "string"
+      },
+      {
+        "name": "note",
+        "type": [
+          "null",
+          "string"
+        ]
+      },
+      {
+        "name": "score",
+        "type": [
+          "null",
+          "double"
+        ]
+      },
+      {
+        "name": "created_at",
+        "type": {
+          "type": "long",
+          "logicalType": "timestamp-micros"
+        }
+      },
+      {
+        "name": "event_date",
+        "type": {
+          "type": "int",
+          "logicalType": "date"
+        }
+      },
+      {
+        "name": "price",
+        "type": {
+          "type": "fixed",
+          "name": "decimal_12_2",
+          "namespace": "rugo",
+          "size": 6,
+          "logicalType": "decimal",
+          "precision": 12,
+          "scale": 2
+        }
+      },
+      {
+        "name": "session",
+        "type": "bytes"
+      },
+      {
+        "name": "counter",
+        "type": [
+          "null",
+          "long"
+        ]
+      },
+      {
+        "name": "device",
+        "type": "string"
+      },
+      {
+        "name": "tags",
+        "type": {
+          "type": "array",
+          "items": [
+            "null",
+            "string"
+          ]
+        }
+      },
+      {
+        "name": "metrics",
+        "type": "string"
+      }
+    ]
+  }
+}

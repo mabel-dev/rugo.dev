@@ -10,7 +10,7 @@ fastavro (gen_avro.py), times each (reader, shape) in a fresh process
 (avro_one.py), and writes benchmarks/results/<UTC date>-avro.json. Results are
 only comparable to earlier runs from the same machine.
 
-rugo reads Avro only - it has no Avro writer - so this compares readers.
+This compares readers; benchmarks/measure_avro_write.py compares writers.
 """
 import argparse, datetime, json, os, platform, shutil, subprocess, tempfile, time
 

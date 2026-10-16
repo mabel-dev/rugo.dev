@@ -1,0 +1,191 @@
+#!/usr/bin/env python3
+"""Render the Performance section's charts into docs/index.html from the results files.
+
+    python3 tools/build_perf_charts.py
+
+Each chart in CHARTS is drawn between `<!-- chart:<id> -->` and `<!-- /chart:<id> -->`
+markers in docs/index.html, replacing whatever is there. Every number comes from a
+file in benchmarks/results/ (best-of-N `best_ms`), so the page can't drift from what
+was measured: re-run a benchmark, point CHARTS at the new file, re-run this.
+
+The form (ruled 2026-10-16): big headline multiples over horizontal bars on a LINEAR
+scale - one scale per chart, shared by all its bars, so lengths compare honestly; rugo
+in the win colour, every other library muted; the value printed at each bar's end.
+Plain HTML and CSS, no script.
+"""
+import html, json, os, re
+
+ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+RESULTS = os.path.join(ROOT, "benchmarks", "results")
+PAGE = os.path.join(ROOT, "docs", "index.html")
+
+
+def load(name):
+    with open(os.path.join(RESULTS, name)) as f:
+        return json.load(f)
+
+
+def ms(value):
+    """~76 ms / ~1.24 s, as the page has always written times."""
+    if value >= 1000:
+        return f"~{value / 1000:.2f} s"
+    if value >= 100:
+        return f"~{value:.0f} ms"
+    if value >= 10:
+        return f"~{value:.0f} ms"
+    return f"~{value:.1f} ms"
+
+
+def times(ratio):
+    return f"{ratio:.0f}×" if ratio >= 10 else f"{ratio:.1f}×"
+
+
+# A chart: results section, groups of (label, [(name, key, is_rugo)]), and headline
+# tiles of (big, label). `big` is literal text, ("ratio", a, b) = value(a) / value(b) as
+# "N×", or ("time", key) = that result's time. `label` is literal text, or
+# ("gap", [(rugo_key, other_key), ...], template): the template with {gap} = the widest
+# |rugo - other| over the pairs, in whole ms.
+CHARTS = [
+    {
+        "id": "jsonl-read", "file": "2026-10-10.json", "section": "queries",
+        "groups": [
+            ("SELECT 1 column", [("Rugo", "jsonl/select1/rugo", True), ("PyArrow", "jsonl/select1/pyarrow", False)]),
+            ("WHERE ~10% pass", [("Rugo", "jsonl/p10/rugo", True), ("PyArrow", "jsonl/p10/pyarrow", False)]),
+            ("WHERE ~1% pass", [("Rugo", "jsonl/p1/rugo", True), ("PyArrow", "jsonl/p1/pyarrow", False)]),
+            ("SELECT *", [("Rugo", "jsonl/select_star/rugo", True), ("PyArrow", "jsonl/select_star/pyarrow", False)]),
+        ],
+        "tiles": [
+            (("ratio", "jsonl/p10/pyarrow", "jsonl/p10/rugo"), "faster than PyArrow, filtered to ~10%"),
+            (("ratio", "jsonl/select1/pyarrow", "jsonl/select1/rugo"), "faster, one column of 110"),
+            (("ratio", "jsonl/select_star/pyarrow", "jsonl/select_star/rugo"), "faster, every column"),
+        ],
+    },
+    {
+        "id": "csv-read", "file": "2026-10-10.json", "section": "queries",
+        "groups": [
+            ("SELECT *", [("Rugo", "csv/select_star/rugo", True), ("PyArrow", "csv/select_star/pyarrow", False)]),
+            ("SELECT 2 columns", [("Rugo", "csv/select1/rugo", True), ("PyArrow", "csv/select1/pyarrow", False)]),
+            ("WHERE ~10% pass", [("Rugo", "csv/p10/rugo", True), ("PyArrow", "csv/p10/pyarrow", False)]),
+            ("WHERE ~1% pass", [("Rugo", "csv/p1/rugo", True), ("PyArrow", "csv/p1/pyarrow", False)]),
+        ],
+        "tiles": [
+            ("Parity", ("gap", [(f"csv/{q}/rugo", f"csv/{q}/pyarrow") for q in ("select_star", "select1", "p10", "p1")],
+                        "with PyArrow — within {gap} ms on every query")),
+        ],
+    },
+    {
+        "id": "avro-read", "file": "2026-10-11-avro.json", "section": "reads",
+        "groups": [
+            ("Every field", [("Rugo", "all/rugo", True), ("Rugo → Python", "all/rugo+pylist", True),
+                             ("fastavro", "all/fastavro", False), ("avro (Apache)", "all/avro", False)]),
+            ("3 of 20 fields", [("Rugo", "narrow/rugo", True), ("Rugo → Python", "narrow/rugo+pylist", True),
+                                ("fastavro", "narrow/fastavro", False), ("avro (Apache)", "narrow/avro", False)]),
+        ],
+        "tiles": [
+            (("ratio", "all/fastavro", "all/rugo"), "faster than fastavro"),
+            (("ratio", "all/avro", "all/rugo"), "faster than avro (Apache)"),
+        ],
+    },
+    {
+        "id": "avro-write", "file": "2026-10-16-avro-write.json", "section": "writes",
+        "groups": [
+            ("deflate", [("Rugo", "deflate/rugo", True), ("Rugo, 1 thread", "deflate/rugo-1t", True),
+                         ("fastavro", "deflate/fastavro", False), ("avro (Apache)", "deflate/avro", False)]),
+            ("zstandard", [("Rugo", "zstandard/rugo", True), ("Rugo, 1 thread", "zstandard/rugo-1t", True),
+                           ("fastavro", "zstandard/fastavro", False), ("avro (Apache)", "zstandard/avro", False)]),
+            ("Uncompressed", [("Rugo", "null/rugo", True), ("Rugo, 1 thread", "null/rugo-1t", True),
+                              ("fastavro", "null/fastavro", False), ("avro (Apache)", "null/avro", False)]),
+        ],
+        "tiles": [
+            (("ratio", "deflate/fastavro", "deflate/rugo"), "faster than fastavro"),
+            (("ratio", "deflate/avro", "deflate/rugo"), "faster than avro (Apache)"),
+            (("ratio", "deflate/fastavro", "deflate/rugo-1t"), "faster than fastavro on one thread"),
+        ],
+    },
+]
+
+
+WRITES = "2026-10-16-writes.json"
+CHARTS += [
+    {
+        "id": "parquet-write", "file": WRITES, "section": "writes",
+        "groups": [(None, [("Rugo", "parquet/rugo", True), ("polars", "parquet/polars", False),
+                                      ("DuckDB", "parquet/duckdb", False), ("PyArrow", "parquet/pyarrow", False),
+                                      ("fastparquet", "parquet/fastparquet", False)])],
+        "tiles": [(("time", "parquet/rugo"), "rugo, with its bloom filters and page index off — a plain Parquet write")],
+    },
+    {
+        "id": "csv-write", "file": WRITES, "section": "writes",
+        "groups": [(None, [("Rugo", "csv/rugo", True), ("polars", "csv/polars", False),
+                            ("PyArrow", "csv/pyarrow", False), ("DuckDB", "csv/duckdb", False),
+                            ("Python (csv)", "csv/python", False)])],
+        "tiles": [
+            (("ratio", "csv/python", "csv/rugo"), "faster than Python's csv module"),
+            ("Parity", ("gap", [("csv/rugo", "csv/pyarrow"), ("csv/rugo", "csv/duckdb")],
+                        "with PyArrow and DuckDB — within {gap} ms")),
+        ],
+    },
+    {
+        "id": "jsonl-write", "file": WRITES, "section": "writes",
+        "groups": [(None, [("Rugo", "jsonl/rugo", True), ("polars", "jsonl/polars", False),
+                              ("DuckDB", "jsonl/duckdb", False), ("Python (json)", "jsonl/python", False)])],
+        "tiles": [
+            (("ratio", "jsonl/python", "jsonl/rugo"), "faster than Python's json module"),
+            (("ratio", "jsonl/duckdb", "jsonl/rugo"), "faster than DuckDB"),
+        ],
+    },
+]
+
+
+def render(chart):
+    data = load(chart["file"])[chart["section"]]
+    value = lambda key: data[key]["best_ms"]
+    top = max(value(k) for _, bars in chart["groups"] for _, k, _ in bars)
+    out = ['<div class="bench">', '<div class="bench-big">']
+    for big, label in chart["tiles"]:
+        tone = ""  # a multiple or a parity claim is a win (green); a plain time is not
+        if type(big) is tuple and big[0] == "ratio":
+            big = times(value(big[1]) / value(big[2]))
+        elif type(big) is tuple and big[0] == "time":
+            big = ms(value(big[1]))
+            tone = " is-plain"
+        if type(label) is tuple:
+            _, pairs, template = label
+            gap = max(abs(value(a) - value(b)) for a, b in pairs)
+            label = template.format(gap=f"{gap:.0f}")
+        out.append(f'<div class="big"><span class="big-n{tone}">{html.escape(big)}</span>'
+                   f'<span class="big-l">{html.escape(label)}</span></div>')
+    out.append("</div>")
+    for label, bars in chart["groups"]:
+        # A chart of one group is titled on the page; its group needs no label of its own.
+        shape = "" if label is None else f'<div class="bench-shape">{html.escape(label)}</div>'
+        out.append(f'<div class="bench-group">{shape}')
+        for name, key, rugo in bars:
+            v = value(key)
+            width = max(0.4, v / top * 78)  # the longest bar leaves room for its value
+            out.append(
+                f'<div class="bar-row" title="{html.escape(name)}: {ms(v)}">'
+                f'<span class="bar-name">{html.escape(name)}</span>'
+                f'<span class="bar-track"><span class="bar{" is-rugo" if rugo else ""}" style="width:{width:.2f}%"></span>'
+                f'<span class="bar-val{" is-rugo" if rugo else ""}">{ms(v)}</span></span></div>')
+        out.append("</div>")
+    out.append("</div>")
+    return "\n".join(out)
+
+
+def main():
+    with open(PAGE) as f:
+        page = f.read()
+    for chart in CHARTS:
+        cid = chart["id"]
+        pattern = re.compile(rf"(<!-- chart:{re.escape(cid)} -->)(.*?)(<!-- /chart:{re.escape(cid)} -->)", re.S)
+        if len(pattern.findall(page)) != 1:
+            raise SystemExit(f"docs/index.html needs exactly one <!-- chart:{cid} --> ... <!-- /chart:{cid} --> pair")
+        page = pattern.sub(lambda m: m.group(1) + "\n" + render(chart) + "\n" + m.group(3), page)
+        print("rendered", cid)
+    with open(PAGE, "w") as f:
+        f.write(page)
+
+
+if __name__ == "__main__":
+    main()

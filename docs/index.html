@@ -6,7 +6,7 @@
         <title>Rugo — Fast, dependency-free Parquet engine for Python</title>
         <meta
             name="description"
-            content="Rugo reads and writes Parquet, CSV, and JSONL from Python. No PyArrow, no Pandas, no NumPy. 7.3 MB installed against PyArrow's 127 MB and Polars' 171 MB, a cold import 3× faster than PyArrow's, and up to 23× faster selective JSONL reads."
+            content="Rugo reads and writes Parquet, CSV, JSONL and Avro from Python. No PyArrow, no Pandas, no NumPy. 7.3 MB installed against PyArrow's 127 MB and Polars' 171 MB, a cold import 3× faster than PyArrow's, and up to 23× faster selective JSONL reads."
         />
         <link rel="icon" type="image/svg+xml" href="favicon.svg" />
         <style>
@@ -21,6 +21,15 @@
                 --green: #3ecf8e;
                 --red: #f56565;
                 --code-bg: #11131a;
+                /* Dracula (draculatheme.com) — code examples and the install snippet */
+                --dracula-bg: #282a36;
+                --dracula-line: #44475a;
+                --dracula-fg: #f8f8f2;
+                --dracula-comment: #6272a4;
+                --dracula-pink: #ff79c6;
+                --dracula-green: #50fa7b;
+                --dracula-yellow: #f1fa8c;
+                --dracula-purple: #bd93f9;
                 --radius: 8px;
             }
 
@@ -313,8 +322,8 @@
                 display: flex;
                 align-items: center;
                 gap: 1rem;
-                background: var(--code-bg);
-                border: 1px solid var(--border);
+                background: var(--dracula-bg);
+                border: 1px solid var(--dracula-line);
                 border-radius: var(--radius);
                 padding: 1rem 1.25rem;
                 max-width: 420px;
@@ -322,13 +331,14 @@
             .install-block code {
                 font-family: "SF Mono", "Fira Code", monospace;
                 font-size: 0.95rem;
-                color: var(--green);
+                color: var(--dracula-green);
             }
 
             /* ── CODE BLOCKS ── */
             pre {
-                background: var(--code-bg);
-                border: 1px solid var(--border);
+                background: var(--dracula-bg);
+                color: var(--dracula-fg);
+                border: 1px solid var(--dracula-line);
                 border-radius: var(--radius);
                 padding: 1.25rem 1.5rem;
                 overflow-x: auto;
@@ -338,22 +348,22 @@
                 tab-size: 4;
             }
             pre .c {
-                color: var(--muted);
+                color: var(--dracula-comment);
             } /* comment */
             pre .k {
-                color: var(--accent2);
+                color: var(--dracula-pink);
             } /* keyword / from / import */
             pre .s {
-                color: #e6a04a;
+                color: var(--dracula-yellow);
             } /* string */
             pre .f {
-                color: var(--accent);
+                color: var(--dracula-green);
             } /* function call */
             pre .n {
-                color: var(--green);
+                color: var(--dracula-purple);
             } /* number / constant */
             pre .p {
-                color: var(--text);
+                color: var(--dracula-fg);
             } /* punctuation */
 
             /* ── COMPARISON TABLE ── */
@@ -439,31 +449,104 @@
                 display: block;
             }
 
-            /* ── PERF TABLE ── */
-            .perf-table {
-                width: 100%;
-                border-collapse: collapse;
-                font-size: 0.88rem;
+            /* ── BENCH CHARTS (tools/build_perf_charts.py) ── */
+            .bench {
+                margin-bottom: 0.75rem;
             }
-            .perf-table th {
-                text-align: left;
-                padding: 0.5rem 0.9rem;
+            .bench-big {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                gap: 0.75rem;
+                margin-bottom: 1.25rem;
+            }
+            .big {
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: var(--radius);
+                padding: 0.9rem 1rem;
+            }
+            .big-n {
+                display: block;
+                font-size: 2.2rem;
+                font-weight: 800;
+                line-height: 1.1;
+                color: var(--green);
+                font-variant-numeric: tabular-nums;
+            }
+            .big-n.is-plain {
+                color: var(--text);
+            }
+            .big-l {
+                display: block;
+                font-size: 0.82rem;
                 color: var(--muted);
+                margin-top: 0.25rem;
+            }
+            .bench-group {
+                margin-bottom: 1rem;
+            }
+            .bench-shape {
                 font-size: 0.78rem;
                 font-weight: 600;
                 text-transform: uppercase;
                 letter-spacing: 0.05em;
-                border-bottom: 1px solid var(--border);
-            }
-            .perf-table td {
-                padding: 0.65rem 0.9rem;
-                border-bottom: 1px solid var(--border);
-            }
-            .perf-table tr:last-child td {
-                border-bottom: none;
-            }
-            .perf-table td:first-child {
                 color: var(--muted);
+                margin-bottom: 0.35rem;
+            }
+            .bar-row {
+                display: grid;
+                grid-template-columns: 8.5rem minmax(0, 1fr);
+                align-items: center;
+                gap: 0.75rem;
+                margin: 0.3rem 0;
+            }
+            .bar-name {
+                font-size: 0.85rem;
+                color: var(--muted);
+                text-align: right;
+                white-space: nowrap;
+            }
+            .bar-track {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                min-width: 0;
+            }
+            .bar {
+                height: 14px;
+                min-width: 2px;
+                border-radius: 0 4px 4px 0;
+                background: color-mix(in srgb, var(--muted) 55%, var(--bg));
+                flex: none;
+            }
+            .bar.is-rugo {
+                background: var(--green);
+            }
+            .bar-val {
+                font-size: 0.82rem;
+                color: var(--muted);
+                white-space: nowrap;
+                font-variant-numeric: tabular-nums;
+            }
+            .bar-val.is-rugo {
+                color: var(--text);
+                font-weight: 700;
+            }
+            .bench-sub {
+                font-size: 0.95rem;
+                margin: 1.5rem 0 0.6rem;
+            }
+            @media (max-width: 560px) {
+                .bar-row {
+                    grid-template-columns: 6.5rem minmax(0, 1fr);
+                    gap: 0.5rem;
+                }
+                .bar-name {
+                    font-size: 0.78rem;
+                }
+                .big-n {
+                    font-size: 1.8rem;
+                }
             }
 
             /* ── DATA MODEL ── */
@@ -608,6 +691,65 @@
         .api-params dt { color: var(--text); }
         .api-params dd { margin: 0; color: var(--muted); }
 
+        /* Formats section: each function a card — Dracula signature, its return on its own
+           line, then a parameter table (name · type · description). */
+        #formats .api-ref { display: grid; gap: 1rem; }
+        #formats .api-fn {
+            display: block;
+            background: var(--dracula-bg);
+            border: 1px solid var(--dracula-line);
+            border-left: 1px solid var(--dracula-line);
+            border-radius: var(--radius);
+            padding: 0.7rem 1rem;
+            margin: 0;
+            font-size: inherit;
+        }
+        #formats .api-fn:has(+ .api-params) { border-radius: var(--radius) var(--radius) 0 0; }
+        #formats .api-sig {
+            display: block;
+            font-family: "SF Mono", "Fira Code", monospace;
+            font-size: 0.92rem;
+            color: var(--dracula-fg);
+            white-space: normal;
+            overflow-wrap: anywhere;
+        }
+        #formats .api-sig .fn { color: var(--dracula-green); font-weight: 600; }
+        #formats .api-ret {
+            display: block;
+            margin-top: 0.3rem;
+            font-size: 0.85rem;
+            color: var(--dracula-fg);
+        }
+        #formats .api-ret .arrow {
+            color: var(--dracula-comment);
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-right: 0.35rem;
+        }
+        #formats .api-ret code { color: var(--dracula-green); }
+        #formats .api-params {
+            margin: -1rem 0 0 0;
+            border: 1px solid var(--border);
+            border-top: none;
+            border-radius: 0 0 var(--radius) var(--radius);
+        }
+        #formats .api-params > div {
+            grid-template-columns: minmax(0, 17rem) minmax(0, 1fr);
+            gap: 1rem;
+            padding: 0.6rem 1rem;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+        #formats .api-params dt code { font-size: 0.85rem; white-space: normal; overflow-wrap: anywhere; }
+        #formats .api-params .pn { color: var(--dracula-pink); font-weight: 600; }
+        #formats .api-params .pt { color: var(--muted); }
+        #formats .api-params dd { color: var(--text); }
+        #formats .api-params dd code { color: var(--dracula-yellow); }
+        @media (max-width: 640px) {
+            #formats .api-params > div { grid-template-columns: minmax(0, 1fr); gap: 0.2rem; }
+        }
+
         pre {
             position: relative;
         }
@@ -615,10 +757,10 @@
             position: absolute;
             top: 0.5rem;
             right: 0.5rem;
-            background: var(--surface2);
-            border: 1px solid var(--border);
+            background: var(--dracula-line);
+            border: 1px solid var(--dracula-line);
             border-radius: 4px;
-            color: var(--muted);
+            color: var(--dracula-fg);
             font-size: 0.72rem;
             padding: 0.2rem 0.5rem;
             cursor: pointer;
@@ -702,7 +844,7 @@
                     Parquet, CSV and JSONL in 7.3 MB. No PyArrow.
                 </div>
                 <h1>
-                    Read and write Parquet, CSV, and JSONL. Read Avro.<br /><em
+                    Read and write Parquet, CSV, JSONL and Avro.<br /><em
                         >No PyArrow. No Pandas. No NumPy.</em
                     >
                 </h1>
@@ -898,42 +1040,31 @@
                     projection or filter, so asking for one column costs it the
                     same as asking for all 110.
                 </p>
-                <table class="perf-table" style="margin-bottom: 0.5rem">
-                    <thead>
-                        <tr>
-                            <th>Query shape</th>
-                            <th>Rugo</th>
-                            <th>PyArrow</th>
-                            <th>Ratio</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>SELECT 1 col</td>
-                            <td class="win">~76 ms</td>
-                            <td class="lose">~1.24 s</td>
-                            <td class="win">16× faster</td>
-                        </tr>
-                        <tr>
-                            <td>WHERE ~10% pass</td>
-                            <td class="win">~72 ms</td>
-                            <td class="lose">~1.65 s</td>
-                            <td class="win">23× faster</td>
-                        </tr>
-                        <tr>
-                            <td>WHERE ~1% pass</td>
-                            <td class="win">~70 ms</td>
-                            <td class="lose">~1.55 s</td>
-                            <td class="win">22× faster</td>
-                        </tr>
-                        <tr>
-                            <td>SELECT *</td>
-                            <td class="win">~471 ms</td>
-                            <td class="lose">~1.25 s</td>
-                            <td class="win">2.6× faster</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <!-- chart:jsonl-read -->
+<div class="bench">
+<div class="bench-big">
+<div class="big"><span class="big-n">23×</span><span class="big-l">faster than PyArrow, filtered to ~10%</span></div>
+<div class="big"><span class="big-n">16×</span><span class="big-l">faster, one column of 110</span></div>
+<div class="big"><span class="big-n">2.6×</span><span class="big-l">faster, every column</span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">SELECT 1 column</div>
+<div class="bar-row" title="Rugo: ~76 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:3.58%"></span><span class="bar-val is-rugo">~76 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~1.24 s"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:58.82%"></span><span class="bar-val">~1.24 s</span></span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">WHERE ~10% pass</div>
+<div class="bar-row" title="Rugo: ~72 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:3.40%"></span><span class="bar-val is-rugo">~72 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~1.65 s"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:78.00%"></span><span class="bar-val">~1.65 s</span></span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">WHERE ~1% pass</div>
+<div class="bar-row" title="Rugo: ~70 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:3.29%"></span><span class="bar-val is-rugo">~70 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~1.55 s"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:73.07%"></span><span class="bar-val">~1.55 s</span></span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">SELECT *</div>
+<div class="bar-row" title="Rugo: ~471 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:22.25%"></span><span class="bar-val is-rugo">~471 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~1.25 s"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:58.95%"></span><span class="bar-val">~1.25 s</span></span></div>
+</div>
+</div>
+<!-- /chart:jsonl-read -->
                 <details class="caveat" style="margin-bottom: 2.5rem">
                     <summary>How this was measured</summary>
                     <p>Best of 5 runs, rugo 0.4.43 against PyArrow 26.0.0
@@ -951,42 +1082,29 @@
                     predicate drops rows before the typed column build. All
                     from a package a fraction of the size.
                 </p>
-                <table class="perf-table" style="margin-bottom: 0.5rem">
-                    <thead>
-                        <tr>
-                            <th>Query shape</th>
-                            <th>Rugo</th>
-                            <th>PyArrow</th>
-                            <th>Ratio</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>SELECT *</td>
-                            <td>~25 ms</td>
-                            <td>~22 ms</td>
-                            <td>~3 ms behind</td>
-                        </tr>
-                        <tr>
-                            <td>SELECT 2 cols</td>
-                            <td>~12 ms</td>
-                            <td>~10 ms</td>
-                            <td>~2 ms behind</td>
-                        </tr>
-                        <tr>
-                            <td>WHERE P90 (~10% pass)</td>
-                            <td>~11 ms</td>
-                            <td>~11 ms</td>
-                            <td>parity</td>
-                        </tr>
-                        <tr>
-                            <td>WHERE P99 (~1% pass)</td>
-                            <td>~10 ms</td>
-                            <td>~10 ms</td>
-                            <td>parity</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <!-- chart:csv-read -->
+<div class="bench">
+<div class="bench-big">
+<div class="big"><span class="big-n">Parity</span><span class="big-l">with PyArrow — within 3 ms on every query</span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">SELECT *</div>
+<div class="bar-row" title="Rugo: ~25 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:78.00%"></span><span class="bar-val is-rugo">~25 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~22 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:69.97%"></span><span class="bar-val">~22 ms</span></span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">SELECT 2 columns</div>
+<div class="bar-row" title="Rugo: ~12 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:37.97%"></span><span class="bar-val is-rugo">~12 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~10 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:31.70%"></span><span class="bar-val">~10 ms</span></span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">WHERE ~10% pass</div>
+<div class="bar-row" title="Rugo: ~11 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:34.92%"></span><span class="bar-val is-rugo">~11 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~11 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:34.36%"></span><span class="bar-val">~11 ms</span></span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">WHERE ~1% pass</div>
+<div class="bar-row" title="Rugo: ~10 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:31.98%"></span><span class="bar-val is-rugo">~10 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~10 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:32.39%"></span><span class="bar-val">~10 ms</span></span></div>
+</div>
+</div>
+<!-- /chart:csv-read -->
                 <details class="caveat">
                     <summary>How this was measured</summary>
                     <p>Same machine and versions as the JSONL table, best of 5
@@ -1004,42 +1122,33 @@
                     implementation.
                 </p>
                 <details class="caveat" style="margin-bottom: 1rem">
-                    <summary>Why there are two rugo columns</summary>
-                    <p>Rugo reads Avro only — it doesn't write it. Rugo returns
+                    <summary>Why there are two rugo bars</summary>
+                    <p>Rugo returns
                     typed columns while the others return one Python dict per
                     record, so rugo is also timed with every column converted to
                     Python values: that's the like-for-like column if you want
                     Python objects at the end.</p>
                 </details>
-                <div style="overflow-x: auto; margin-bottom: 0.5rem">
-                <table class="perf-table" style="margin-bottom: 0">
-                    <thead>
-                        <tr>
-                            <th>Query shape</th>
-                            <th>Rugo</th>
-                            <th>Rugo → Python</th>
-                            <th>fastavro</th>
-                            <th>avro (Apache)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Every field</td>
-                            <td class="win">~116 ms</td>
-                            <td class="win">~213 ms</td>
-                            <td class="lose">~912 ms</td>
-                            <td class="lose">~5.81 s</td>
-                        </tr>
-                        <tr>
-                            <td>3 of 20 fields</td>
-                            <td class="win">~81 ms</td>
-                            <td class="win">~88 ms</td>
-                            <td class="lose">~712 ms</td>
-                            <td class="lose">~3.48 s</td>
-                        </tr>
-                    </tbody>
-                </table>
-                </div>
+                <!-- chart:avro-read -->
+<div class="bench">
+<div class="bench-big">
+<div class="big"><span class="big-n">7.8×</span><span class="big-l">faster than fastavro</span></div>
+<div class="big"><span class="big-n">50×</span><span class="big-l">faster than avro (Apache)</span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">Every field</div>
+<div class="bar-row" title="Rugo: ~116 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:1.56%"></span><span class="bar-val is-rugo">~116 ms</span></span></div>
+<div class="bar-row" title="Rugo → Python: ~213 ms"><span class="bar-name">Rugo → Python</span><span class="bar-track"><span class="bar is-rugo" style="width:2.86%"></span><span class="bar-val is-rugo">~213 ms</span></span></div>
+<div class="bar-row" title="fastavro: ~912 ms"><span class="bar-name">fastavro</span><span class="bar-track"><span class="bar" style="width:12.24%"></span><span class="bar-val">~912 ms</span></span></div>
+<div class="bar-row" title="avro (Apache): ~5.81 s"><span class="bar-name">avro (Apache)</span><span class="bar-track"><span class="bar" style="width:78.00%"></span><span class="bar-val">~5.81 s</span></span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">3 of 20 fields</div>
+<div class="bar-row" title="Rugo: ~81 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:1.09%"></span><span class="bar-val is-rugo">~81 ms</span></span></div>
+<div class="bar-row" title="Rugo → Python: ~88 ms"><span class="bar-name">Rugo → Python</span><span class="bar-track"><span class="bar is-rugo" style="width:1.17%"></span><span class="bar-val is-rugo">~88 ms</span></span></div>
+<div class="bar-row" title="fastavro: ~712 ms"><span class="bar-name">fastavro</span><span class="bar-track"><span class="bar" style="width:9.55%"></span><span class="bar-val">~712 ms</span></span></div>
+<div class="bar-row" title="avro (Apache): ~3.48 s"><span class="bar-name">avro (Apache)</span><span class="bar-track"><span class="bar" style="width:46.75%"></span><span class="bar-val">~3.48 s</span></span></div>
+</div>
+</div>
+<!-- /chart:avro-read -->
                 <details class="caveat">
                     <summary>How this was measured</summary>
                     <p>Best of 5 runs, each reader on one thread, decoding the same
@@ -1056,6 +1165,139 @@
                     strings, nullable unions, enums, timestamps, decimals and
                     nested records, arrays and maps. Reproduce it with
                     <a href="https://github.com/mabel-dev/rugo.dev/blob/main/benchmarks/measure_avro.py"><code>benchmarks/measure_avro.py</code></a>.</p>
+                </details>
+
+                <h3 style="margin: 2.5rem 0 0.75rem">
+                    Writing Avro — the same 200k rows, 20 fields
+                </h3>
+                <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 0.5rem">
+                    All three write the same rows with the same schema.
+                </p>
+                <details class="caveat" style="margin-bottom: 1rem">
+                    <summary>Why there are two rugo bars</summary>
+                    <p>Rugo encodes and compresses blocks on every core by
+                    default; fastavro and <code>avro</code> run on one thread.
+                    The one-thread column is rugo held to the same.</p>
+                </details>
+                <!-- chart:avro-write -->
+<div class="bench">
+<div class="bench-big">
+<div class="big"><span class="big-n">49×</span><span class="big-l">faster than fastavro</span></div>
+<div class="big"><span class="big-n">246×</span><span class="big-l">faster than avro (Apache)</span></div>
+<div class="big"><span class="big-n">4.6×</span><span class="big-l">faster than fastavro on one thread</span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">deflate</div>
+<div class="bar-row" title="Rugo: ~33 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:0.40%"></span><span class="bar-val is-rugo">~33 ms</span></span></div>
+<div class="bar-row" title="Rugo, 1 thread: ~354 ms"><span class="bar-name">Rugo, 1 thread</span><span class="bar-track"><span class="bar is-rugo" style="width:3.39%"></span><span class="bar-val is-rugo">~354 ms</span></span></div>
+<div class="bar-row" title="fastavro: ~1.61 s"><span class="bar-name">fastavro</span><span class="bar-track"><span class="bar" style="width:15.44%"></span><span class="bar-val">~1.61 s</span></span></div>
+<div class="bar-row" title="avro (Apache): ~8.13 s"><span class="bar-name">avro (Apache)</span><span class="bar-track"><span class="bar" style="width:78.00%"></span><span class="bar-val">~8.13 s</span></span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">zstandard</div>
+<div class="bar-row" title="Rugo: ~13 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:0.40%"></span><span class="bar-val is-rugo">~13 ms</span></span></div>
+<div class="bar-row" title="Rugo, 1 thread: ~120 ms"><span class="bar-name">Rugo, 1 thread</span><span class="bar-track"><span class="bar is-rugo" style="width:1.15%"></span><span class="bar-val is-rugo">~120 ms</span></span></div>
+<div class="bar-row" title="fastavro: ~1.17 s"><span class="bar-name">fastavro</span><span class="bar-track"><span class="bar" style="width:11.22%"></span><span class="bar-val">~1.17 s</span></span></div>
+<div class="bar-row" title="avro (Apache): ~7.65 s"><span class="bar-name">avro (Apache)</span><span class="bar-track"><span class="bar" style="width:73.36%"></span><span class="bar-val">~7.65 s</span></span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">Uncompressed</div>
+<div class="bar-row" title="Rugo: ~4.7 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:0.40%"></span><span class="bar-val is-rugo">~4.7 ms</span></span></div>
+<div class="bar-row" title="Rugo, 1 thread: ~22 ms"><span class="bar-name">Rugo, 1 thread</span><span class="bar-track"><span class="bar is-rugo" style="width:0.40%"></span><span class="bar-val is-rugo">~22 ms</span></span></div>
+<div class="bar-row" title="fastavro: ~1.05 s"><span class="bar-name">fastavro</span><span class="bar-track"><span class="bar" style="width:10.09%"></span><span class="bar-val">~1.05 s</span></span></div>
+<div class="bar-row" title="avro (Apache): ~7.31 s"><span class="bar-name">avro (Apache)</span><span class="bar-track"><span class="bar" style="width:70.12%"></span><span class="bar-val">~7.31 s</span></span></div>
+</div>
+</div>
+<!-- /chart:avro-write -->
+                <details class="caveat">
+                    <summary>How this was measured</summary>
+                    <p>Best of 5 runs, each writer in a fresh process, writing to
+                    an in-memory buffer: rugo built from source on 2026-10-16,
+                    fastavro 1.13.1, avro 1.12.2, CPython 3.14 on an
+                    Apple-silicon Mac (6 performance + 12 efficiency cores).
+                    On one thread rugo is 4.6× faster than fastavro and 23×
+                    faster than <code>avro</code> with deflate, 9.8× and 64×
+                    with zstandard; on every core, 49× and 246× with deflate.
+                    The files are about the same size — with deflate, rugo's is
+                    23.4 MB, fastavro's 25.4 MB and <code>avro</code>'s
+                    23.8 MB. Rugo writes from columns (a Morsel); the others
+                    write from one Python dict per record, their input, and
+                    building either input is not timed. Each writer uses its
+                    default block size. The rows are the reader benchmark's
+                    data as rugo reads it — the nested record and map as JSON
+                    text. Reproduce it with
+                    <a href="https://github.com/mabel-dev/rugo.dev/blob/main/benchmarks/measure_avro_write.py"><code>benchmarks/measure_avro_write.py</code></a>.</p>
+                </details>
+
+                <h3 style="margin: 2.5rem 0 0.75rem">
+                    Writing Parquet, CSV and JSONL — 200k rows, 50 columns
+                </h3>
+                <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 1rem">
+                    Every library writes the same table, from its own in-memory
+                    form.
+                </p>
+                <h4 class="bench-sub">Parquet, zstd</h4>
+<!-- chart:parquet-write -->
+<div class="bench">
+<div class="bench-big">
+<div class="big"><span class="big-n is-plain">~756 ms</span><span class="big-l">rugo, with its bloom filters and page index off — a plain Parquet write</span></div>
+</div>
+<div class="bench-group">
+<div class="bar-row" title="Rugo: ~756 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:78.00%"></span><span class="bar-val is-rugo">~756 ms</span></span></div>
+<div class="bar-row" title="polars: ~26 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:2.64%"></span><span class="bar-val">~26 ms</span></span></div>
+<div class="bar-row" title="DuckDB: ~227 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:23.46%"></span><span class="bar-val">~227 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~372 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:38.40%"></span><span class="bar-val">~372 ms</span></span></div>
+<div class="bar-row" title="fastparquet: ~354 ms"><span class="bar-name">fastparquet</span><span class="bar-track"><span class="bar" style="width:36.47%"></span><span class="bar-val">~354 ms</span></span></div>
+</div>
+</div>
+<!-- /chart:parquet-write -->
+                <h4 class="bench-sub">CSV</h4>
+<!-- chart:csv-write -->
+<div class="bench">
+<div class="bench-big">
+<div class="big"><span class="big-n">4.1×</span><span class="big-l">faster than Python&#x27;s csv module</span></div>
+<div class="big"><span class="big-n">Parity</span><span class="big-l">with PyArrow and DuckDB — within 24 ms</span></div>
+</div>
+<div class="bench-group">
+<div class="bar-row" title="Rugo: ~236 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:19.11%"></span><span class="bar-val is-rugo">~236 ms</span></span></div>
+<div class="bar-row" title="polars: ~11 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:0.92%"></span><span class="bar-val">~11 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~212 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:17.14%"></span><span class="bar-val">~212 ms</span></span></div>
+<div class="bar-row" title="DuckDB: ~219 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:17.77%"></span><span class="bar-val">~219 ms</span></span></div>
+<div class="bar-row" title="Python (csv): ~963 ms"><span class="bar-name">Python (csv)</span><span class="bar-track"><span class="bar" style="width:78.00%"></span><span class="bar-val">~963 ms</span></span></div>
+</div>
+</div>
+<!-- /chart:csv-write -->
+                <h4 class="bench-sub">JSONL</h4>
+<!-- chart:jsonl-write -->
+<div class="bench">
+<div class="bench-big">
+<div class="big"><span class="big-n">17×</span><span class="big-l">faster than Python&#x27;s json module</span></div>
+<div class="big"><span class="big-n">3.9×</span><span class="big-l">faster than DuckDB</span></div>
+</div>
+<div class="bench-group">
+<div class="bar-row" title="Rugo: ~69 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:4.52%"></span><span class="bar-val is-rugo">~69 ms</span></span></div>
+<div class="bar-row" title="polars: ~18 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:1.17%"></span><span class="bar-val">~18 ms</span></span></div>
+<div class="bar-row" title="DuckDB: ~264 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:17.45%"></span><span class="bar-val">~264 ms</span></span></div>
+<div class="bar-row" title="Python (json): ~1.18 s"><span class="bar-name">Python (json)</span><span class="bar-track"><span class="bar" style="width:78.00%"></span><span class="bar-val">~1.18 s</span></span></div>
+</div>
+</div>
+<!-- /chart:jsonl-write -->
+                <details class="caveat">
+                    <summary>How this was measured</summary>
+                    <p>Best of 5 runs, each library in a fresh process: rugo
+                    0.5.2, PyArrow 26.0.0, polars 2.0.0, DuckDB 1.5.6 and
+                    fastparquet 2026.9.0 (with pandas 3.0.6), CPython 3.13 on an
+                    Apple-silicon Mac, measured 2026-10-16. The table is the CSV
+                    benchmark's — 200,000 rows by 50 columns of integers, floats
+                    and strings, 83 MB as CSV — loaded into each library's own
+                    form before the clock starts. Every library runs at its
+                    default threading (polars, DuckDB and PyArrow use every
+                    core). Parquet is zstd for every writer, and rugo writes it
+                    without its bloom filters and page index (both on by
+                    default — with them it took ~813 ms), so its file holds
+                    what a plain Parquet writer's does. Output goes to
+                    memory, except DuckDB and fastparquet, which only write to a
+                    file, so their times include that write. "Python" is the
+                    standard library: <code>csv.writer</code>, and
+                    <code>json.dumps</code> per row. Reproduce it with
+                    <a href="https://github.com/mabel-dev/rugo.dev/blob/main/benchmarks/measure_writes.py"><code>benchmarks/measure_writes.py</code></a>.</p>
                 </details>
             </div>
         </section>
@@ -1110,9 +1352,9 @@
                 <div class="section-label">Quickstart</div>
                 <h2>One install, four formats.</h2>
                 <p class="section-intro">
-                    Rugo reads and writes Parquet, CSV, and JSONL, and reads
-                    Avro. The API is the same shape across all four: pass a
-                    path or bytes, get columnar data back.
+                    Rugo reads and writes Parquet, CSV, JSONL and Avro. The API
+                    is the same shape across all four: pass a path or bytes,
+                    get columnar data back.
                 </p>
 
                 <div class="install-block" style="margin-bottom: 2.5rem">
@@ -1164,12 +1406,13 @@ data = jsonl.<span class="f">write_jsonl</span>(morsel)</pre>
 
                     <pre style="margin-top: 1rem"><span class="k">from</span> rugo <span class="k">import</span> avro
 
-<span class="c"># Same shape — reader only; rugo doesn't write Avro</span>
+<span class="c"># Same shape</span>
 <span class="k">with</span> avro.<span class="f">read_avro</span>(<span class="s">"events.avro"</span>, columns=[<span class="s">"id"</span>, <span class="s">"device.os"</span>]) <span class="k">as</span> reader:
     <span class="k">for</span> morsel <span class="k">in</span> reader:
         <span class="f">print</span>(morsel.<span class="f">column</span>(<span class="s">"device.os"</span>).<span class="f">to_pylist</span>())
 
-meta = avro.<span class="f">read_metadata</span>(<span class="s">"events.avro"</span>)   <span class="c"># writer schema + codec</span></pre>
+meta = avro.<span class="f">read_metadata</span>(<span class="s">"events.avro"</span>)   <span class="c"># writer schema + codec</span>
+data = avro.<span class="f">write_avro</span>(morsel, codec=<span class="s">"deflate"</span>)</pre>
                 </div>
 
                 <!-- CLI -->
@@ -1229,12 +1472,11 @@ meta = avro.<span class="f">read_metadata</span>(<span class="s">"events.avro"</
         <section id="formats">
             <div class="container">
                 <div class="section-label">Formats</div>
-                <h2>Parquet, CSV, JSONL — read and write. Avro — read.</h2>
+                <h2>Parquet, CSV, JSONL and Avro — read and write.</h2>
                 <p class="section-intro">
                     Every format supports column projection; Parquet, CSV and
                     JSONL also filter rows with predicates. Writers produce
-                    standard output readable by any compliant tool. Avro is
-                    reader-only — rugo doesn't write it.
+                    standard output readable by any compliant tool.
                 </p>
 
                 <div class="tabs">
@@ -1253,26 +1495,26 @@ meta = avro.<span class="f">read_metadata</span>(<span class="s">"events.avro"</
                 <!-- PARQUET -->
                 <div id="tab-parquet" class="tab-pane active">
                     <div class="api-ref">
-                        <div class="api-fn"><code>read_parquet(source, columns, predicates)</code> <span class="api-ret">→ context manager, one Morsel per row group</span></div>
+                        <div class="api-fn"><code class="api-sig"><span class="fn">read_parquet</span>(source, columns, predicates)</code><span class="api-ret"><span class="arrow">returns</span> context manager, one Morsel per row group</span></div>
                         <dl class="api-params">
-                            <div><dt><code>source: str | bytes</code></dt><dd>filename or buffer</dd></div>
-                            <div><dt><code>columns: list[str] = None</code></dt><dd>columns to read; None = all</dd></div>
-                            <div><dt><code>predicates: list[tuple] = None</code></dt><dd><code>(col, op, val)</code> — ops: <code>== != &lt; &lt;= &gt; &gt;= in "not in"</code>. Row-group pruning then row-level filter.</dd></div>
+                            <div><dt><code><span class="pn">source</span><span class="pt">: str | bytes</span></code></dt><dd>filename or buffer</dd></div>
+                            <div><dt><code><span class="pn">columns</span><span class="pt">: list[str] = None</span></code></dt><dd>columns to read; None = all</dd></div>
+                            <div><dt><code><span class="pn">predicates</span><span class="pt">: list[tuple] = None</span></code></dt><dd><code>(col, op, val)</code> — ops: <code>== != &lt; &lt;= &gt; &gt;= in "not in"</code>. Row-group pruning then row-level filter.</dd></div>
                         </dl>
-                        <div class="api-fn"><code>read_metadata(source)</code> <span class="api-ret">→ ParquetMetadata</span></div>
+                        <div class="api-fn"><code class="api-sig"><span class="fn">read_metadata</span>(source)</code><span class="api-ret"><span class="arrow">returns</span> ParquetMetadata</span></div>
                         <dl class="api-params">
-                            <div><dt><code>source: str | bytes</code></dt><dd>reads footer only; no column decode</dd></div>
+                            <div><dt><code><span class="pn">source</span><span class="pt">: str | bytes</span></code></dt><dd>reads footer only; no column decode</dd></div>
                         </dl>
-                        <div class="api-fn"><code>write_parquet(morsel, compression, bloom_filters, max_rows_per_row_group)</code> <span class="api-ret">→ bytes</span></div>
+                        <div class="api-fn"><code class="api-sig"><span class="fn">write_parquet</span>(morsel, compression, bloom_filters, max_rows_per_row_group)</code><span class="api-ret"><span class="arrow">returns</span> bytes</span></div>
                         <dl class="api-params">
-                            <div><dt><code>compression: str</code></dt><dd><code>"zstd"</code> or <code>"none"</code></dd></div>
-                            <div><dt><code>bloom_filters: bool | list[str]</code></dt><dd>True = all eligible cols; False = none; list = named cols only</dd></div>
-                            <div><dt><code>max_rows_per_row_group: int</code></dt><dd>pass <code>0</code> for a single row group</dd></div>
+                            <div><dt><code><span class="pn">compression</span><span class="pt">: str</span></code></dt><dd><code>"zstd"</code> or <code>"none"</code></dd></div>
+                            <div><dt><code><span class="pn">bloom_filters</span><span class="pt">: bool | list[str]</span></code></dt><dd>True = all eligible cols; False = none; list = named cols only</dd></div>
+                            <div><dt><code><span class="pn">max_rows_per_row_group</span><span class="pt">: int</span></code></dt><dd>pass <code>0</code> for a single row group</dd></div>
                         </dl>
-                        <div class="api-fn"><code>open_parquet_writer(sink, compression, bloom_filters)</code> <span class="api-ret">→ context manager, constant-memory streaming write</span></div>
+                        <div class="api-fn"><code class="api-sig"><span class="fn">open_parquet_writer</span>(sink, compression, bloom_filters)</code><span class="api-ret"><span class="arrow">returns</span> context manager, constant-memory streaming write</span></div>
                         <dl class="api-params">
-                            <div><dt><code>sink: callable</code></dt><dd>called with each chunk of bytes as row groups are written</dd></div>
-                            <div><dt><code>writer.write_row_group(morsel)</code></dt><dd>one parquet row group per call; same schema across calls</dd></div>
+                            <div><dt><code><span class="pn">sink</span><span class="pt">: callable</span></code></dt><dd>called with each chunk of bytes as row groups are written</dd></div>
+                            <div><dt><code><span class="pn">writer.write_row_group(morsel)</span></code></dt><dd>one parquet row group per call; same schema across calls</dd></div>
                         </dl>
                     </div>
                     <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.6rem">
@@ -1322,22 +1564,22 @@ data = parquet.<span class="f">write_parquet</span>(morsel)
                 <!-- CSV -->
                 <div id="tab-csv" class="tab-pane">
                     <div class="api-ref">
-                        <div class="api-fn"><code>read_csv(source, columns, predicates, delimiter, has_header)</code> <span class="api-ret">→ context manager, one Morsel</span></div>
+                        <div class="api-fn"><code class="api-sig"><span class="fn">read_csv</span>(source, columns, predicates, delimiter, has_header)</code><span class="api-ret"><span class="arrow">returns</span> context manager, one Morsel</span></div>
                         <dl class="api-params">
-                            <div><dt><code>source: str | bytes</code></dt><dd>filename or buffer</dd></div>
-                            <div><dt><code>columns: list[str] = None</code></dt><dd>columns to read; None = all</dd></div>
-                            <div><dt><code>predicates: list[tuple] = None</code></dt><dd><code>(col, op, val)</code> — ops: <code>== != &lt; &lt;= &gt; &gt;=</code></dd></div>
-                            <div><dt><code>delimiter: str = ","</code></dt><dd>single character; use <code>"\t"</code> for TSV</dd></div>
-                            <div><dt><code>has_header: bool = True</code></dt><dd>first row is column names</dd></div>
+                            <div><dt><code><span class="pn">source</span><span class="pt">: str | bytes</span></code></dt><dd>filename or buffer</dd></div>
+                            <div><dt><code><span class="pn">columns</span><span class="pt">: list[str] = None</span></code></dt><dd>columns to read; None = all</dd></div>
+                            <div><dt><code><span class="pn">predicates</span><span class="pt">: list[tuple] = None</span></code></dt><dd><code>(col, op, val)</code> — ops: <code>== != &lt; &lt;= &gt; &gt;=</code></dd></div>
+                            <div><dt><code><span class="pn">delimiter</span><span class="pt">: str = ","</span></code></dt><dd>single character; use <code>"\t"</code> for TSV</dd></div>
+                            <div><dt><code><span class="pn">has_header</span><span class="pt">: bool = True</span></code></dt><dd>first row is column names</dd></div>
                         </dl>
-                        <div class="api-fn"><code>read_metadata(source)</code> <span class="api-ret">→ CsvMetadata</span></div>
+                        <div class="api-fn"><code class="api-sig"><span class="fn">read_metadata</span>(source)</code><span class="api-ret"><span class="arrow">returns</span> CsvMetadata</span></div>
                         <dl class="api-params">
-                            <div><dt><code>source: str | bytes</code></dt><dd>scans full file for row count; infers schema from sample</dd></div>
+                            <div><dt><code><span class="pn">source</span><span class="pt">: str | bytes</span></code></dt><dd>scans full file for row count; infers schema from sample</dd></div>
                         </dl>
-                        <div class="api-fn"><code>write_csv(morsel, delimiter, header)</code> <span class="api-ret">→ bytes (RFC 4180)</span></div>
+                        <div class="api-fn"><code class="api-sig"><span class="fn">write_csv</span>(morsel, delimiter, header)</code><span class="api-ret"><span class="arrow">returns</span> bytes (RFC 4180)</span></div>
                         <dl class="api-params">
-                            <div><dt><code>delimiter: str = ","</code></dt><dd></dd></div>
-                            <div><dt><code>header: bool = True</code></dt><dd>include column name row</dd></div>
+                            <div><dt><code><span class="pn">delimiter</span><span class="pt">: str = ","</span></code></dt><dd></dd></div>
+                            <div><dt><code><span class="pn">header</span><span class="pt">: bool = True</span></code></dt><dd>include column name row</dd></div>
                         </dl>
                     </div>
                     <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem">
@@ -1376,19 +1618,19 @@ csv_bytes = csv.<span class="f">write_csv</span>(morsel)</pre>
                 <!-- JSONL -->
                 <div id="tab-jsonl" class="tab-pane">
                     <div class="api-ref">
-                        <div class="api-fn"><code>read_jsonl(source, columns, predicates, explicit_schema, infer_schema)</code> <span class="api-ret">→ context manager, one Morsel</span></div>
+                        <div class="api-fn"><code class="api-sig"><span class="fn">read_jsonl</span>(source, columns, predicates, explicit_schema, infer_schema)</code><span class="api-ret"><span class="arrow">returns</span> context manager, one Morsel</span></div>
                         <dl class="api-params">
-                            <div><dt><code>source: str | bytes</code></dt><dd>filename or buffer</dd></div>
-                            <div><dt><code>columns: list[str] = None</code></dt><dd>columns to read; None = all</dd></div>
-                            <div><dt><code>predicates: list[tuple] = None</code></dt><dd><code>(col, op, val)</code> — ops: <code>== != &lt; &lt;= &gt; &gt;=</code></dd></div>
-                            <div><dt><code>explicit_schema: dict = None</code></dt><dd>override inferred types per column</dd></div>
-                            <div><dt><code>infer_schema: bool = True</code></dt><dd>sample rows to determine types</dd></div>
+                            <div><dt><code><span class="pn">source</span><span class="pt">: str | bytes</span></code></dt><dd>filename or buffer</dd></div>
+                            <div><dt><code><span class="pn">columns</span><span class="pt">: list[str] = None</span></code></dt><dd>columns to read; None = all</dd></div>
+                            <div><dt><code><span class="pn">predicates</span><span class="pt">: list[tuple] = None</span></code></dt><dd><code>(col, op, val)</code> — ops: <code>== != &lt; &lt;= &gt; &gt;=</code></dd></div>
+                            <div><dt><code><span class="pn">explicit_schema</span><span class="pt">: dict = None</span></code></dt><dd>override inferred types per column</dd></div>
+                            <div><dt><code><span class="pn">infer_schema</span><span class="pt">: bool = True</span></code></dt><dd>sample rows to determine types</dd></div>
                         </dl>
-                        <div class="api-fn"><code>read_metadata(source)</code> <span class="api-ret">→ JsonlMetadata</span></div>
+                        <div class="api-fn"><code class="api-sig"><span class="fn">read_metadata</span>(source)</code><span class="api-ret"><span class="arrow">returns</span> JsonlMetadata</span></div>
                         <dl class="api-params">
-                            <div><dt><code>source: str | bytes</code></dt><dd>scans full file; infers schema from sample</dd></div>
+                            <div><dt><code><span class="pn">source</span><span class="pt">: str | bytes</span></code></dt><dd>scans full file; infers schema from sample</dd></div>
                         </dl>
-                        <div class="api-fn"><code>write_jsonl(morsel)</code> <span class="api-ret">→ bytes</span></div>
+                        <div class="api-fn"><code class="api-sig"><span class="fn">write_jsonl</span>(morsel)</code><span class="api-ret"><span class="arrow">returns</span> bytes</span></div>
                     </div>
                     <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem">
                         Inferred types: <code>int64</code>, <code>float64</code>, <code>bool</code>, <code>str</code>, <code>bytes</code>, <code>null</code>, <code>array[T]</code>.
@@ -1422,23 +1664,37 @@ jsonl_bytes = jsonl.<span class="f">write_jsonl</span>(morsel)</pre>
                 <!-- AVRO -->
                 <div id="tab-avro" class="tab-pane">
                     <div class="api-ref">
-                        <div class="api-fn"><code>read_avro(source, columns, reader_schema)</code> <span class="api-ret">→ context manager, Morsels of whole Avro blocks (up to 65,536 rows each)</span></div>
+                        <div class="api-fn"><code class="api-sig"><span class="fn">read_avro</span>(source, columns, reader_schema)</code><span class="api-ret"><span class="arrow">returns</span> context manager, Morsels of whole Avro blocks (up to 65,536 rows each)</span></div>
                         <dl class="api-params">
-                            <div><dt><code>source: str | bytes</code></dt><dd>filename or buffer — an Avro object container file</dd></div>
-                            <div><dt><code>columns: list[str] = None</code></dt><dd>fields to read; None = all. A dotted name (<code>"device.os"</code>) reads one field out of a nested record as a plain column</dd></div>
-                            <div><dt><code>reader_schema: dict | str = None</code></dt><dd>the schema to read the file as: fields matched by name (or by field id, as Iceberg writes them), missing fields take their default, int→long→float→double widen</dd></div>
+                            <div><dt><code><span class="pn">source</span><span class="pt">: str | bytes</span></code></dt><dd>filename or buffer — an Avro object container file</dd></div>
+                            <div><dt><code><span class="pn">columns</span><span class="pt">: list[str] = None</span></code></dt><dd>fields to read; None = all. A dotted name (<code>"device.os"</code>) reads one field out of a nested record as a plain column</dd></div>
+                            <div><dt><code><span class="pn">reader_schema</span><span class="pt">: dict | str = None</span></code></dt><dd>the schema to read the file as: fields matched by name (or by field id, as Iceberg writes them), missing fields take their default, int→long→float→double widen</dd></div>
                         </dl>
-                        <div class="api-fn"><code>read_metadata(source)</code> <span class="api-ret">→ AvroMetadata</span></div>
+                        <div class="api-fn"><code class="api-sig"><span class="fn">read_metadata</span>(source)</code><span class="api-ret"><span class="arrow">returns</span> AvroMetadata</span></div>
                         <dl class="api-params">
-                            <div><dt><code>source: str | bytes</code></dt><dd>reads the header only: writer schema, codec, metadata map</dd></div>
+                            <div><dt><code><span class="pn">source</span><span class="pt">: str | bytes</span></code></dt><dd>reads the header only: writer schema, codec, metadata map</dd></div>
+                        </dl>
+                        <div class="api-fn"><code class="api-sig"><span class="fn">write_avro</span>(morsel, codec, dictionary, max_threads)</code><span class="api-ret"><span class="arrow">returns</span> bytes, a standard Avro object container file</span></div>
+                        <dl class="api-params">
+                            <div><dt><code><span class="pn">codec</span><span class="pt">: str = "deflate"</span></code></dt><dd><code>null</code>, <code>deflate</code>, <code>snappy</code>, <code>zstandard</code> or <code>bzip2</code></dd></div>
+                            <div><dt><code><span class="pn">dictionary</span><span class="pt">: bool = True</span></code></dt><dd>write a low-cardinality string column as an Avro <code>enum</code> when that is smaller — rugo reads it back dictionary-encoded</dd></div>
+                            <div><dt><code><span class="pn">max_threads</span><span class="pt">: int = 0</span></code></dt><dd>blocks are encoded and compressed on every core by default; the file is byte-identical at any thread count</dd></div>
+                        </dl>
+                        <div class="api-fn"><code class="api-sig"><span class="fn">open_avro_writer</span>(sink, codec)</code><span class="api-ret"><span class="arrow">returns</span> context manager; <code>write_batch(morsel)</code> per batch</span></div>
+                        <dl class="api-params">
+                            <div><dt><code><span class="pn">sink</span><span class="pt">: callable</span></code></dt><dd>takes bytes (e.g. <code>f.write</code>): the header, then each block as it's written — memory stays at one batch. <code>write_avro_stream(morsels, sink)</code> does the loop for you</dd></div>
                         </dl>
                     </div>
                     <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.6rem">
                         <strong style="color:var(--text)">Decode:</strong>
-                        null, deflate, snappy, zstandard codecs · all primitive types, enum, fixed, date, time, timestamp-millis/-micros, decimal (up to 38 digits), arrays of scalars · records, maps and arrays of nested values arrive as JSON text · unions of <code>["null", T]</code>
+                        null, deflate, snappy, zstandard, bzip2 codecs · all primitive types, enum, fixed, date, time, timestamp-millis/-micros, decimal (up to 38 digits), uuid, arrays of scalars · records, maps and arrays of nested values arrive as JSON text · unions of <code>["null", T]</code>
+                    </p>
+                    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.6rem">
+                        <strong style="color:var(--text)">Encode:</strong>
+                        integers (unsigned up to 32-bit), floats, booleans, strings, bytes, date, time and timestamp (to microseconds), decimal (as <code>fixed</code>), uuid (<code>fixed(16)</code>), arrays and nested arrays · a column with no nulls is written as plain <code>T</code>, one with nulls as <code>["null", T]</code>
                     </p>
                     <details class="caveat" style="margin-bottom: 1.5rem">
-                        <summary>Reader only — rugo doesn't write Avro</summary>
+                        <summary>No predicates on read</summary>
                         <p>Avro carries no statistics, so
                         there's no <code>predicates</code> argument — filter
                         the morsels you get back. Avro timings are in
@@ -1464,7 +1720,13 @@ schema = {<span class="s">"type"</span>: <span class="s">"record"</span>, <span 
     {<span class="s">"name"</span>: <span class="s">"Source"</span>, <span class="s">"type"</span>: <span class="s">"string"</span>, <span class="s">"default"</span>: <span class="s">"archive"</span>},
 ]}
 <span class="k">with</span> avro.<span class="f">read_avro</span>(<span class="s">"launches.avro"</span>, reader_schema=schema) <span class="k">as</span> reader:
-    <span class="k">for</span> morsel <span class="k">in</span> reader: ...</pre>
+    <span class="k">for</span> morsel <span class="k">in</span> reader: ...
+
+<span class="c"># Write — one call, or streamed batch by batch</span>
+data = avro.<span class="f">write_avro</span>(morsel, codec=<span class="s">"zstandard"</span>)
+<span class="k">with</span> <span class="f">open</span>(<span class="s">"out.avro"</span>, <span class="s">"wb"</span>) <span class="k">as</span> f, avro.<span class="f">open_avro_writer</span>(f.write) <span class="k">as</span> writer:
+    <span class="k">for</span> batch <span class="k">in</span> batches:
+        writer.<span class="f">write_batch</span>(batch)</pre>
                     <p style="font-size:0.85rem;margin-top:1rem">
                         <a href="https://colab.research.google.com/github/mabel-dev/rugo.dev/blob/main/docs/notebooks/avro.ipynb" style="font-weight:600">Run the Avro notebook in Colab →</a>
                         <span style="color:var(--muted)">· <a href="notebooks/avro.ipynb" style="color:var(--muted)">download .ipynb</a></span>
@@ -1637,7 +1899,8 @@ values = vec.<span class="f">to_pylist</span>()  <span class="c"># ["Mercury", "
                         <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 0.75rem">
                             How to use rugo, one notebook per format: read a
                             file, filter on read, load it into pandas, write and
-                            convert (Avro: read only). Runs in your browser.
+                            convert (the Avro notebook covers reading). Runs in
+                            your browser.
                         </p>
                         <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
                             <a href="https://colab.research.google.com/github/mabel-dev/rugo.dev/blob/main/docs/notebooks/parquet.ipynb" style="font-size:0.85rem;font-weight:600">Parquet →</a>
