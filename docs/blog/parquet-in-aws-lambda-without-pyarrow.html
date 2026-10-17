@@ -3,17 +3,15 @@
   ============================ DRAFT — DO NOT PUBLISH ============================
   Unresolved before this can go live:
 
-  1. rugo 0.4.30 silently returns ZERO rows (no error) for BROTLI-compressed
-     columns and for INT96 timestamps. Confirmed against files written by
-     pyarrow 25.0.1; the footer reports the correct row count and the reader
-     yields an empty morsel. The "What rugo cannot do" section below currently
-     discloses both. If they are fixed before publication, delete that disclosure
-     and re-run the checks. If they are NOT fixed, the disclosure must stay —
-     publishing a "read Parquet in Lambda" guide while knowing the reader can
-     silently drop every row would be indefensible.
+  1. Re-measured 17 October 2026 on rugo 0.5.4 (was 0.4.30, 14 August). The
+     Brotli and INT96 zero-row bugs are fixed: Brotli now raises a clear
+     "codec not supported" error, and INT96 timestamps read correctly. Re-check
+     the "What rugo cannot do" list against the current release on the day.
 
-  2. The benchmark AWS stack has been torn down. To re-run, see the scripts in
-     the session scratchpad (build_lambdas.py, handlers.py, measure_coldstart.py).
+  2. Publish before lambda-cost-break-even.html, which follows on from this post.
+
+  3. The benchmark AWS stack has been torn down. The harness and raw results are
+     in benchmarks/lambda-cost.
   ===============================================================================
 -->
 <html lang="en">
@@ -23,7 +21,7 @@
         <title>Reading Parquet in AWS Lambda without PyArrow</title>
         <meta
             name="description"
-            content="PyArrow takes 61% of Lambda's 250 MB limit and Polars 86%. Measured package sizes, cold starts and read times for rugo, PyArrow, DuckDB and Polars — with working deployment code."
+            content="PyArrow takes 69% of Lambda's 250 MB limit and Polars 79%. Measured package sizes, cold starts and read times for rugo, PyArrow, DuckDB and Polars — with working deployment code."
         />
         <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
         <link rel="stylesheet" href="../blog.css" />
@@ -45,7 +43,7 @@
                 <header class="post-header">
                     <h1>Reading Parquet in AWS Lambda without PyArrow</h1>
                     <p class="post-meta">
-                        Justin Joyce <span class="sep">·</span> 14 August 2026
+                        Justin Joyce <span class="sep">·</span> [date]
                         <span class="sep">·</span> 12 min read
                     </p>
                     <div class="post-tags">
@@ -64,11 +62,12 @@
                 <p class="lede">
                     A Lambda deployment package can be
                     <strong>250 MB unzipped</strong>. PyArrow uses
-                    <strong>61%</strong> of that on its own. Polars uses
-                    <strong>86%</strong> and cannot be uploaded directly to
-                    Lambda — it has to go via S3. rugo uses <strong>4.6%</strong>. Those
-                    are measured numbers, and so is the more awkward one further
-                    down: rugo is the slowest reader of the four.
+                    <strong>69%</strong> of that on its own, Polars
+                    <strong>79%</strong>, and neither can be uploaded directly to
+                    Lambda — both have to go via S3. rugo uses <strong>5.4%</strong>.
+                    Those are measured numbers, and so is the more awkward one
+                    further down: on whole-file scans, DuckDB and Polars still
+                    read faster than rugo.
                 </p>
 
                 <p>
@@ -105,7 +104,7 @@
                     A Parquet reader is rarely the only thing in the package. If
                     the function also needs a model, an SDK, or a few
                     application dependencies, the difference between spending
-                    12 MB and 154 MB of the budget decides whether the thing
+                    14 MB and 173 MB of the budget decides whether the thing
                     deploys.
                 </p>
 
@@ -131,31 +130,31 @@
                         </thead>
                         <tbody>
                             <tr class="highlight">
-                                <td><strong>rugo</strong> 0.4.30</td>
-                                <td class="win">11.6 MB</td>
-                                <td class="win">4.6%</td>
-                                <td>4.4 MB</td>
+                                <td><strong>rugo</strong> 0.5.4</td>
+                                <td class="win">13.5 MB</td>
+                                <td class="win">5.4%</td>
+                                <td>5.3 MB</td>
                                 <td>yes</td>
                             </tr>
                             <tr>
-                                <td>duckdb 1.5.5</td>
-                                <td>58.6 MB</td>
-                                <td>23.5%</td>
-                                <td>20.6 MB</td>
+                                <td>duckdb 1.5.6</td>
+                                <td>61.7 MB</td>
+                                <td>24.7%</td>
+                                <td>21.8 MB</td>
                                 <td>yes</td>
                             </tr>
                             <tr>
-                                <td>pyarrow 25.0.1</td>
-                                <td class="lose">153.7 MB</td>
-                                <td class="lose">61.5%</td>
-                                <td>48.8 MB</td>
-                                <td>yes, barely</td>
+                                <td>pyarrow 26.0.0</td>
+                                <td class="lose">172.5 MB</td>
+                                <td class="lose">69.0%</td>
+                                <td>55.4 MB</td>
+                                <td class="lose">no</td>
                             </tr>
                             <tr>
-                                <td>polars 1.43.2</td>
-                                <td class="lose">213.8 MB</td>
-                                <td class="lose">85.5%</td>
-                                <td>56.4 MB</td>
+                                <td>polars 2.0.0</td>
+                                <td class="lose">196.3 MB</td>
+                                <td class="lose">78.5%</td>
+                                <td>55.6 MB</td>
                                 <td class="lose">no</td>
                             </tr>
                         </tbody>
@@ -163,8 +162,8 @@
                 </div>
 
                 <p>
-                    The Polars row is not a rounding judgement. Attempting a
-                    direct upload returns:
+                    The last column is not a rounding judgement. Attempting a
+                    direct upload of the PyArrow or Polars package returns:
                 </p>
 
                 <pre><code>An error occurred (RequestEntityTooLargeException) when calling the
@@ -172,14 +171,13 @@ CreateFunction operation: Request must be smaller than 70167211 bytes
 for the CreateFunction operation</code></pre>
 
                 <p>
-                    The zip is 59 MB, which looks like it should fit under a
-                    70 MB cap — but the API takes the payload base64-encoded,
-                    which inflates it by a third to roughly 79 MB. Polars has to
-                    be staged through S3 and deployed with
-                    <code>--code S3Bucket=…,S3Key=…</code>. PyArrow's 48.8 MB
-                    zip encodes to about 65 MB and clears the bar with roughly
-                    7% to spare, which is close enough that adding your own
-                    dependencies could push it over.
+                    A 55 MB zip looks like it should fit under a 70 MB cap — but
+                    the API takes the payload base64-encoded, which inflates it
+                    by a third to roughly 74 MB. Both packages have to be staged
+                    through S3 and deployed with
+                    <code>--code S3Bucket=…,S3Key=…</code>. PyArrow used to
+                    clear the bar: version 25.0.1's 48.8 MB zip fitted with
+                    about 7% to spare. Version 26.0.0 grew past it.
                 </p>
 
                 <h2>The deployment package</h2>
@@ -268,7 +266,7 @@ def handler(event, context):
                 <h2>The benchmark</h2>
 
                 <p>
-                    One file in S3: 24.6 MB of Parquet, 2 million rows, 8
+                    One file in S3: 38.6 MB of Parquet, 2 million rows, 8
                     columns, 20 row groups, ZSTD compressed — web-traffic
                     shaped. Four Lambda functions, one per library, all
                     <code>python3.12</code> at 1024 MB in
@@ -310,9 +308,9 @@ def handler(event, context):
 
                 <p>
                     All four libraries returned identical answers on all three
-                    shapes: <strong>1,840,103 rows</strong> averaging 149.1916
-                    ms, <strong>39,969 rows</strong> averaging 147.92 ms, and
-                    <strong>50,000 rows</strong> averaging 148.9732 ms. Nothing
+                    shapes: <strong>1,840,303 rows</strong> averaging 149.3266
+                    ms, <strong>40,193 rows</strong> averaging 149.3458 ms, and
+                    <strong>50,000 rows</strong> averaging 149.3672 ms. Nothing
                     below is a difference in what was computed.
                 </p>
 
@@ -322,7 +320,8 @@ def handler(event, context):
                     Cold starts were forced by mutating each function's
                     environment, which retires the execution environment, then
                     reading <code>Init Duration</code> from the REPORT line.
-                    Five cold starts per library; the spread was under 8%.
+                    Init duration is the median of 20 cold starts per library;
+                    the rest is the median of five on this query.
                 </p>
 
                 <div class="table-scroll">
@@ -339,31 +338,31 @@ def handler(event, context):
                         <tbody>
                             <tr class="highlight">
                                 <td><strong>rugo</strong></td>
-                                <td class="win">560 ms</td>
-                                <td class="lose">941 ms</td>
-                                <td>1,501 ms</td>
-                                <td>233 MB</td>
+                                <td class="win">551 ms</td>
+                                <td>799 ms</td>
+                                <td class="win">1,350 ms</td>
+                                <td class="win">174 MB</td>
                             </tr>
                             <tr>
                                 <td>duckdb</td>
-                                <td>828 ms</td>
-                                <td class="win">504 ms</td>
-                                <td class="win">1,333 ms</td>
-                                <td class="win">180 MB</td>
+                                <td>845 ms</td>
+                                <td class="win">780 ms</td>
+                                <td>1,625 ms</td>
+                                <td>205 MB</td>
                             </tr>
                             <tr>
                                 <td>pyarrow</td>
-                                <td>987 ms</td>
-                                <td>805 ms</td>
-                                <td>1,792 ms</td>
-                                <td class="lose">281 MB</td>
+                                <td>1,011 ms</td>
+                                <td>1,065 ms</td>
+                                <td>2,076 ms</td>
+                                <td class="lose">319 MB</td>
                             </tr>
                             <tr>
                                 <td>polars</td>
-                                <td class="lose">1,224 ms</td>
-                                <td>977 ms</td>
-                                <td class="lose">2,201 ms</td>
-                                <td>243 MB</td>
+                                <td class="lose">1,201 ms</td>
+                                <td class="lose">1,285 ms</td>
+                                <td class="lose">2,486 ms</td>
+                                <td>280 MB</td>
                             </tr>
                         </tbody>
                     </table>
@@ -376,11 +375,12 @@ def handler(event, context):
                 </p>
 
                 <p>
-                    <strong>And then it loses the race it just led.</strong>
-                    DuckDB's handler finishes 437 ms sooner than rugo's, which
-                    more than repays its 268 ms slower start. On first-request
-                    latency for this workload, DuckDB wins: 1,333 ms against
-                    rugo's 1,501 ms.
+                    The handler times include downloading the file from S3,
+                    about 600 ms for every library, so the read itself is the
+                    smaller part. DuckDB's handler finishes 19 ms sooner than
+                    rugo's, nowhere near enough to repay its 294 ms slower
+                    start. On first-request latency for this workload, rugo
+                    wins: 1,350 ms against DuckDB's 1,625 ms.
                 </p>
 
                 <h2>Read throughput, warm</h2>
@@ -404,41 +404,44 @@ def handler(event, context):
                         <tbody>
                             <tr>
                                 <td>broad (92% pass, 2 cols)</td>
-                                <td class="lose">366 ms</td>
-                                <td>150 ms</td>
-                                <td class="win">78 ms</td>
-                                <td>80 ms</td>
+                                <td>123 ms</td>
+                                <td class="lose">145 ms</td>
+                                <td>100 ms</td>
+                                <td class="win">80 ms</td>
                             </tr>
                             <tr>
                                 <td>selective (2% pass, unclustered)</td>
-                                <td class="lose">355 ms</td>
-                                <td>94 ms</td>
-                                <td>65 ms</td>
-                                <td class="win">53 ms</td>
+                                <td>101 ms</td>
+                                <td class="lose">102 ms</td>
+                                <td>82 ms</td>
+                                <td class="win">82 ms</td>
                             </tr>
                             <tr>
                                 <td>pruned (2% pass, clustered)</td>
-                                <td class="lose">22 ms</td>
-                                <td class="win">5.0 ms</td>
-                                <td>7.7 ms</td>
-                                <td>5.7 ms</td>
+                                <td>6.4 ms</td>
+                                <td class="win">5.8 ms</td>
+                                <td class="lose">6.7 ms</td>
+                                <td class="win">5.8 ms</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
                 <p>
-                    rugo is the slowest of the four in every shape. Row-group
-                    pruning does work — 366 ms down to 22 ms, a 16× improvement
-                    once the predicate lines up with the data layout — but the
-                    other three prune too, and they were already faster.
+                    rugo reads faster than PyArrow on the broad scan and level
+                    with it on the selective one. Row-group pruning does its
+                    job — 123 ms down to 6.4 ms, a 19× improvement once the
+                    predicate lines up with the data layout — and once the
+                    reader skips most of the file, all four finish within a
+                    millisecond of each other.
                 </p>
 
                 <p>
                     This is worth stating plainly, on rugo's own site: if your
                     Lambda's job is to scan a lot of Parquet, rugo is not the
-                    fastest way to do it. DuckDB and Polars have poured years
-                    into vectorised decode and it shows.
+                    fastest way to do it. DuckDB and Polars read the broad scan
+                    20–35% faster. They have poured years into vectorised
+                    decode and it shows.
                 </p>
 
                 <h2>So when does rugo win?</h2>
@@ -449,12 +452,15 @@ def handler(event, context):
                 </p>
 
                 <p>
-                    rugo starts roughly 270–660 ms sooner than the others. It
-                    then reads roughly 200–290 ms slower per full scan of this
-                    file. If your function does one modest read per invocation,
-                    rugo is ahead. If it scans hundreds of megabytes per
-                    invocation, the deficit compounds and something else is the
-                    right answer.
+                    rugo starts roughly 300–650 ms sooner than the others. It
+                    then reads a full scan of this file 20–45 ms slower than
+                    DuckDB and Polars, and faster than PyArrow. If your function
+                    does one modest read per invocation, or starts cold often,
+                    rugo is ahead. If it stays warm and scans hundreds of
+                    megabytes per invocation, the deficit compounds and
+                    something else is the right answer.
+                    <a href="lambda-cost-break-even.html">The follow-up</a>
+                    works out where the break-even sits on your bill.
                 </p>
 
                 <p>Concretely, rugo is the better choice when:</p>
@@ -463,7 +469,7 @@ def handler(event, context):
                     <li>
                         <strong>The package budget is the binding
                         constraint.</strong> If the function also carries an ML
-                        model or a pile of SDKs, 11.6 MB versus 154 MB is the
+                        model or a pile of SDKs, 13.5 MB versus 173 MB is the
                         difference between deploying and not. This is the
                         strongest case by a distance.
                     </li>
@@ -489,9 +495,10 @@ def handler(event, context):
 
                 <ul>
                     <li>
-                        <strong>You need throughput on large scans.</strong> Use
-                        <a href="https://duckdb.org/">DuckDB</a> — fastest total
-                        first-request time here, and 58.6 MB is a sane package.
+                        <strong>You need throughput on large, warm scans.</strong> Use
+                        <a href="https://duckdb.org/">DuckDB</a> — it reads the
+                        broad scan 20% faster than rugo here, and 61.7 MB is a
+                        sane package.
                     </li>
                     <li>
                         <strong>You need SQL.</strong> rugo has none. DuckDB
@@ -508,7 +515,7 @@ def handler(event, context):
                         something downstream wants
                         <code>pyarrow.Table</code>, use PyArrow. rugo's
                         <code>to_arrow()</code> requires PyArrow at runtime,
-                        which puts the 154 MB straight back.
+                        which puts the 173 MB straight back.
                     </li>
                 </ul>
 
@@ -516,8 +523,8 @@ def handler(event, context):
 
                 <p>
                     Beyond the capability gaps above, these are the concrete
-                    limits found while building this, all verified against files
-                    written by PyArrow 25.0.1:
+                    limits found while building this, all verified on rugo 0.5.4
+                    against files written by PyArrow 26.0.0:
                 </p>
 
                 <ul>
@@ -525,7 +532,8 @@ def handler(event, context):
                         <strong>No S3 or filesystem abstraction.</strong> There
                         is no <code>s3://</code> support; a URL string is
                         treated as a filename and fails with
-                        <code>FileNotFoundError</code>. You fetch the bytes.
+                        <code>RuntimeError: Unable to open parquet file</code>.
+                        You fetch the bytes.
                     </li>
                     <li>
                         <strong>No ranged reads.</strong> Because you supply the
@@ -537,21 +545,21 @@ def handler(event, context):
                         rugo has no answer to it.
                     </li>
                     <li>
-                        <strong>Map columns are not supported.</strong> They
-                        raise <code>NotImplementedError</code> — which is the
-                        right behaviour, but it is a hard stop if your schema
-                        has one. Nested structs, <code>list</code> columns and
-                        <code>decimal128</code> all read correctly.
+                        <strong>Nested columns come back flattened.</strong> A
+                        struct column <code>s</code> is read as its leaf columns,
+                        <code>s.x</code>, <code>s.y</code> and so on; a map
+                        column comes back as two list columns, its keys and its
+                        values. The values are all there, but code expecting one
+                        column per top-level field has to reassemble them.
+                        <code>list</code> columns and <code>decimal128</code>
+                        read as you'd expect.
                     </li>
                     <li>
-                        <strong>Brotli-compressed columns and INT96 timestamps
-                        currently return zero rows without raising.</strong>
-                        The footer reports the correct row count and the reader
-                        yields nothing. This is a bug, not a design limit, and
-                        it is being fixed — but on this version, check your
-                        writer's codec and timestamp settings before trusting a
-                        result. ZSTD, Snappy, GZIP, LZ4 and INT64 timestamps all
-                        round-trip correctly.
+                        <strong>Brotli compression is not supported.</strong>
+                        Reading a Brotli-compressed column raises an error that
+                        names the codec. ZSTD, Snappy, GZIP, LZ4 and
+                        uncompressed columns all read correctly, as do INT96
+                        and INT64 timestamps.
                     </li>
                 </ul>
 
@@ -562,12 +570,16 @@ def handler(event, context):
                     approximation. Sizes are from
                     <code>pip install --target</code> trees built with Lambda's
                     platform tags; cold starts are <code>Init Duration</code>
-                    from Lambda's own REPORT lines, median of five forced cold
-                    starts per library; read times are warm invocations with the
-                    object already on <code>/tmp</code>. Python 3.12, x86_64,
-                    1024 MB, <code>us-east-1</code>, measured 14 August 2026
-                    against rugo 0.4.30, pyarrow 25.0.1, duckdb 1.5.5 and polars
-                    1.43.2.
+                    from Lambda's own REPORT lines, median of 20 forced cold
+                    starts per library; read times are the median of ten warm
+                    invocations with the object already on <code>/tmp</code>.
+                    Python 3.12, x86_64, 1024 MB, <code>us-east-1</code>,
+                    measured 17 October 2026 against rugo 0.5.4, pyarrow 26.0.0,
+                    duckdb 1.5.6 and polars 2.0.0. The harness and raw results
+                    are in
+                    <a href="https://github.com/mabel-dev/rugo.dev/tree/main/benchmarks/lambda-cost"
+                        ><code>benchmarks/lambda-cost</code></a
+                    >.
                 </p>
 
                 <p>
