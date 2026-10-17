@@ -31,11 +31,29 @@
                     PyArrow, pandas or NumPy. Measurements, not estimates.
                 </p>
 
-                <!-- DRAFT, not yet listed: parquet-in-aws-lambda-without-pyarrow.html
-                     Add its card here once reviewed. -->
+                <a class="post-card" href="lambda-cost-break-even.html">
+                    <h2>
+                        When rugo makes your Lambda cheaper, and when it
+                        doesn't
+                    </h2>
+                    <p class="post-meta">17 October 2026</p>
+                    <p>
+                        What rugo, PyArrow, DuckDB and Polars cost per million
+                        Lambda calls. rugo costs 15–35% less than PyArrow at
+                        every cold-start rate and, at 1024 MB, beats DuckDB and
+                        Polars once about one call in ten is cold.
+                    </p>
+                </a>
 
-                <!-- DRAFT, not yet listed: lambda-cost-break-even.html
-                     Follow-up to the Lambda post above; list it after that one. -->
+                <a class="post-card" href="parquet-in-aws-lambda-without-pyarrow.html">
+                    <h2>Reading Parquet in AWS Lambda without PyArrow</h2>
+                    <p class="post-meta">17 October 2026</p>
+                    <p>
+                        PyArrow takes 69% of Lambda's 250 MB package limit and
+                        no longer fits a direct upload. rugo takes 5.4%, and
+                        starts 1.5–2.2× faster than PyArrow, DuckDB or Polars.
+                    </p>
+                </a>
 
                 <a class="post-card" href="jsonl-logs-grep-vs-pandas-vs-rugo.html">
                     <h2>
