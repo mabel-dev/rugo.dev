@@ -1,0 +1,687 @@
+<!doctype html>
+<!--
+  ============================ DRAFT — DO NOT PUBLISH ============================
+  Follow-up to parquet-in-aws-lambda-without-pyarrow.html, which is itself still
+  an unlisted draft. Publish that one first; this post depends on it.
+
+  Unresolved before this can go live:
+
+  1. Both posts now use the same run (benchmarks/lambda-cost, 17 October 2026)
+     and the same 38.6 MB file, so their numbers should agree. If either is
+     re-measured, re-measure both.
+
+  2. Publish the parent post first.
+
+  3. Check Lambda prices on the day of publishing (us-east-1 figures below).
+
+  All numbers here: measured 17 October 2026, rugo 0.5.4, pyarrow 26.0.0,
+  duckdb 1.5.6, polars 2.0.0, python3.12, us-east-1. The AWS stack is torn down;
+  re-run with benchmarks/lambda-cost.
+  ===============================================================================
+-->
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>When rugo makes your Lambda cheaper, and when it doesn't</title>
+        <meta
+            name="description"
+            content="Measured on AWS Lambda: rugo costs 15–35% less to run than PyArrow at every cold-start rate. Against DuckDB and Polars it depends on how many of your calls are cold starts. Here's the break-even, and how to find your own."
+        />
+        <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+        <link rel="stylesheet" href="../blog.css" />
+    </head>
+    <body>
+        <nav>
+            <a class="nav-logo" href="../index.html">ru<span>go</span></a>
+            <div class="nav-links">
+                <a href="../index.html">Home</a>
+                <a href="index.html">Blog</a>
+                <a href="https://github.com/mabel-dev/opteryx-core/tree/main/rugo"
+                    >Docs</a
+                >
+            </div>
+        </nav>
+
+        <article>
+            <div class="container">
+                <header class="post-header">
+                    <h1>When rugo makes your Lambda cheaper, and when it doesn't</h1>
+                    <p class="post-meta">
+                        Justin Joyce <span class="sep">·</span> [date]
+                        <span class="sep">·</span> 8 min read
+                    </p>
+                    <div class="post-tags">
+                        <span>aws lambda</span>
+                        <span>cost</span>
+                        <span>serverless</span>
+                        <span>benchmarks</span>
+                    </div>
+                    <p class="post-notice">
+                        Correct at time of publishing. For up-to-date
+                        performance and feature information, see
+                        <a href="../">rugo.dev</a>.
+                    </p>
+                </header>
+
+                <p class="lede">
+                    On AWS Lambda, rugo costs <strong>15% to 35% less</strong>
+                    to run than PyArrow: 15% when every call is warm, 35% when
+                    every call is a cold start. Against DuckDB and Polars, the
+                    answer depends on one number: the share of your calls that
+                    are cold starts. Above about <strong>10%</strong>, rugo is
+                    the cheapest of the four.
+                </p>
+
+                <p>
+                    <a href="parquet-in-aws-lambda-without-pyarrow.html"
+                        >Reading Parquet in AWS Lambda without PyArrow</a
+                    >
+                    covered package sizes, deployment and read speed. This post
+                    turns the same comparison into money: what each library
+                    costs per million calls, where the break-even points sit,
+                    and how to find out which side of them your function is on.
+                    Every number here comes from functions deployed to AWS and
+                    read off Lambda's own <code>REPORT</code> lines.
+                </p>
+
+                <h2>How Lambda bills you</h2>
+
+                <ul>
+                    <li>
+                        <strong>Requests:</strong> $0.20 per million calls,
+                        whatever the function does.
+                    </li>
+                    <li>
+                        <strong>Duration:</strong> $0.0000166667 per GB-second
+                        on x86, $0.0000133334 on arm64, billed by the
+                        millisecond. This is almost always most of the bill.
+                    </li>
+                </ul>
+
+                <p>
+                    Duration includes the <strong>INIT phase</strong>: the time
+                    a new execution environment spends loading your code and
+                    running your imports before the first call. You can see it
+                    in the logs. On a cold call, <code>Billed Duration</code> is
+                    <code>Duration</code> plus <code>Init Duration</code>:
+                </p>
+
+                <pre><code>Duration: 780.30 ms  Billed Duration: 1342 ms  Init Duration: 560.73 ms</code></pre>
+
+                <p>
+                    So every call is one of two kinds. A
+                    <strong>cold</strong> call pays for INIT plus the handler. A
+                    <strong>warm</strong> call reuses an environment and pays
+                    for the handler alone. A slow import is a cost on every cold
+                    call, not just a delay.
+                </p>
+
+                <h2>The test</h2>
+
+                <p>
+                    One Parquet file in S3: 38.6 MB, 2 million rows, 8 columns,
+                    20 row groups, ZSTD compressed, web-traffic shaped. Four
+                    functions, one per library, each deployed on x86 and arm64
+                    and run at 1024, 512 and 256 MB. Each function downloads the
+                    file to <code>/tmp</code> on its first call, then runs one
+                    of four queries:
+                </p>
+
+                <ul>
+                    <li>
+                        <strong>broad</strong>: <code>status == 200</code>, 2 of
+                        8 columns. 92% of rows pass, so this measures raw
+                        decoding.
+                    </li>
+                    <li>
+                        <strong>selective</strong>: <code>status == 500</code>.
+                        2% of rows pass, but no row group can be skipped.
+                    </li>
+                    <li>
+                        <strong>pruned</strong>: a 50,000-row
+                        <code>event_id</code> range. 19 of 20 row groups are
+                        skipped using the footer statistics.
+                    </li>
+                    <li>
+                        <strong>footer</strong>: row count and schema only, the
+                        shape of a function that checks files as they land.
+                    </li>
+                </ul>
+
+                <p>
+                    All four libraries returned identical answers on every
+                    query, in every configuration. 1,440 calls in all, none
+                    failed.
+                </p>
+
+                <h2>What each library costs to start</h2>
+
+                <p>At 1024 MB on x86:</p>
+
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Library</th>
+                                <th>Package</th>
+                                <th>Init duration</th>
+                                <th>Peak memory</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="highlight">
+                                <td><strong>rugo</strong> 0.5.4</td>
+                                <td class="win">13.5 MB</td>
+                                <td class="win">551 ms</td>
+                                <td class="win">174 MB</td>
+                            </tr>
+                            <tr>
+                                <td>duckdb 1.5.6</td>
+                                <td>61.7 MB</td>
+                                <td>845 ms</td>
+                                <td>205 MB</td>
+                            </tr>
+                            <tr>
+                                <td>pyarrow 26.0.0</td>
+                                <td>172.5 MB</td>
+                                <td>1,011 ms</td>
+                                <td class="lose">319 MB</td>
+                            </tr>
+                            <tr>
+                                <td>polars 2.0.0</td>
+                                <td class="lose">196.3 MB</td>
+                                <td class="lose">1,201 ms</td>
+                                <td>280 MB</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    Init duration is the median over 20 cold starts. It doesn't
+                    depend on the query, because it happens before the handler
+                    runs.
+                </p>
+
+                <h2>What one call costs</h2>
+
+                <p>Billed duration for the broad query, at 1024 MB on x86:</p>
+
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Library</th>
+                                <th>Cold call</th>
+                                <th>Warm call</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="highlight">
+                                <td><strong>rugo</strong></td>
+                                <td class="win">1,350 ms</td>
+                                <td>128 ms</td>
+                            </tr>
+                            <tr>
+                                <td>duckdb</td>
+                                <td>1,625 ms</td>
+                                <td>102 ms</td>
+                            </tr>
+                            <tr>
+                                <td>pyarrow</td>
+                                <td>2,076 ms</td>
+                                <td class="lose">154 ms</td>
+                            </tr>
+                            <tr>
+                                <td>polars</td>
+                                <td class="lose">2,486 ms</td>
+                                <td class="win">82 ms</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    A cold call includes downloading the file from S3, about
+                    600 ms here for every library. A warm call reuses the file
+                    already on <code>/tmp</code>.
+                </p>
+
+                <p>
+                    rugo has the cheapest cold call by a wide margin, and its
+                    warm call is faster than PyArrow's. Polars and DuckDB have
+                    the faster warm calls: their scan engines decode a
+                    whole-file query quicker.
+                </p>
+
+                <h2>What a million calls costs</h2>
+
+                <p>
+                    Mix cold and warm calls in different proportions, and the
+                    broad query at 1024 MB on x86 costs this per million calls,
+                    requests included:
+                </p>
+
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Cold starts</th>
+                                <th>rugo</th>
+                                <th>duckdb</th>
+                                <th>pyarrow</th>
+                                <th>polars</th>
+                                <th>rugo vs pyarrow</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>0%</td>
+                                <td>$2.33</td>
+                                <td>$1.90</td>
+                                <td class="lose">$2.76</td>
+                                <td class="win">$1.57</td>
+                                <td class="win">−15%</td>
+                            </tr>
+                            <tr>
+                                <td>10%</td>
+                                <td class="win">$4.37</td>
+                                <td>$4.44</td>
+                                <td class="lose">$5.96</td>
+                                <td>$5.57</td>
+                                <td class="win">−27%</td>
+                            </tr>
+                            <tr>
+                                <td>25%</td>
+                                <td class="win">$7.42</td>
+                                <td>$8.25</td>
+                                <td>$10.77</td>
+                                <td class="lose">$11.58</td>
+                                <td class="win">−31%</td>
+                            </tr>
+                            <tr>
+                                <td>50%</td>
+                                <td class="win">$12.52</td>
+                                <td>$14.59</td>
+                                <td>$18.78</td>
+                                <td class="lose">$21.60</td>
+                                <td class="win">−33%</td>
+                            </tr>
+                            <tr>
+                                <td>100%</td>
+                                <td class="win">$22.70</td>
+                                <td>$27.29</td>
+                                <td>$34.80</td>
+                                <td class="lose">$41.64</td>
+                                <td class="win">−35%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    If every call is warm and scans most of the file, Polars is
+                    cheapest and DuckDB second. From about one cold start in ten
+                    upwards, rugo is cheapest, and the gap widens the colder the
+                    function runs. PyArrow is never the cheapest: it starts
+                    slower than rugo and DuckDB and reads slower than all three.
+                </p>
+
+                <h2>The break-even point</h2>
+
+                <p>
+                    You don't need the whole table to compare two libraries.
+                    If rugo saves time on cold calls but loses some on warm
+                    ones, it comes out cheaper when:
+                </p>
+
+                <pre><code>cold-start rate &gt; warm penalty ÷ (warm penalty + cold saving)</code></pre>
+
+                <p>
+                    Against DuckDB on the broad query, the warm penalty is 26 ms
+                    (128 − 102) and the cold saving is 275 ms
+                    (1,625 − 1,350). That gives 26 ÷ 301, about
+                    <strong>9%</strong>.
+                </p>
+
+                <p>
+                    The break-even moves with the query, because the warm
+                    penalty is the part that changes. At 1024 MB on x86, rugo is
+                    cheaper when the cold-start rate is:
+                </p>
+
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Query</th>
+                                <th>vs pyarrow</th>
+                                <th>vs duckdb</th>
+                                <th>vs polars</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>broad (92% pass)</td>
+                                <td class="win">any</td>
+                                <td>above 9%</td>
+                                <td>above 4%</td>
+                            </tr>
+                            <tr>
+                                <td>selective (2% pass, no skipping)</td>
+                                <td class="win">any</td>
+                                <td>above 6%</td>
+                                <td>above 1%</td>
+                            </tr>
+                            <tr>
+                                <td>pruned (19 of 20 row groups skipped)</td>
+                                <td class="win">any*</td>
+                                <td class="win">any</td>
+                                <td class="win">any*</td>
+                            </tr>
+                            <tr>
+                                <td>footer only</td>
+                                <td class="win">any</td>
+                                <td class="win">any</td>
+                                <td class="win">any</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    * On the pruned query every library's warm call bills 8 to
+                    10 ms, so rugo is 1 ms dearer than PyArrow and Polars, and
+                    cheaper as soon as more than about one call in 500 is cold.
+                </p>
+
+                <p>
+                    The less of the file a query has to decode, the less the
+                    read speed matters and the more the start-up time does.
+                    When the query reads a footer or skips most row groups,
+                    every library reads in a few milliseconds, and rugo's
+                    300 to 650 ms head start on each cold call is the whole
+                    difference.
+                </p>
+
+                <h2>Other architectures and memory sizes</h2>
+
+                <p>The broad query again, in every configuration we ran:</p>
+
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Configuration</th>
+                                <th>vs pyarrow</th>
+                                <th>vs duckdb</th>
+                                <th>vs polars</th>
+                                <th>rugo, all warm</th>
+                                <th>rugo, all cold</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>x86, 1024 MB</td>
+                                <td class="win">any</td>
+                                <td>above 9%</td>
+                                <td>above 4%</td>
+                                <td>$2.33</td>
+                                <td>$22.70</td>
+                            </tr>
+                            <tr>
+                                <td>x86, 512 MB</td>
+                                <td class="win">any</td>
+                                <td>above 16%</td>
+                                <td>above 6%</td>
+                                <td>$2.55</td>
+                                <td>$18.27</td>
+                            </tr>
+                            <tr>
+                                <td>x86, 256 MB</td>
+                                <td class="win">any</td>
+                                <td>above 24%</td>
+                                <td>above 5%</td>
+                                <td>$2.42</td>
+                                <td>$16.13</td>
+                            </tr>
+                            <tr>
+                                <td>arm64, 1024 MB</td>
+                                <td class="win">any</td>
+                                <td class="win">any</td>
+                                <td>above 2%</td>
+                                <td class="win">$1.70</td>
+                                <td>$18.25</td>
+                            </tr>
+                            <tr>
+                                <td>arm64, 512 MB</td>
+                                <td class="win">any</td>
+                                <td>above 7%</td>
+                                <td>above 6%</td>
+                                <td>$1.98</td>
+                                <td>$14.21</td>
+                            </tr>
+                            <tr>
+                                <td>arm64, 256 MB</td>
+                                <td class="win">any</td>
+                                <td>above 20%</td>
+                                <td>above 7%</td>
+                                <td>$2.15</td>
+                                <td class="win">$12.50</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>Three things in this table are worth knowing whichever library you use.</p>
+
+                <ul>
+                    <li>
+                        <strong>rugo is cheaper than PyArrow everywhere.</strong>
+                        Every architecture and every memory size. The only
+                        exception is the pruned query, where every library's
+                        warm call takes a few milliseconds, and rugo is cheaper
+                        once more than 1 to 2% of calls are cold.
+                    </li>
+                    <li>
+                        <strong>arm64 is cheaper for everyone.</strong> It's 20%
+                        cheaper per GB-second, and most calls ran no slower.
+                        On arm64 at 1024 MB, rugo beats DuckDB at every
+                        cold-start rate.
+                    </li>
+                    <li>
+                        <strong>Less memory isn't a straight saving.</strong>
+                        Lambda scales CPU and network bandwidth with memory, so
+                        at 256 MB every call takes longer. The S3 download alone
+                        went from about 600 ms at 1024 MB to about 2,400 ms at
+                        256 MB. For cold-heavy functions the lower price still
+                        wins. For warm-heavy ones, cutting memory saves almost
+                        nothing.
+                    </li>
+                </ul>
+
+                <p>
+                    One thing we expected and didn't find: a memory size only
+                    rugo fits in. rugo peaked at 174 MB against PyArrow's
+                    319 MB at 1024 MB, but at 256 MB every library ran without
+                    failing. PyArrow peaked at 248 MB, close to the limit. On a
+                    bigger file, or with more dependencies loaded, that margin
+                    would matter. On this file it didn't.
+                </p>
+
+                <h2>Find your own cold-start rate</h2>
+
+                <p>
+                    Lambda writes a <code>REPORT</code> line for every call, and
+                    only cold calls include an <code>Init Duration</code>. In
+                    CloudWatch Logs Insights, against your function's log group:
+                </p>
+
+                <pre><code>filter @type = "REPORT"
+| stats count(*) as calls, count(@initDuration) as cold by bin(1d)</code></pre>
+
+                <p>
+                    Divide <code>cold</code> by <code>calls</code>. As a rough
+                    guide:
+                </p>
+
+                <ul>
+                    <li>
+                        <strong>A steady, busy API</strong> keeps its
+                        environments warm, and cold starts can be a small
+                        fraction of calls. Read speed is most of what you pay
+                        for.
+                    </li>
+                    <li>
+                        <strong>Functions triggered by S3 uploads, schedules or
+                        queues that empty and refill</strong> sit idle long
+                        enough for Lambda to retire their environments. A large
+                        share of their calls can be cold.
+                    </li>
+                    <li>
+                        <strong>Spiky traffic</strong> makes Lambda start many
+                        environments at once, and each one pays INIT.
+                    </li>
+                </ul>
+
+                <h2>What this leaves out</h2>
+
+                <ul>
+                    <li>
+                        <strong>Downloading on every call.</strong> Our warm
+                        calls reused a file already on <code>/tmp</code>. A
+                        function triggered by each new upload downloads a new
+                        object every time. That adds the same time to every
+                        library, so the break-even points don't move, but the
+                        percentage saved shrinks. Adding a 600 ms download to
+                        every warm call cuts rugo's all-warm saving over PyArrow
+                        from 15% to about 3%.
+                    </li>
+                    <li>
+                        <strong>Provisioned concurrency.</strong> Some teams pay
+                        to keep environments warm purely to hide slow imports.
+                        If rugo's start-up time makes that unnecessary, the
+                        saving is the whole provisioned-concurrency charge,
+                        which can dwarf everything in these tables.
+                    </li>
+                    <li>
+                        <strong>Your other imports.</strong> If the function
+                        also imports pandas, PyArrow comes along anyway and most
+                        of rugo's start-up saving disappears.
+                    </li>
+                    <li>
+                        <strong>The rest of the bill.</strong> CloudWatch Logs,
+                        S3 requests and data transfer cost the same whichever
+                        reader you use, and for small functions they can be the
+                        bigger number.
+                    </li>
+                    <li>
+                        <strong>One file.</strong> A file ten times bigger
+                        shifts the balance towards whichever library decodes
+                        fastest: DuckDB and Polars on broad scans.
+                    </li>
+                </ul>
+
+                <h2>So should you switch?</h2>
+
+                <p>
+                    If your function uses PyArrow only to read Parquet: yes. On
+                    Lambda, rugo was cheaper in every configuration we measured,
+                    and the colder the function runs, the bigger the saving.
+                </p>
+
+                <p>
+                    Against DuckDB and Polars, count your cold starts first. If
+                    more than about one call in ten is cold, or your queries
+                    read a footer or a few row groups rather than the whole
+                    file, rugo is cheapest. If your function stays warm and
+                    scans whole files, DuckDB or Polars will cost less, and it
+                    has SQL or dataframes as well.
+                </p>
+
+                <p>
+                    The rule of thumb: rugo pays for itself on Lambda when
+                    functions start often and read little. That's the usual
+                    shape of event-driven work: validating files as they land,
+                    reading a footer, pulling a few rows out of a
+                    well-partitioned lake.
+                </p>
+
+                <h2>Reproducing this</h2>
+
+                <p>
+                    Measured 17 October 2026 in <code>us-east-1</code>, on the
+                    <code>python3.12</code> runtime, against rugo 0.5.4,
+                    pyarrow 26.0.0, duckdb 1.5.6 and polars 2.0.0. Each cold
+                    sample changes the function's configuration first, which
+                    retires its execution environment. There were five cold
+                    samples per query and configuration, then ten warm calls on
+                    the same environment. Costs are calculated, not read off an
+                    invoice: billed duration × memory × us-east-1 price, plus
+                    the request charge.
+                </p>
+
+                <p>
+                    To reduce noise in the cold figures, init time is the median
+                    of all 20 cold starts per library and configuration, and the
+                    S3 download, which varied by about ±10% between calls and
+                    is the same work for every library, uses one shared median.
+                    The harness, the data generator and the raw results for all
+                    1,440 calls are in
+                    <a href="https://github.com/mabel-dev/rugo.dev/tree/main/benchmarks/lambda-cost"
+                        ><code>benchmarks/lambda-cost</code></a
+                    >.
+                </p>
+
+                <p>
+                    The formula works with your own numbers too. Deploy your
+                    function both ways, force a few cold starts, read
+                    <code>Init Duration</code> and <code>Billed Duration</code>
+                    from the <code>REPORT</code> lines, and put in your own
+                    cold-start rate.
+                </p>
+            </div>
+        </article>
+
+        <footer>
+            <div class="container">
+                <span
+                    >rugo is part of the
+                    <a href="https://opteryx.app/">Opteryx</a> project — Apache
+                    2.0</span
+                >
+                <span>
+                    <a href="https://github.com/mabel-dev/opteryx-core"
+                        >GitHub</a
+                    >
+                    ·
+                    <a href="https://pypi.org/project/rugo/">PyPI</a>
+                </span>
+            </div>
+        </footer>
+
+        <script>
+            document.addEventListener("DOMContentLoaded", () => {
+                document.querySelectorAll("pre").forEach((pre) => {
+                    const btn = document.createElement("button");
+                    btn.className = "copy-btn";
+                    btn.textContent = "copy";
+                    btn.addEventListener("click", () => {
+                        navigator.clipboard
+                            .writeText(pre.innerText)
+                            .then(() => {
+                                btn.textContent = "copied";
+                                btn.classList.add("copied");
+                                setTimeout(() => {
+                                    btn.textContent = "copy";
+                                    btn.classList.remove("copied");
+                                }, 1500);
+                            });
+                    });
+                    pre.appendChild(btn);
+                });
+            });
+        </script>
+    </body>
+</html>
