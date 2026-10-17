@@ -1,24 +1,4 @@
 <!doctype html>
-<!--
-  ============================ DRAFT — DO NOT PUBLISH ============================
-  Follow-up to parquet-in-aws-lambda-without-pyarrow.html, which is itself still
-  an unlisted draft. Publish that one first; this post depends on it.
-
-  Unresolved before this can go live:
-
-  1. Both posts now use the same run (benchmarks/lambda-cost, 17 October 2026)
-     and the same 38.6 MB file, so their numbers should agree. If either is
-     re-measured, re-measure both.
-
-  2. Publish the parent post first.
-
-  3. Check Lambda prices on the day of publishing (us-east-1 figures below).
-
-  All numbers here: measured 17 October 2026, rugo 0.5.4, pyarrow 26.0.0,
-  duckdb 1.5.6, polars 2.0.0, python3.12, us-east-1. The AWS stack is torn down;
-  re-run with benchmarks/lambda-cost.
-  ===============================================================================
--->
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
@@ -48,7 +28,7 @@
                 <header class="post-header">
                     <h1>When rugo makes your Lambda cheaper, and when it doesn't</h1>
                     <p class="post-meta">
-                        Justin Joyce <span class="sep">·</span> [date]
+                        Justin Joyce <span class="sep">·</span> 17 October 2026
                         <span class="sep">·</span> 8 min read
                     </p>
                     <div class="post-tags">
