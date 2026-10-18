@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Performant Python pipelines without the Rust</title>
+        <meta
+            name="description"
+            content="We raced rugo's Avro reader, called from Python, against Apache Arrow's Rust reader. On one thread Python won three of four races, by 1.2× to 1.6×. Left on its defaults, rugo was 2.3× to 4.5× faster than any Rust result."
+        />
+        <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+        <link rel="stylesheet" href="../blog.css" />
+    </head>
+    <body>
+        <nav>
+            <a class="nav-logo" href="../index.html">ru<span>go</span></a>
+            <div class="nav-links">
+                <a href="../index.html">Home</a>
+                <a href="index.html">Blog</a>
+                <a href="https://github.com/mabel-dev/opteryx-core/tree/main/rugo"
+                    >Docs</a
+                >
+            </div>
+        </nav>
+
+        <article>
+            <div class="container">
+                <header class="post-header">
+                    <h1>Performant Python pipelines without the Rust</h1>
+                    <p class="post-meta">
+                        Justin Joyce <span class="sep">·</span> 18 October 2026
+                        <span class="sep">·</span> 6 min read
+                    </p>
+                    <div class="post-tags">
+                        <span>avro</span>
+                        <span>rust</span>
+                        <span>performance</span>
+                        <span>benchmarks</span>
+                    </div>
+                    <p class="post-notice">
+                        Correct at time of publishing. For up-to-date
+                        performance and feature information, see
+                        <a href="../">rugo.dev</a>.
+                    </p>
+                </header>
+
+                <p class="lede">
+                    Called from Python, rugo reads Avro faster than
+                    <strong>arrow-avro</strong>, Apache Arrow's own Rust reader.
+                    On one thread it won <strong>three of four races</strong>,
+                    by 1.2× to 1.6×. Left on its defaults, it uses every core
+                    and was <strong>2.3× to 4.5× faster</strong> than any Rust
+                    result.
+                </p>
+
+                <p>
+                    There's a familiar arc in data engineering. The Python
+                    pipeline gets slow, someone benchmarks it, and the
+                    conclusion is always the same: rewrite the hot path in Rust.
+                    Weeks later you have a second language, a build toolchain,
+                    FFI glue, and a team that can't all read the code.
+                </p>
+
+                <p>
+                    We think that trade is usually unnecessary. To test it, we
+                    raced rugo's Avro reader, called from Python, against the
+                    best Avro readers Rust has, called from Rust.
+                </p>
+
+                <h2>The contenders</h2>
+
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Reader</th>
+                                <th>Called from</th>
+                                <th>Returns</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="highlight">
+                                <td><strong>rugo</strong> 0.5.4</td>
+                                <td>Python</td>
+                                <td>columnar Morsels</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <a
+                                        href="https://arrow.apache.org/blog/2025/10/23/introducing-arrow-avro/"
+                                        >arrow-avro</a
+                                    >
+                                    60.0.0
+                                </td>
+                                <td>Rust</td>
+                                <td>Arrow RecordBatches</td>
+                            </tr>
+                            <tr>
+                                <td>apache-avro 0.22.0</td>
+                                <td>Rust</td>
+                                <td>one <code>Value</code> per record</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    arrow-avro is the one to beat. It decodes straight into
+                    columns, as rugo does, and in our runs it was 2.7× to 16×
+                    faster than the older apache-avro crate. We ran it twice:
+                    once on its defaults, and once tuned as far as we could push
+                    it, with 65,536-row batches and its deflate switched to
+                    <code>zlib-rs</code>, a faster Rust inflater than its default.
+                </p>
+
+                <h2>The test</h2>
+
+                <p>
+                    One file: 200,000 rows of a 20-field event record, the mix
+                    you'd see in a Kafka topic or a log stream. Longs, doubles,
+                    strings, enums, nullable unions, timestamps, dates, a
+                    decimal, a <code>fixed(16)</code>, a nested record, an array
+                    and a map. fastavro wrote it, so no reader is timed on its
+                    own output.
+                </p>
+
+                <p>
+                    We wrote it twice, once with deflate (21.6 MB) and once
+                    uncompressed (38.2 MB), and read it two ways:
+                </p>
+
+                <ul>
+                    <li><strong>all fields</strong>: every one of the 20.</li>
+                    <li>
+                        <strong>3 fields</strong>: <code>id</code>,
+                        <code>amount</code> and <code>country</code>. rugo is
+                        given <code>columns</code>; arrow-avro a projection;
+                        apache-avro a reader schema of just those fields.
+                    </li>
+                </ul>
+
+                <p>
+                    Every reader decoded the same in-memory bytes, so disk wasn't
+                    part of the timing. Each run was a fresh process on one
+                    thread. The readers took turns across five rounds, and the
+                    figures are medians. The machine is an 18-core Apple Silicon
+                    Mac.
+                </p>
+
+                <h2>One thread each</h2>
+
+                <p>Median read time, shorter is faster:</p>
+
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Race</th>
+                                <th>rugo (Python)</th>
+                                <th>arrow-avro</th>
+                                <th>apache-avro</th>
+                                <th>rugo vs arrow-avro</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>deflate, all fields</td>
+                                <td class="win">85.1 ms</td>
+                                <td>102.3 ms</td>
+                                <td class="lose">272.0 ms</td>
+                                <td class="win">1.20× faster</td>
+                            </tr>
+                            <tr>
+                                <td>deflate, 3 fields</td>
+                                <td class="win">52.9 ms</td>
+                                <td>83.2 ms</td>
+                                <td class="lose">402.0 ms</td>
+                                <td class="win">1.57× faster</td>
+                            </tr>
+                            <tr>
+                                <td>uncompressed, all fields</td>
+                                <td>47.9 ms</td>
+                                <td class="win">40.6 ms</td>
+                                <td class="lose">204.3 ms</td>
+                                <td class="lose">1.18× slower</td>
+                            </tr>
+                            <tr>
+                                <td>uncompressed, 3 fields</td>
+                                <td class="win">14.5 ms</td>
+                                <td>21.0 ms</td>
+                                <td class="lose">335.5 ms</td>
+                                <td class="win">1.45× faster</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    Python won three of the four. The arrow-avro figures are its
+                    tuned build; on its defaults it was 15 ms slower on the
+                    deflate races and level on the uncompressed ones.
+                    apache-avro was never in it: it came last in every race, up
+                    to 23× slower than rugo.
+                </p>
+
+                <h2>Every core</h2>
+
+                <p>
+                    One thread each keeps the race fair, but it isn't how anyone
+                    runs rugo. On its defaults, rugo spreads a file's blocks
+                    across every core. Neither Rust reader can do that for a
+                    single file, so this compares rugo, untouched, with
+                    arrow-avro at its best:
+                </p>
+
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Race</th>
+                                <th>rugo, defaults</th>
+                                <th>arrow-avro, tuned</th>
+                                <th>rugo vs arrow-avro</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>deflate, all fields</td>
+                                <td class="win">30.9 ms</td>
+                                <td>102.3 ms</td>
+                                <td class="win">3.3× faster</td>
+                            </tr>
+                            <tr>
+                                <td>deflate, 3 fields</td>
+                                <td class="win">18.3 ms</td>
+                                <td>83.2 ms</td>
+                                <td class="win">4.5× faster</td>
+                            </tr>
+                            <tr>
+                                <td>uncompressed, all fields</td>
+                                <td class="win">17.7 ms</td>
+                                <td>40.6 ms</td>
+                                <td class="win">2.3× faster</td>
+                            </tr>
+                            <tr>
+                                <td>uncompressed, 3 fields</td>
+                                <td class="win">5.1 ms</td>
+                                <td>21.0 ms</td>
+                                <td class="win">4.1× faster</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>That's what you get without changing a setting.</p>
+
+                <h2>Where we lost</h2>
+
+                <p>
+                    One race went to Rust. Reading every field of the
+                    uncompressed file on one thread, arrow-avro took 40.6 ms and
+                    rugo took 47.9 ms, so arrow-avro was 18% faster.
+                </p>
+
+                <p>
+                    We're showing it because it's the purest test of the decoder
+                    itself: no inflate, no skipping, just bytes into columns.
+                    It's also the one we most want to win.
+                </p>
+
+                <p>
+                    Our best guess, not yet tested: rugo turns the nested record
+                    and the map into JSON text, which is extra work. arrow-avro
+                    builds native struct and map arrays instead. Reading the file
+                    without those two fields would tell us whether the decoder
+                    itself is behind.
+                </p>
+
+                <p>
+                    It doesn't change the headline. Kafka Connect, Spark and
+                    Iceberg usually write Avro compressed, and on compressed
+                    files Python wins.
+                </p>
+
+                <h2>Why Python can be this fast</h2>
+
+                <p>
+                    Python isn't doing the work. rugo is a native C++ engine with
+                    a Python front door: you call it from Python, and the bytes
+                    never pass through the interpreter.
+                </p>
+
+                <ul>
+                    <li>
+                        <strong>Compiled schema.</strong> rugo turns the Avro
+                        schema into a flat program of decode steps once, then
+                        runs that program over every block. Nothing is looked up
+                        per row.
+                    </li>
+                    <li>
+                        <strong>Straight into columns.</strong> Values land in
+                        typed columnar vectors, with no Python object per value.
+                        That's what you'd write in Rust; you just don't have to.
+                    </li>
+                    <li>
+                        <strong>Fast inflate.</strong> Deflate blocks go through
+                        libdeflate, a dedicated, heavily tuned inflate library.
+                        On compressed files that's most of the time, and most of
+                        the lead.
+                    </li>
+                    <li>
+                        <strong>Cheap skipping.</strong> Fields you don't ask for
+                        are stepped over, not decoded. On the uncompressed file,
+                        reading 3 of 20 fields takes about a third of the time
+                        of reading them all.
+                    </li>
+                    <li>
+                        <strong>Every core.</strong> A file's blocks are
+                        independent, so rugo spreads them across threads and
+                        still hands back batches in file order.
+                    </li>
+                </ul>
+
+                <p>
+                    The point isn't that Rust is slow. arrow-avro is excellent
+                    work. The point is that "fast" is a property of the engine,
+                    not of the language you call it from.
+                </p>
+
+                <h2>What this leaves out</h2>
+
+                <ul>
+                    <li>
+                        <strong>One schema.</strong> A wide, flat record, or one
+                        that's mostly strings, could move the margins either way.
+                    </li>
+                    <li>
+                        <strong>One machine.</strong> Every figure here is from
+                        Apple Silicon. We haven't run x86 yet.
+                    </li>
+                    <li>
+                        <strong>Different outputs.</strong> rugo returns nested
+                        records and maps as JSON text; arrow-avro returns native
+                        struct and map arrays. Both end in columns, but they
+                        aren't the same columns.
+                    </li>
+                    <li>
+                        <strong>Other languages.</strong> We didn't test Go,
+                        Java or C++ readers. The ones we know of decode a row at
+                        a time, as apache-avro does.
+                    </li>
+                    <li>
+                        <strong>Reading the file.</strong> Every reader got the
+                        bytes already in memory. Reading from disk or object
+                        storage adds the same time to each.
+                    </li>
+                </ul>
+
+                <h2>Try it</h2>
+
+                <p>
+                    <code>pip install rugo</code> is the whole install. There's
+                    no toolchain to set up, and no PyArrow or NumPy:
+                </p>
+
+                <pre><span class="k">from</span> rugo.avro <span class="k">import</span> read_avro
+
+<span class="k">with</span> <span class="f">read_avro</span>(
+    <span class="s">"events.avro"</span>, columns=[<span class="s">"id"</span>, <span class="s">"amount"</span>, <span class="s">"country"</span>]
+) <span class="k">as</span> reader:
+    <span class="k">for</span> morsel <span class="k">in</span> reader:
+        <span class="f">print</span>(morsel.num_rows, morsel.<span class="f">column</span>(<span class="s">"amount"</span>).<span class="f">to_pylist</span>()[:<span class="n">3</span>])</pre>
+
+                <h2>Reproducing this</h2>
+
+                <p>
+                    Measured 18 October 2026 on an 18-core Apple Silicon Mac,
+                    against rugo 0.5.4 from PyPI on CPython 3.14, and arrow-avro
+                    60.0.0 and apache-avro 0.22.0 built with Rust 1.96.1
+                    (release profile, fat LTO). The tuned arrow-avro build
+                    switches <code>flate2</code> to <code>zlib-rs</code>
+                    0.6.5; the default build uses <code>miniz_oxide</code>.
+                    rugo runs with <code>max_threads=1</code> for the
+                    one-thread races.
+                </p>
+
+                <p>
+                    Each of the five rounds runs every reader in a fresh
+                    process, five reads each, with the order rotated each round
+                    so no reader always goes first. The figures are the median
+                    of the per-process medians.
+                </p>
+
+                <p>
+                    The harness, the data generator and the Rust readers are in
+                    <a href="https://github.com/mabel-dev/rugo.dev/tree/main/benchmarks"
+                        ><code>benchmarks</code></a
+                    >: <code>measure_avro_rust.py</code> builds both Rust
+                    readers, writes the file and runs the race on your machine.
+                    We'd like to hear what you get, especially on x86.
+                </p>
+            </div>
+        </article>
+
+        <footer>
+            <div class="container">
+                <span
+                    >rugo is part of the
+                    <a href="https://opteryx.app/">Opteryx</a> project — Apache
+                    2.0</span
+                >
+                <span>
+                    <a href="https://github.com/mabel-dev/opteryx-core"
+                        >GitHub</a
+                    >
+                    ·
+                    <a href="https://pypi.org/project/rugo/">PyPI</a>
+                </span>
+            </div>
+        </footer>
+
+        <script>
+            document.addEventListener("DOMContentLoaded", () => {
+                document.querySelectorAll("pre").forEach((pre) => {
+                    const btn = document.createElement("button");
+                    btn.className = "copy-btn";
+                    btn.textContent = "copy";
+                    btn.addEventListener("click", () => {
+                        navigator.clipboard
+                            .writeText(pre.innerText)
+                            .then(() => {
+                                btn.textContent = "copied";
+                                btn.classList.add("copied");
+                                setTimeout(() => {
+                                    btn.textContent = "copy";
+                                    btn.classList.remove("copied");
+                                }, 1500);
+                            });
+                    });
+                    pre.appendChild(btn);
+                });
+            });
+        </script>
+    </body>
+</html>
