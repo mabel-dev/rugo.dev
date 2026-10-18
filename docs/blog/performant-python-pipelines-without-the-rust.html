@@ -6,7 +6,7 @@
         <title>Performant Python pipelines without the Rust</title>
         <meta
             name="description"
-            content="We raced rugo's Avro reader, called from Python, against Apache Arrow's Rust reader. On one thread Python won three of four races, by 1.2× to 1.6×. Left on its defaults, rugo was 2.3× to 4.5× faster than any Rust result."
+            content="Before you scope that Rust rewrite: we raced rugo, called from Python, against Apache Arrow's Rust Avro reader. Python won three of four races on one thread, and on its defaults rugo was 2.3× to 4.5× faster than anything Rust managed."
         />
         <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
         <link rel="stylesheet" href="../blog.css" />
@@ -45,26 +45,28 @@
                 </header>
 
                 <p class="lede">
-                    Called from Python, rugo reads Avro faster than
-                    <strong>arrow-avro</strong>, Apache Arrow's own Rust reader.
-                    On one thread it won <strong>three of four races</strong>,
-                    by 1.2× to 1.6×. Left on its defaults, it uses every core
-                    and was <strong>2.3× to 4.5× faster</strong> than any Rust
-                    result.
+                    "Rewrite it in Rust" has become the default answer to a slow
+                    Python pipeline. We put that to the test, and Python won.
+                    Called from Python, rugo beat <strong>arrow-avro</strong>,
+                    Apache Arrow's own Rust Avro reader, in
+                    <strong>three of four races</strong> on one thread. On its
+                    defaults it was <strong>2.3× to 4.5× faster</strong> than
+                    anything Rust managed.
                 </p>
 
                 <p>
-                    There's a familiar arc in data engineering. The Python
-                    pipeline gets slow, someone benchmarks it, and the
-                    conclusion is always the same: rewrite the hot path in Rust.
-                    Weeks later you have a second language, a build toolchain,
-                    FFI glue, and a team that can't all read the code.
+                    You know how this goes. The pipeline gets slow, someone
+                    profiles it, and a Rust rewrite gets scoped. Six weeks later
+                    you own a second language, a second build system, a pile of
+                    FFI glue, and a codebase half your team can't review. The
+                    pipeline is faster. Was it the language, though, or the
+                    engine underneath it?
                 </p>
 
                 <p>
-                    We think that trade is usually unnecessary. To test it, we
-                    raced rugo's Avro reader, called from Python, against the
-                    best Avro readers Rust has, called from Rust.
+                    Usually it's the engine. To prove it, we raced rugo's Avro
+                    reader, called from Python, against the best Avro readers
+                    Rust has, called from Rust.
                 </p>
 
                 <h2>The contenders</h2>
@@ -282,49 +284,55 @@
                     files Python wins.
                 </p>
 
-                <h2>Why Python can be this fast</h2>
+                <h2>Python was never the slow part</h2>
 
                 <p>
-                    Python isn't doing the work. rugo is a native C++ engine with
-                    a Python front door: you call it from Python, and the bytes
-                    never pass through the interpreter.
+                    Here's the bit the rewrite-it-in-Rust crowd skips: in a
+                    well-built library, Python isn't doing the work. rugo is a
+                    native C++ engine with a Python front door. You call it from
+                    Python, and the bytes never touch the interpreter. What
+                    makes it fast is the engine, and an engine can't tell which
+                    language called it:
                 </p>
 
                 <ul>
                     <li>
-                        <strong>Compiled schema.</strong> rugo turns the Avro
-                        schema into a flat program of decode steps once, then
-                        runs that program over every block. Nothing is looked up
-                        per row.
+                        <strong>Compile once, run per block.</strong> rugo turns
+                        the Avro schema into a flat program of decode steps,
+                        then runs it over every block. No lookups per row.
                     </li>
                     <li>
                         <strong>Straight into columns.</strong> Values land in
-                        typed columnar vectors, with no Python object per value.
-                        That's what you'd write in Rust; you just don't have to.
+                        typed columnar vectors, never as a Python object each.
+                        It's exactly what you'd write in Rust. You just don't
+                        have to write it.
                     </li>
                     <li>
-                        <strong>Fast inflate.</strong> Deflate blocks go through
+                        <strong>Inflate is the real fight.</strong> On compressed
+                        files, decompression is most of the work, so rugo uses
                         libdeflate, a dedicated, heavily tuned inflate library.
-                        On compressed files that's most of the time, and most of
-                        the lead.
+                        Choosing the right inflater matters more than choosing a
+                        language.
                     </li>
                     <li>
-                        <strong>Cheap skipping.</strong> Fields you don't ask for
-                        are stepped over, not decoded. On the uncompressed file,
-                        reading 3 of 20 fields takes about a third of the time
-                        of reading them all.
+                        <strong>Don't decode what you don't read.</strong>
+                        Fields you don't ask for are stepped over. On the
+                        uncompressed file, reading 3 of 20 fields takes about a
+                        third of the time of reading them all.
                     </li>
                     <li>
-                        <strong>Every core.</strong> A file's blocks are
-                        independent, so rugo spreads them across threads and
-                        still hands back batches in file order.
+                        <strong>Use the whole machine.</strong> A file's blocks
+                        are independent, so rugo spreads them across every core
+                        and still hands batches back in file order. Neither Rust
+                        reader does that for a single file.
                     </li>
                 </ul>
 
                 <p>
-                    The point isn't that Rust is slow. arrow-avro is excellent
-                    work. The point is that "fast" is a property of the engine,
-                    not of the language you call it from.
+                    None of this means Rust is slow; arrow-avro is excellent
+                    work. It means "fast" belongs to the engine, not to the
+                    language you call it from. If the engine is good, you can
+                    keep the language your team already writes.
                 </p>
 
                 <h2>What this leaves out</h2>
