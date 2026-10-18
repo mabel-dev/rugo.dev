@@ -1,0 +1,188 @@
+{
+  "date": "2026-10-18T14:08:56+00:00",
+  "machine": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "cpu": "arm",
+    "cores": 18,
+    "python": "3.14"
+  },
+  "rows": 200000,
+  "rounds": 5,
+  "reps": 5,
+  "versions": {
+    "rugo": "0.5.4",
+    "rustc": "rustc 1.96.1 (31fca3adb 2026-06-26)",
+    "apache-avro": "0.22.0",
+    "arrow-avro": "60.0.0",
+    "flate2": "1.1.10",
+    "miniz_oxide": "0.9.1",
+    "zlib-rs": "0.6.5",
+    "rugo-src": "0.5.4 /Users/justin/Nextcloud/opteryx-core/rugo/__init__.py"
+  },
+  "files_mb": {
+    "deflate": 21.6,
+    "null": 38.2
+  },
+  "reads": {
+    "deflate/all/rugo-1t": {
+      "best_ms": 84.1,
+      "median_ms": 85.1,
+      "rows": 200000
+    },
+    "deflate/all/rugo": {
+      "best_ms": 30.5,
+      "median_ms": 30.9,
+      "rows": 200000
+    },
+    "deflate/all/rugo-src-1t": {
+      "best_ms": 82.8,
+      "median_ms": 83.9,
+      "rows": 200000
+    },
+    "deflate/all/rugo-src": {
+      "best_ms": 30.1,
+      "median_ms": 30.3,
+      "rows": 200000
+    },
+    "deflate/all/arrow-avro": {
+      "best_ms": 116.4,
+      "median_ms": 117.6,
+      "rows": 200000
+    },
+    "deflate/all/arrow-avro-tuned": {
+      "best_ms": 101.4,
+      "median_ms": 102.3,
+      "rows": 200000
+    },
+    "deflate/all/arrow-avro-tuned-view": {
+      "best_ms": 113.1,
+      "median_ms": 114.7,
+      "rows": 200000
+    },
+    "deflate/all/apache-avro": {
+      "best_ms": 267.4,
+      "median_ms": 272.0,
+      "rows": 200000
+    },
+    "deflate/narrow/rugo-1t": {
+      "best_ms": 52.3,
+      "median_ms": 52.9,
+      "rows": 200000
+    },
+    "deflate/narrow/rugo": {
+      "best_ms": 18.2,
+      "median_ms": 18.3,
+      "rows": 200000
+    },
+    "deflate/narrow/rugo-src-1t": {
+      "best_ms": 51.1,
+      "median_ms": 51.5,
+      "rows": 200000
+    },
+    "deflate/narrow/rugo-src": {
+      "best_ms": 17.8,
+      "median_ms": 18.0,
+      "rows": 200000
+    },
+    "deflate/narrow/arrow-avro": {
+      "best_ms": 97.8,
+      "median_ms": 98.3,
+      "rows": 200000
+    },
+    "deflate/narrow/arrow-avro-tuned": {
+      "best_ms": 82.8,
+      "median_ms": 83.2,
+      "rows": 200000
+    },
+    "deflate/narrow/arrow-avro-tuned-view": {
+      "best_ms": 82.8,
+      "median_ms": 83.2,
+      "rows": 200000
+    },
+    "deflate/narrow/apache-avro": {
+      "best_ms": 398.0,
+      "median_ms": 402.0,
+      "rows": 200000
+    },
+    "null/all/rugo-1t": {
+      "best_ms": 46.3,
+      "median_ms": 47.9,
+      "rows": 200000
+    },
+    "null/all/rugo": {
+      "best_ms": 17.3,
+      "median_ms": 17.7,
+      "rows": 200000
+    },
+    "null/all/rugo-src-1t": {
+      "best_ms": 45.5,
+      "median_ms": 46.3,
+      "rows": 200000
+    },
+    "null/all/rugo-src": {
+      "best_ms": 17.1,
+      "median_ms": 17.4,
+      "rows": 200000
+    },
+    "null/all/arrow-avro": {
+      "best_ms": 40.2,
+      "median_ms": 40.7,
+      "rows": 200000
+    },
+    "null/all/arrow-avro-tuned": {
+      "best_ms": 40.2,
+      "median_ms": 40.6,
+      "rows": 200000
+    },
+    "null/all/arrow-avro-tuned-view": {
+      "best_ms": 51.0,
+      "median_ms": 51.6,
+      "rows": 200000
+    },
+    "null/all/apache-avro": {
+      "best_ms": 200.4,
+      "median_ms": 204.3,
+      "rows": 200000
+    },
+    "null/narrow/rugo-1t": {
+      "best_ms": 14.2,
+      "median_ms": 14.5,
+      "rows": 200000
+    },
+    "null/narrow/rugo": {
+      "best_ms": 5.0,
+      "median_ms": 5.1,
+      "rows": 200000
+    },
+    "null/narrow/rugo-src-1t": {
+      "best_ms": 13.9,
+      "median_ms": 14.2,
+      "rows": 200000
+    },
+    "null/narrow/rugo-src": {
+      "best_ms": 4.8,
+      "median_ms": 4.9,
+      "rows": 200000
+    },
+    "null/narrow/arrow-avro": {
+      "best_ms": 20.6,
+      "median_ms": 21.1,
+      "rows": 200000
+    },
+    "null/narrow/arrow-avro-tuned": {
+      "best_ms": 20.7,
+      "median_ms": 21.2,
+      "rows": 200000
+    },
+    "null/narrow/arrow-avro-tuned-view": {
+      "best_ms": 20.8,
+      "median_ms": 21.0,
+      "rows": 200000
+    },
+    "null/narrow/apache-avro": {
+      "best_ms": 328.4,
+      "median_ms": 335.5,
+      "rows": 200000
+    }
+  }
+}

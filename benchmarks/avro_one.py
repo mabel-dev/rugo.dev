@@ -9,6 +9,7 @@ Every reader decodes the same in-memory bytes; reading the file is outside the
 timing.
 
   rugo          rugo.avro.read_avro -> columnar Morsels (no Python object per value)
+  rugo-1t       the same, max_threads=1
   rugo+pylist   the same, then every column .to_pylist() - the cost of ending in
                 Python objects, which is what the other two return
   fastavro      fastavro.reader -> one dict per record
@@ -32,14 +33,15 @@ def narrow_schema():
     return {**schema, "fields": [f for f in schema["fields"] if f["name"] in NARROW]}
 
 
-if reader in ("rugo", "rugo+pylist"):
+if reader in ("rugo", "rugo-1t", "rugo+pylist"):
     from rugo.avro import read_avro
     columns = NARROW if shape == "narrow" else None
     to_python = reader == "rugo+pylist"
+    threads = 1 if reader == "rugo-1t" else 0
 
     def go():
         n = 0
-        with read_avro(data, columns=columns) as r:
+        with read_avro(data, columns=columns, max_threads=threads) as r:
             for morsel in r:
                 n += morsel.num_rows
                 if to_python:

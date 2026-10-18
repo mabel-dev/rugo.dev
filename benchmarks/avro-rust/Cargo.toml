@@ -1,0 +1,25 @@
+[package]
+name = "avro_rust"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# Rust Avro readers for measure_avro_rust.py: arrow-avro (Apache Arrow's columnar
+# reader) and apache-avro (the Apache Avro project's Rust crate, one Value per
+# record). Built twice by the measure script: default features (arrow-avro's own
+# deflate backend, miniz_oxide) and `--features zlib-rs` (flate2 switched to
+# zlib-rs, the fastest pure-Rust inflater) so arrow-avro gets its best deflate.
+
+[dependencies]
+apache-avro = "0.22.0"
+arrow-array = "60.0.0"
+arrow-avro = "60.0.0"
+flate2 = { version = "1.1", default-features = false, features = ["rust_backend"] }
+serde_json = "1"
+
+[features]
+zlib-rs = ["flate2/zlib-rs"]
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
