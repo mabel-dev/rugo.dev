@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Avro vs Parquet vs JSON Lines: one dataset, three very different files</title>
+        <meta
+            name="description"
+            content="The same 4,630 rows take 1.09 MB as JSON Lines, 113 KB as Avro and 93 KB as Parquet. Size is the least interesting difference: what matters is how much of each file a reader can skip."
+        />
+        <link
+            rel="canonical"
+            href="https://rugo.dev/blog/avro-vs-parquet-vs-jsonl.html"
+        />
+        <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+        <link rel="stylesheet" href="../blog.css" />
+    </head>
+    <body>
+        <nav>
+            <a class="nav-logo" href="../index.html">ru<span>go</span></a>
+            <div class="nav-links">
+                <a href="../index.html">Home</a>
+                <a href="index.html">Blog</a>
+                <a href="https://github.com/mabel-dev/opteryx-core/tree/main/rugo"
+                    >Docs</a
+                >
+            </div>
+        </nav>
+
+        <article>
+            <div class="container">
+                <header class="post-header">
+                    <h1>
+                        Avro vs Parquet vs JSON Lines: one dataset, three very
+                        different files
+                    </h1>
+                    <p class="post-meta">
+                        Justin Joyce <span class="sep">·</span> 20 October 2026
+                        <span class="sep">·</span> 9 min read
+                    </p>
+                    <div class="post-tags">
+                        <span>avro</span>
+                        <span>parquet</span>
+                        <span>jsonl</span>
+                        <span>file formats</span>
+                    </div>
+                    <p class="post-notice">
+                        Correct at time of publishing. For up-to-date
+                        performance and feature information, see
+                        <a href="../">rugo.dev</a>.
+                    </p>
+                </header>
+
+                <p class="lede">
+                    The same 4,630 rows take <strong>1.09 MB</strong> as JSON
+                    Lines, <strong>113 KB</strong> as Avro and
+                    <strong>93 KB</strong> as Parquet. Size is the least
+                    interesting difference. What matters is how much of each
+                    file a reader can <strong>skip</strong>, and that decides
+                    where each format belongs.
+                </p>
+
+                <p>
+                    Ask which format to use and you'll get a one-line answer:
+                    Parquet for analytics, Avro for streaming, JSON Lines for
+                    logs. All three are true, and none of them helps until you
+                    know why. The reasons are in the bytes, so we'll open the
+                    same dataset in all three formats and look.
+                </p>
+
+                <p>
+                    The data is 4,630 orbital launch attempts, from Sputnik
+                    onwards: company, rocket, price, launch time, outcome. It's
+                    small enough to inspect by eye, and every file here is in
+                    the
+                    <a
+                        href="https://github.com/mabel-dev/rugo.dev/tree/main/docs/data"
+                        >rugo.dev repository</a
+                    >
+                    if you want to follow along.
+                </p>
+
+                <figure>
+                    <img
+                        src="img/avro-vs-parquet-vs-jsonl/fig-1-sizes.png"
+                        alt="Bar chart of the same 4,630 launches: JSON Lines 1.09 MB, Avro 113 KB (9.7 times smaller), Parquet 93 KB (11.7 times smaller)."
+                        width="760"
+                        height="284"
+                    />
+                </figure>
+
+                <h2>The one idea: rows or columns</h2>
+
+                <p>
+                    A table is two-dimensional. A file is one long run of bytes.
+                    Every format has to pick an order for the cells, and there
+                    are only two sensible choices: write one whole record after
+                    another, or write one whole column after another.
+                </p>
+
+                <figure>
+                    <img
+                        src="img/avro-vs-parquet-vs-jsonl/fig-2-rows-vs-columns.png"
+                        alt="A table of three records and three fields, shown two ways. Row-oriented storage writes A1 B1 C1, then A2 B2 C2, then A3 B3 C3. Column-oriented storage writes A1 A2 A3, then B1 B2 B3, then C1 C2 C3."
+                        width="760"
+                        height="520"
+                    />
+                </figure>
+
+                <p>
+                    JSON Lines and Avro are row-oriented. Parquet is
+                    column-oriented. Nearly everything else in this post follows
+                    from that choice, and from what each format adds to make
+                    its choice workable.
+                </p>
+
+                <h2>JSON Lines: one record per line</h2>
+
+                <p>
+                    JSON Lines (also called NDJSON) is as simple as a format
+                    gets: one JSON object per line, separated by newlines.
+                </p>
+
+                <figure>
+                    <img
+                        src="img/avro-vs-parquet-vs-jsonl/fig-3-jsonl.png"
+                        alt="Three lines of JSON Lines from the dataset, with field names highlighted, and three notes: every line carries its own keys, a new record is a new line, and everything is text."
+                        width="760"
+                        height="376"
+                    />
+                </figure>
+
+                <p>
+                    Its strengths come from that simplicity. Any language can
+                    write it. You can open it in a text editor, search it with
+                    <code>grep</code>, and add to it with nothing more than a
+                    file write. A half-written file is still a valid file up to its
+                    last complete line. There's nothing to install and nothing
+                    to configure, which is why it's the default for logs and
+                    API exports.
+                </p>
+
+                <p>
+                    The costs come from the same place. Every line repeats
+                    every key, so the field names are written 4,630 times.
+                    Numbers and timestamps are text that has to be parsed on
+                    every read. There is no schema, so the type of
+                    <code>Price</code> is whatever the first rows suggest, and
+                    a reader has to find the start of each record by scanning
+                    for newlines. To get at one field you scan the whole file.
+                </p>
+
+                <h2>Avro: a header, then blocks</h2>
+
+                <p>
+                    Avro keeps the row orientation and makes everything about it
+                    explicit. The file opens with a header holding the schema as
+                    JSON, then holds the records in blocks.
+                </p>
+
+                <figure>
+                    <img
+                        src="img/avro-vs-parquet-vs-jsonl/fig-4-avro.png"
+                        alt="An Avro file is a header followed by blocks. The header holds the magic bytes, the schema, the codec and a 16-byte sync marker. Each block holds a record count, a byte size, the compressed records and the sync marker."
+                        width="760"
+                        height="400"
+                    />
+                </figure>
+
+                <p>
+                    The schema is the point of Avro. It travels with the data,
+                    so the file explains itself. It supports rich types:
+                    timestamps, decimals, enums, nested records, arrays and
+                    maps. Records are packed back to back with no keys and
+                    each block is compressed, so this file comes out nine times
+                    smaller than the JSON Lines one. And because
+                    readers and writers each declare a schema, they can differ:
+                    add a field with a default value and old files still read,
+                    which is why Avro is so common between services that are
+                    deployed on different days.
+                </p>
+
+                <p>
+                    Blocks are the other half. Each one is compressed on its
+                    own and ends with the sync marker, so a reader can drop in
+                    at any block boundary. That makes an Avro file splittable
+                    across workers, and cheap to append to: you add another
+                    block.
+                </p>
+
+                <p>
+                    What Avro doesn't keep is anything about the contents. A
+                    block records how many records it holds and how many bytes
+                    long it is, and nothing else. There are no per-column
+                    statistics to tell a reader a block can't match, so a read
+                    inflates every block and walks every record, skipping over
+                    the fields it doesn't want.
+                </p>
+
+                <h2>Parquet: column chunks and a footer</h2>
+
+                <p>
+                    Parquet turns the layout on its side. Rows are grouped into
+                    row groups, and inside each row group every column is stored
+                    as its own contiguous chunk. The file ends with a footer
+                    that says where everything is.
+                </p>
+
+                <figure>
+                    <img
+                        src="img/avro-vs-parquet-vs-jsonl/fig-5-parquet.png"
+                        alt="A Parquet file is the PAR1 marker, row groups, a footer, then the footer length and PAR1 again. Row group 1 holds eight column chunks of different sizes. The footer holds the schema and, for every chunk, its offset, size, minimum, maximum and null count."
+                        width="760"
+                        height="472"
+                    />
+                </figure>
+
+                <p>
+                    Two things fall out of that. The first is compression. Put
+                    a thousand company names next to each other and they
+                    compress far better than the same names scattered between
+                    prices and timestamps, and a column of repeated values
+                    shrinks further still through dictionary encoding. Each
+                    column gets the encoding that suits it. That's how this
+                    file ends up the smallest of the three.
+                </p>
+
+                <p>
+                    The second is skipping. The footer records the minimum and
+                    maximum of every column chunk, plus a null count. A reader
+                    that wants launches priced under $60M can skip any row
+                    group whose cheapest launch already costs more, without
+                    opening it. A
+                    reader that wants three columns of eight opens three chunks.
+                    Skipping is built into the layout.
+                </p>
+
+                <p>
+                    The price is that Parquet files are written, not appended
+                    to. The footer is written last and the file can't be read
+                    without it, so a half-written Parquet file is unreadable and
+                    adding a record means writing a new file. Writers buffer a
+                    whole row group in memory before they emit it. Parquet suits
+                    data you write in batches and read many times.
+                </p>
+
+                <h2>What a read actually touches</h2>
+
+                <p>
+                    Here's the same question asked of all three files: the
+                    company, price and outcome of every SpaceX launch. It needs
+                    three of the eight columns.
+                </p>
+
+                <figure>
+                    <img
+                        src="img/avro-vs-parquet-vs-jsonl/fig-6-reading.png"
+                        alt="Share of each file a reader has to touch to read three columns. JSON Lines: 100 percent. Avro: 100 percent. Parquet: 8 percent, the footer plus three of eight column chunks, 7,254 of 93,169 bytes."
+                        width="760"
+                        height="364"
+                    />
+                    <figcaption>
+                        The Parquet bar is the file's real layout, from its own
+                        metadata. Green is what a reader needs.
+                    </figcaption>
+                </figure>
+
+                <p>
+                    JSON Lines and Avro have to go through the whole file.
+                    Parquet reads 7,254 bytes of 93,169, because the footer
+                    points straight at the three chunks that matter. On a file
+                    this size nobody would notice. On a 2 GB file with 110
+                    columns, reading a handful of them is a very different job
+                    in each format.
+                </p>
+
+                <p>
+                    Compression doesn't change the picture for JSON Lines. Gzip
+                    takes this file to 81 KB, but a reader still has to inflate
+                    all of it to reach any one field.
+                </p>
+
+                <h2>Side by side</h2>
+
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>JSON Lines</th>
+                                <th>Avro</th>
+                                <th>Parquet</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Layout</td>
+                                <td>Rows, as text</td>
+                                <td>Rows, in binary blocks</td>
+                                <td>Columns, in binary chunks</td>
+                            </tr>
+                            <tr>
+                                <td>Schema</td>
+                                <td>None</td>
+                                <td>In the header</td>
+                                <td>In the footer</td>
+                            </tr>
+                            <tr>
+                                <td>Types</td>
+                                <td>Strings, numbers, booleans, null, nested</td>
+                                <td>Timestamps, decimals, enums, nested</td>
+                                <td>Timestamps, decimals, nested, lists</td>
+                            </tr>
+                            <tr>
+                                <td>Add a record</td>
+                                <td>Append a line</td>
+                                <td>Append a block</td>
+                                <td>Write a new file</td>
+                            </tr>
+                            <tr>
+                                <td>Read a few columns</td>
+                                <td>Scan every line</td>
+                                <td>Inflate every block</td>
+                                <td class="win">Read just those chunks</td>
+                            </tr>
+                            <tr>
+                                <td>Skip rows</td>
+                                <td>No</td>
+                                <td>No</td>
+                                <td class="win">Yes, by min/max</td>
+                            </tr>
+                            <tr>
+                                <td>Open in a text editor</td>
+                                <td class="win">Yes</td>
+                                <td>No</td>
+                                <td>No</td>
+                            </tr>
+                            <tr>
+                                <td>Best at</td>
+                                <td>Logs, API exports, anything a person reads</td>
+                                <td>Event streams, records passed between services</td>
+                                <td>Analytics, data lakes</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>Which one should you use?</h2>
+
+                <p>
+                    Ask how the data will be written, then how it will be read.
+                </p>
+
+                <ul>
+                    <li>
+                        <strong>Records arrive one at a time, and people need to
+                        look at them</strong>: JSON Lines. Logs are the classic
+                        case. The format costs you in size and read speed, and
+                        gives you grep.
+                    </li>
+                    <li>
+                        <strong>Records move between systems, and the shape will
+                        change</strong>: Avro. A schema that travels with the
+                        data and evolves safely is worth more than a smaller
+                        file.
+                    </li>
+                    <li>
+                        <strong>Data is written in batches and read many times,
+                        a few columns at a time</strong>: Parquet. Each read
+                        pays only for what it uses.
+                    </li>
+                </ul>
+
+                <p>
+                    The mistake is treating this as one decision for the whole
+                    pipeline. Most pipelines use two of the three, because
+                    writing and reading want opposite things.
+                </p>
+
+                <figure>
+                    <img
+                        src="img/avro-vs-parquet-vs-jsonl/fig-7-pipeline.png"
+                        alt="Producers write to Avro event streams and JSON Lines logs, which are compacted in batches into Parquet files in object storage, which queries read a few columns at a time."
+                        width="760"
+                        height="250"
+                    />
+                </figure>
+
+                <p>
+                    A row format at the edge takes records as they happen. A
+                    batch job compacts them into Parquet. Everything downstream
+                    reads Parquet. The formats don't compete; they hand off to
+                    each other.
+                </p>
+
+                <h2>Where rugo fits</h2>
+
+                <p>
+                    That hand-off is where Python code spends its life, and it's
+                    why <a href="../index.html">rugo</a> reads all three formats
+                    through one API. You pass a path or bytes, name the
+                    <code>columns</code> you want and, where the format allows
+                    it, the <code>predicates</code> to filter by. What comes
+                    back is the same columnar batch whichever format it came
+                    from.
+                </p>
+
+                <pre><span class="k">from</span> rugo <span class="k">import</span> avro, jsonl, parquet
+
+want = [<span class="s">"Company"</span>, <span class="s">"Price"</span>, <span class="s">"Mission_Status"</span>]
+spacex = [(<span class="s">"Company"</span>, <span class="s">"=="</span>, <span class="s">"SpaceX"</span>)]
+
+<span class="c"># Parquet: unwanted chunks and row groups are never read</span>
+<span class="k">with</span> parquet.<span class="f">read_parquet</span>(<span class="s">"space_missions.parquet"</span>, columns=want, predicates=spacex) <span class="k">as</span> reader:
+    <span class="f">print</span>(<span class="f">sum</span>(m.num_rows <span class="k">for</span> m <span class="k">in</span> reader))
+
+<span class="c"># JSON Lines: unwanted fields are never turned into values</span>
+<span class="k">with</span> jsonl.<span class="f">read_jsonl</span>(
+    <span class="s">"space_missions.jsonl"</span>, columns=want, predicates=spacex,
+    explicit_schema={<span class="s">"Price"</span>: <span class="s">"FLOAT64"</span>},
+) <span class="k">as</span> reader:
+    <span class="f">print</span>(<span class="f">sum</span>(m.num_rows <span class="k">for</span> m <span class="k">in</span> reader))
+
+<span class="c"># Avro: same columns; Avro has no statistics, so filter the values</span>
+<span class="k">with</span> avro.<span class="f">read_avro</span>(<span class="s">"space_missions.avro"</span>, columns=want) <span class="k">as</span> reader:
+    <span class="f">print</span>(<span class="f">sum</span>(c == <span class="s">"SpaceX"</span> <span class="k">for</span> m <span class="k">in</span> reader <span class="k">for</span> c <span class="k">in</span> m.<span class="f">column</span>(<span class="s">"Company"</span>).<span class="f">to_pylist</span>()))</pre>
+
+                <p>
+                    All three print <strong>182</strong>. Moving data along the
+                    pipeline in the previous section is a read and a write,
+                    because every reader and writer shares the same batch:
+                </p>
+
+                <pre><span class="k">with</span> jsonl.<span class="f">read_jsonl</span>(<span class="s">"events.jsonl"</span>) <span class="k">as</span> reader:
+    <span class="k">with</span> <span class="f">open</span>(<span class="s">"events.parquet"</span>, <span class="s">"wb"</span>) <span class="k">as</span> f:
+        <span class="k">with</span> parquet.<span class="f">open_parquet_writer</span>(f.write) <span class="k">as</span> writer:
+            <span class="k">for</span> morsel <span class="k">in</span> reader:
+                writer.<span class="f">write_row_group</span>(morsel)</pre>
+
+                <p>
+                    rugo is built on the idea at the centre of this post: the
+                    fastest bytes are the ones you never read. That's why its
+                    numbers look the way they do:
+                </p>
+
+                <ul>
+                    <li>
+                        <strong>JSON Lines:</strong> on a 2.0 GB file of a
+                        million rows and 110 columns, rugo is
+                        <strong>16× faster</strong> than PyArrow reading one
+                        column, and <strong>23× faster</strong> with a filter
+                        that lets about 10% of rows through.
+                    </li>
+                    <li>
+                        <strong>Avro:</strong> <strong>7.8× faster</strong> than
+                        fastavro and <strong>50× faster</strong> than Apache's
+                        own <code>avro</code> package reading every field of
+                        200,000 rows. Called from Python, it also beat Apache
+                        Arrow's Rust Avro reader in
+                        <a
+                            href="performant-python-pipelines-without-the-rust.html"
+                            >three of four races</a
+                        >.
+                    </li>
+                    <li>
+                        <strong>Parquet:</strong> cold-starts
+                        <a href="parquet-in-aws-lambda-without-pyarrow.html"
+                            >1.5–2.2× faster</a
+                        >
+                        than PyArrow, DuckDB or Polars, from an install of about
+                        8 MB with no PyArrow, pandas or NumPy underneath it.
+                    </li>
+                </ul>
+
+                <p>
+                    The <a href="../index.html">home page</a> has the
+                    measurements behind each figure, with versions and
+                    hardware.
+                </p>
+
+                <h2>Try it</h2>
+
+                <p>
+                    <code>pip install rugo</code> is the whole install. Each
+                    format has a notebook that runs in your browser on the same
+                    4,630 launches used here:
+                    <a
+                        href="https://colab.research.google.com/github/mabel-dev/rugo.dev/blob/main/docs/notebooks/parquet.ipynb"
+                        >Parquet</a
+                    >,
+                    <a
+                        href="https://colab.research.google.com/github/mabel-dev/rugo.dev/blob/main/docs/notebooks/avro.ipynb"
+                        >Avro</a
+                    >
+                    and
+                    <a
+                        href="https://colab.research.google.com/github/mabel-dev/rugo.dev/blob/main/docs/notebooks/jsonl.ipynb"
+                        >JSON Lines</a
+                    >.
+                </p>
+
+                <h2>Reproducing this</h2>
+
+                <p>
+                    File sizes are the bytes on disk of
+                    <code>space_missions.jsonl</code>,
+                    <code>.avro</code> (deflate) and <code>.parquet</code>
+                    (zstd) in
+                    <a
+                        href="https://github.com/mabel-dev/rugo.dev/tree/main/docs/data"
+                        ><code>docs/data</code></a
+                    >. The Avro file stores the rocket as a nested record; the
+                    JSON Lines and Parquet files flatten it, and all three hold
+                    the same 4,630 launches. The Parquet byte counts in the
+                    reading diagram are each column chunk's compressed size and
+                    the footer size from the file's own metadata, and the Avro
+                    block count is from its block headers. The 182 comes from
+                    running the code above with rugo 0.5.4.
+                </p>
+
+                <p>
+                    The diagrams are generated by
+                    <a
+                        href="https://github.com/mabel-dev/rugo.dev/blob/main/tools/build_format_diagrams.py"
+                        ><code>tools/build_format_diagrams.py</code></a
+                    >, which reads the file sizes from the data files directly.
+                </p>
+            </div>
+        </article>
+
+        <footer>
+            <div class="container">
+                <span
+                    >rugo is part of the
+                    <a href="https://opteryx.app/">Opteryx</a> project — Apache
+                    2.0</span
+                >
+                <span>
+                    <a href="https://github.com/mabel-dev/opteryx-core"
+                        >GitHub</a
+                    >
+                    ·
+                    <a href="https://pypi.org/project/rugo/">PyPI</a>
+                </span>
+            </div>
+        </footer>
+
+        <script>
+            document.addEventListener("DOMContentLoaded", () => {
+                document.querySelectorAll("pre").forEach((pre) => {
+                    const btn = document.createElement("button");
+                    btn.className = "copy-btn";
+                    btn.textContent = "copy";
+                    btn.addEventListener("click", () => {
+                        navigator.clipboard
+                            .writeText(pre.innerText)
+                            .then(() => {
+                                btn.textContent = "copied";
+                                btn.classList.add("copied");
+                                setTimeout(() => {
+                                    btn.textContent = "copy";
+                                    btn.classList.remove("copied");
+                                }, 1500);
+                            });
+                    });
+                    pre.appendChild(btn);
+                });
+            });
+        </script>
+    </body>
+</html>

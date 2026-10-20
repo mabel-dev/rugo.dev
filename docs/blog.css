@@ -172,6 +172,22 @@ article strong {
     color: #fff;
 }
 
+/* Diagrams are PNGs with their own dark card, so they import cleanly into Medium. */
+article figure {
+    margin: 2rem 0;
+}
+article figure img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 12px;
+}
+article figcaption {
+    margin-top: 0.6rem;
+    font-size: 0.82rem;
+    color: var(--muted);
+}
+
 /* The one number the piece exists to show. */
 .lede {
     font-size: 1.15rem;
