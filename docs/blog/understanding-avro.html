@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Understanding Avro: the file format built for moving data</title>
+        <meta
+            name="description"
+            content="One launch record takes 234 bytes as JSON and 96 as Avro, with no field names in sight. A look inside Avro: the schema, the encoding, the file's blocks and sync markers, codecs and schema evolution."
+        />
+        <link
+            rel="canonical"
+            href="https://rugo.dev/blog/understanding-avro.html"
+        />
+        <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+        <link rel="stylesheet" href="../blog.css" />
+    </head>
+    <body>
+        <nav>
+            <a class="nav-logo" href="../index.html">ru<span>go</span></a>
+            <div class="nav-links">
+                <a href="../index.html">Home</a>
+                <a href="index.html">Blog</a>
+                <a href="https://github.com/mabel-dev/opteryx-core/tree/main/rugo"
+                    >Docs</a
+                >
+            </div>
+        </nav>
+
+        <article>
+            <div class="container">
+                <header class="post-header">
+                    <h1>
+                        Understanding Avro: the file format built for moving
+                        data
+                    </h1>
+                    <p class="post-meta">
+                        Justin Joyce <span class="sep">·</span> 21 October 2026
+                        <span class="sep">·</span> 10 min read
+                    </p>
+                    <div class="post-tags">
+                        <span>avro</span>
+                        <span>file formats</span>
+                        <span>schema evolution</span>
+                        <span>python</span>
+                    </div>
+                    <p class="post-notice">
+                        Correct at time of publishing. For up-to-date
+                        performance and feature information, see
+                        <a href="../">rugo.dev</a>.
+                    </p>
+                </header>
+
+                <p class="lede">
+                    The first rocket launch in our dataset, Sputnik-1, takes
+                    <strong>234 bytes</strong> as a line of JSON and
+                    <strong>96 bytes</strong> as Avro. Nothing in those 96
+                    bytes says what a field is called or where it ends, and
+                    any program that holds the schema can still read it back
+                    exactly. That trade, a schema in exchange for bytes, is
+                    most of what Avro is.
+                </p>
+
+                <p>
+                    Avro started in 2009 inside the Hadoop project, and it has
+                    kept the job it was built for: moving records between
+                    systems that are written, deployed and upgraded
+                    separately. It's what you meet in event streams, in
+                    message queues, and in the landing zone where raw data
+                    arrives before it's tidied into something else.
+                </p>
+
+                <p>
+                    In
+                    <a href="avro-vs-parquet-vs-jsonl.html"
+                        >an earlier post</a
+                    >
+                    we put Avro next to Parquet and JSON Lines. This one opens
+                    Avro up. We'll take a single record, then a file, then a
+                    schema change, and look at the bytes each time. The data is
+                    the same 4,630 orbital launch attempts, and the file is in
+                    the
+                    <a
+                        href="https://github.com/mabel-dev/rugo.dev/tree/main/docs/data"
+                        >rugo.dev repository</a
+                    >
+                    if you want to follow along.
+                </p>
+
+                <h2>It starts with a schema</h2>
+
+                <p>
+                    Every Avro file is described by a schema, and the schema is
+                    plain JSON. Here's the one for our launches, trimmed to its
+                    shape:
+                </p>
+
+<pre>{
+  "type": "record", "name": "Launch",
+  "fields": [
+    {"name": "Company",    "type": "string"},
+    {"name": "Price",      "type": ["null", "double"]},
+    {"name": "Lauched_at", "type": ["null", {"type": "long", "logicalType": "timestamp-micros"}]},
+    {"name": "Rocket",     "type": {"type": "record", "name": "Rocket", "fields": [
+      {"name": "Name",     "type": "string"},
+      {"name": "Status",   "type": {"type": "enum", "name": "RocketStatus",
+                                    "symbols": ["Active", "Retired"]}}
+    ]}},
+    {"name": "Mission",    "type": "string"}
+  ]
+}</pre>
+
+                <p>
+                    There are two layers of types. The base layer is small:
+                    <code>null</code>, <code>boolean</code>,
+                    <code>int</code>, <code>long</code>, <code>float</code>,
+                    <code>double</code>, <code>bytes</code> and
+                    <code>string</code>, plus the containers
+                    <code>record</code>, <code>enum</code>,
+                    <code>array</code>, <code>map</code>,
+                    <code>union</code> and <code>fixed</code>. On top sit
+                    <em>logical types</em>: a name that says what a stored
+                    value means. A <code>timestamp-micros</code> is a
+                    <code>long</code> counting microseconds. A
+                    <code>decimal</code> is bytes. Readers that know the
+                    logical type hand you a timestamp or a decimal, and
+                    readers that don't still get the long or the bytes.
+                </p>
+
+                <p>
+                    Two of those types carry more weight than they look. A
+                    <strong>union</strong> is how Avro says "or", and a union
+                    with <code>null</code> is how it says "optional":
+                    <code>["null", "double"]</code> is a price that may be
+                    missing. A <strong>record</strong> can hold other records,
+                    so nested data keeps its shape instead of being flattened
+                    into <code>Rocket_Name</code> and
+                    <code>Rocket_Status</code>.
+                </p>
+
+                <h2>What 96 bytes say</h2>
+
+                <p>
+                    Here is the first record in the file, cut out of the first
+                    block and read byte by byte.
+                </p>
+
+                <figure>
+                    <img
+                        src="img/understanding-avro/fig-1-record.png"
+                        alt="The first launch record, 96 bytes, split into its eight fields with the hex bytes and meaning of each: Company is length 9 then RVSN USSR, Price is branch 0 which is null, Launched_at is branch 1 then a long, and so on. The same launch is 234 bytes as a JSON Lines row."
+                        width="760"
+                        height="424"
+                    />
+                </figure>
+
+                <p>
+                    Read down the table and the whole encoding is there. A
+                    string is its length, then its UTF-8 bytes. The
+                    <code>12</code> in front of "RVSN USSR" is 9, the length,
+                    written the way Avro writes every integer (the next section
+                    explains that). The union in <code>Price</code> is a single
+                    byte, <code>00</code>, which names branch 0, the
+                    <code>null</code>, and has no value after it. In
+                    <code>Lauched_at</code> the branch is
+                    <code>02</code>, branch 1, and a long follows. The enum is
+                    the position of its symbol: <code>02</code> is 1, which is
+                    "Retired".
+                </p>
+
+                <p>
+                    What isn't there is as important. There are no field names,
+                    because the schema has them. There are no field numbers or
+                    type tags, which is where Avro parts ways with formats like
+                    Protocol Buffers: the fields appear in the order the schema
+                    lists them, and that order is the only index. And there are
+                    no delimiters. Every length comes first, so a reader never
+                    scans for a quote or a comma.
+                </p>
+
+                <p>
+                    The cost of that is stated plainly in the spec: <strong>you
+                    can't read the data without the schema it was written
+                    with</strong>. Everything else about Avro, from the file
+                    header to schema registries, is a way of making sure the
+                    schema arrives with the bytes.
+                </p>
+
+                <h2>Small numbers stay small</h2>
+
+                <p>
+                    Integers are where the saving is easiest to see. Avro
+                    writes every <code>int</code> and <code>long</code> with
+                    the same two ideas, and both appear in the record above.
+                </p>
+
+                <figure>
+                    <img
+                        src="img/understanding-avro/fig-2-varint.png"
+                        alt="Zigzag encoding maps 0, -1, 1, -2, 2 to 0, 1, 2, 3, 4. Varint writes seven bits per byte with the top bit meaning another byte follows: 20 becomes the single byte 28, -1 becomes 01, and 300 becomes the two bytes d8 04."
+                        width="760"
+                        height="416"
+                    />
+                </figure>
+
+                <p>
+                    <strong>Zigzag</strong> deals with the sign. A negative
+                    number written the usual way sets its top bits and needs
+                    every byte, so Avro interleaves the signs instead: 0, -1,
+                    1, -2, 2 become 0, 1, 2, 3, 4. A number near zero stays
+                    near zero whichever side it's on.
+                    <strong>Varint</strong> then writes it seven bits at a
+                    time, with the top bit of each byte saying whether another
+                    byte follows. Anything from -64 to 63 fits in one byte, -8,192 to 8,191 in two, and so on, so a number only ever takes the bytes it needs.
+                </p>
+
+                <p>
+                    That's why a string's length costs one byte, why the
+                    nullable price costs one byte when it's missing, and why a
+                    row with a lot of small counters and flags comes out so
+                    much smaller than its text. A <code>double</code> is the
+                    exception: it's always eight bytes, just as a
+                    <code>float</code> is always four.
+                </p>
+
+                <h2>A file is a header, then blocks</h2>
+
+                <p>
+                    A single record isn't a file. The Avro container file wraps
+                    a stream of records so that it can be read, split and
+                    appended to.
+                </p>
+
+                <figure>
+                    <img
+                        src="img/understanding-avro/fig-3-file.png"
+                        alt="An Avro file is a header followed by blocks. The sample file is 112,717 bytes: a 658-byte header holding 4 bytes of magic, a 603-byte schema, the deflate codec name and a 16-byte sync marker, followed by 29 blocks. Each block is a record count, a size, the compressed records and the sync marker."
+                        width="760"
+                        height="400"
+                    />
+                </figure>
+
+                <p>
+                    The header opens with four bytes, <code>Obj</code> and a
+                    version, then a small map of metadata: the schema, under
+                    the key <code>avro.schema</code>, and the codec, under
+                    <code>avro.codec</code>. It ends with a 16-byte random
+                    <strong>sync marker</strong>. In our file the schema is 603
+                    of the header's 658 bytes, and the header is 0.6% of the
+                    file, which is why carrying the schema with the data is
+                    affordable.
+                </p>
+
+                <p>
+                    After the header come the blocks, and every block has the
+                    same four parts: how many records it holds, how many bytes
+                    it takes, the records themselves, and the sync marker
+                    again. fastavro, which wrote this file, fills a block with about 16 KB of records, compresses it, and starts the next. Our 4,630
+                    launches land in 29 blocks of 109 to 172 records, each
+                    taking 3 to 5 KB on disk.
+                </p>
+
+                <h2>Compression happens one block at a time</h2>
+
+                <p>
+                    The codec named in the header applies to every block. The
+                    spec requires two, <code>none</code> (which the spec spells
+                    <code>null</code>) and
+                    <code>deflate</code>, and allows others: Snappy, zstd,
+                    bzip2 and xz are the common ones.
+                </p>
+
+                <figure>
+                    <img
+                        src="img/understanding-avro/fig-4-codecs.png"
+                        alt="The same 4,630 records written with six codecs. No compression 463 KB; snappy 146 KB, 3.2 times smaller; zstd 120 KB, 3.9 times smaller; bzip2 113 KB, 4.1 times smaller; deflate 113 KB, 4.1 times smaller; xz 99 KB, 4.7 times smaller."
+                        width="760"
+                        height="368"
+                    />
+                </figure>
+
+                <p>
+                    Before any compression, the Avro file is already
+                    <strong>2.4× smaller</strong> than the JSON Lines one: 463
+                    KB against 1.09 MB. That's the encoding at work, keys and
+                    quotes and text numbers gone. Deflate then takes it
+                    another 4.1× down to the 113 KB file in the repository.
+                    Snappy gives up some of that size for speed, xz gives up
+                    speed for size, and deflate is the one every Avro library
+                    must be able to read, which is why it's the safe default
+                    for files other people will open.
+                </p>
+
+                <p>
+                    Because each block is compressed on its own, the codec
+                    never has to look outside it. Any block can be inflated
+                    without its neighbours, and that's what makes the next two
+                    properties possible.
+                </p>
+
+                <h2>Splitting and appending</h2>
+
+                <p>
+                    The sync marker is a boundary you can find without parsing.
+                    A reader dropped into the middle of a file scans forward
+                    until it sees the 16 bytes, and from there it's on a block
+                    edge and can read normally.
+                </p>
+
+                <figure>
+                    <img
+                        src="img/understanding-avro/fig-5-split.png"
+                        alt="A file drawn as 29 blocks separated by orange sync markers, divided into three shares for three workers. Worker 1 starts at byte 0 and reads the header. Workers 2 and 3 start at their byte offsets, scan to the next sync marker, and read blocks until their share ends."
+                        width="760"
+                        height="386"
+                    />
+                </figure>
+
+                <p>
+                    That makes an Avro file <strong>splittable</strong>. A
+                    query engine can cut a large file into byte ranges, give
+                    each range to a different worker, and trust every worker to
+                    find its first whole block. It also makes the file
+                    <strong>appendable</strong>. A writer reads the header for
+                    the schema, codec and sync marker, then adds new blocks
+                    after the last one. No footer has to be rewritten, because
+                    there isn't one.
+                </p>
+
+                <h2>Schema evolution</h2>
+
+                <p>
+                    Here is the reason Avro is the format between services.
+                    Producers and consumers upgrade on different days, and the
+                    data written by one version has to be readable by another.
+                </p>
+
+                <p>
+                    Avro's answer is to give a reader <em>two</em> schemas: the
+                    <strong>writer's</strong>, which came out of the file's
+                    header, and the <strong>reader's</strong>, which is the
+                    shape your code wants today. The reader resolves one
+                    against the other by field <em>name</em>.
+                </p>
+
+                <figure>
+                    <img
+                        src="img/understanding-avro/fig-6-evolution.png"
+                        alt="A writer schema with Company and Price, and a reader schema that adds Crewed as a boolean defaulting to false. The reader gets Company and Price from the file and Crewed from the default. Allowed changes: add a field with a default, drop a field, rename with an alias, widen a number. Not allowed: add a field with no default, change string to int."
+                        width="760"
+                        height="466"
+                    />
+                </figure>
+
+                <p>
+                    The rules are short. A field the reader wants and the file
+                    has is read. A field the reader wants and the file doesn't
+                    have takes its declared default. A field the file has and
+                    the reader doesn't want is skipped. Numbers can widen, from
+                    <code>int</code> up to <code>long</code>,
+                    <code>float</code> and <code>double</code>, and a field can
+                    be renamed if the new schema lists the old name as an alias.
+                    What can't happen is a field with no default appearing from
+                    nowhere, which is why <em>give every new field a
+                    default</em> is the one rule to remember.
+                </p>
+
+                <p>
+                    Nothing in the file changes. The same bytes serve every
+                    reader schema, and all the work happens when the file is read. In rugo it's one argument:
+                </p>
+
+<pre><span class="k">from</span> rugo <span class="k">import</span> avro
+
+reader_schema = {
+    <span class="s">"type"</span>: <span class="s">"record"</span>, <span class="s">"name"</span>: <span class="s">"Launch"</span>,
+    <span class="s">"fields"</span>: [
+        {<span class="s">"name"</span>: <span class="s">"Mission"</span>, <span class="s">"type"</span>: <span class="s">"string"</span>},
+        {<span class="s">"name"</span>: <span class="s">"Price"</span>,   <span class="s">"type"</span>: [<span class="s">"null"</span>, <span class="s">"double"</span>], <span class="s">"default"</span>: <span class="k">None</span>},
+        {<span class="s">"name"</span>: <span class="s">"Crewed"</span>,  <span class="s">"type"</span>: <span class="s">"boolean"</span>, <span class="s">"default"</span>: <span class="k">False</span>},  <span class="c"># not in the file</span>
+    ],
+}
+
+<span class="k">with</span> avro.<span class="f">read_avro</span>(<span class="s">"space_missions.avro"</span>, reader_schema=reader_schema) <span class="k">as</span> reader:
+    <span class="k">for</span> morsel <span class="k">in</span> reader:
+        <span class="f">print</span>(morsel.column_names, morsel.<span class="f">column</span>(<span class="s">"Crewed"</span>).<span class="f">to_pylist</span>()[:<span class="n">3</span>])</pre>
+
+                <p>
+                    The file was written before <code>Crewed</code> existed. All 4,630 rows come back with it set to <code>False</code>, and the fields the reader schema leaves out are dropped.
+                </p>
+
+                <h2>What Avro doesn't do</h2>
+
+                <p>
+                    Everything above comes from storing rows. The cost is the
+                    flip side of it. An Avro block holds a record count and a
+                    byte size, and that's all it says about its contents. There
+                    are no minimums and maximums, no per-field offsets, and no
+                    index.
+                </p>
+
+                <figure>
+                    <img
+                        src="img/understanding-avro/fig-7-walk.png"
+                        alt="Three records drawn to the width of their fields. Company, Price and Mission_Status are highlighted as kept; the other five fields are shown as walked past. A reader must inflate every block and decode each record far enough to find the next field."
+                        width="760"
+                        height="420"
+                    />
+                </figure>
+
+                <p>
+                    So a reader that wants three fields of eight still inflates
+                    every block and walks every record. A string can be hopped
+                    over by its length. A number can't, because its size is in
+                    its own top bits, so the reader reads until it finds the
+                    end. A good reader never turns the unwanted fields into
+                    values, and that's a large saving. But it can't skip a
+                    block, because nothing says the block can be skipped.
+                </p>
+
+                <p>
+                    That is the line between Avro and Parquet, and it's a fair
+                    one. Avro is built for writing one record at a time and for
+                    reading whole records. When the question is "how many
+                    launches did SpaceX fly?" over a billion rows, a columnar
+                    format wins by not reading the answer's neighbours. When
+                    the job is carrying each launch from one system to the
+                    next, Avro wins by not caring.
+                </p>
+
+                <h2>Avro without a file</h2>
+
+                <p>
+                    Most Avro that crosses a network isn't a file at all. A
+                    message on a queue is one record, and repeating a 603-byte
+                    schema in front of it would cost more than six times the record. So
+                    systems send just the record and put the schema somewhere
+                    both ends can find it.
+                </p>
+
+                <p>
+                    The common pattern is a schema registry. A producer
+                    registers its schema and gets an ID back, then writes each
+                    message as a short prefix (in Confluent's wire format, a
+                    zero byte and a four-byte schema ID) followed by the Avro
+                    bytes. A consumer reads the ID, fetches the writer schema
+                    from the registry once, caches it, and resolves it against
+                    its own reader schema. It's the same two-schema idea as the
+                    file, with the registry standing in for the header. Avro
+                    also defines a self-contained single-object encoding, a
+                    marker and an eight-byte fingerprint of the schema ahead of
+                    the record, for the same purpose.
+                </p>
+
+                <h2>When to use Avro</h2>
+
+                <ul>
+                    <li>
+                        <strong>Records move between systems on different
+                        release cycles.</strong> Schema evolution is the feature.
+                    </li>
+                    <li>
+                        <strong>Records arrive one at a time and the file has
+                        to keep up.</strong> Appending a block is cheap, and
+                        there's no footer to protect.
+                    </li>
+                    <li>
+                        <strong>The data is nested or richly typed.</strong>
+                        Timestamps, decimals, enums, arrays and maps all have a
+                        home, and they arrive as what they are.
+                    </li>
+                    <li>
+                        <strong>You'll mostly read whole records.</strong> Row
+                        storage is an advantage there, not a handicap.
+                    </li>
+                </ul>
+
+                <p>
+                    And when the data settles in storage and gets queried a few
+                    columns at a time, compact it into Parquet. The two formats
+                    hand off to each other: Avro at the edge, Parquet at rest.
+                </p>
+
+                <h2>Where rugo fits</h2>
+
+                <p>
+                    In Python, the usual route into an Avro file is a reader that builds an object for every record. <a href="../index.html">rugo</a> reads Avro blocks into typed columns instead, and only the columns you ask for.
+                </p>
+
+<pre><span class="k">from</span> rugo <span class="k">import</span> avro
+
+<span class="c"># Nested fields are addressed with a dot: "Rocket.Name"</span>
+<span class="k">with</span> avro.<span class="f">read_avro</span>(<span class="s">"space_missions.avro"</span>, columns=[<span class="s">"Company"</span>, <span class="s">"Rocket.Name"</span>, <span class="s">"Price"</span>]) <span class="k">as</span> reader:
+    <span class="k">for</span> morsel <span class="k">in</span> reader:
+        <span class="f">print</span>(morsel.column_names)
+        <span class="f">print</span>(morsel.<span class="f">column</span>(<span class="s">"Rocket.Name"</span>).<span class="f">to_pylist</span>()[:<span class="n">2</span>])</pre>
+
+                <p>
+                    That prints the three column names and
+                    <code>['Sputnik 8K71PS', 'Sputnik 8K71PS']</code>. Avro has
+                    no statistics, so there's no <code>predicates</code>
+                    argument as there is for Parquet; you filter the values you
+                    get back. Logical types arrive decoded, enums as their
+                    symbols, and the same morsel feeds the Parquet writer when
+                    it's time to compact.
+                </p>
+
+                <p>
+                    Reading every field of 200,000 rows, rugo is
+                    <strong>7.8× faster</strong> than fastavro and
+                    <strong>50× faster</strong> than Apache's own
+                    <code>avro</code> package. Called from Python it also beat
+                    Apache Arrow's Rust Avro reader in
+                    <a href="performant-python-pipelines-without-the-rust.html"
+                        >three of four races</a
+                    >. The <a href="../index.html">home page</a> has the
+                    measurements, with versions and hardware.
+                </p>
+
+                <h2>Try it</h2>
+
+                <p>
+                    <code>pip install rugo</code> is the whole install. The
+                    <a
+                        href="https://colab.research.google.com/github/mabel-dev/rugo.dev/blob/main/docs/notebooks/avro.ipynb"
+                        >Avro notebook</a
+                    >
+                    runs in your browser on the same 4,630 launches: columns,
+                    nested fields, reader schemas, and a conversion to Parquet.
+                </p>
+
+                <h2>Reproducing this</h2>
+
+                <p>
+                    Every byte count comes from
+                    <code>docs/data/space_missions.avro</code>, parsed with
+                    nothing but the spec: the 658-byte header, the schema's
+                    603 bytes, the 29 blocks and their record counts and sizes.
+                    The 96-byte record is the first record of the first block,
+                    inflated and split using the schema. The 234 bytes is the
+                    first line of <code>space_missions.jsonl</code>, which
+                    flattens the rocket into two fields where Avro nests it.
+                    The codec sizes come from writing the same 4,630 records
+                    with fastavro 1.13 at each codec's defaults, so the deflate
+                    figure (112,731 bytes) differs from the repository file
+                    (112,717) by a few bytes. The reader-schema example was run
+                    with rugo 0.5.4.
+                </p>
+
+                <p>
+                    The diagrams are generated by
+                    <a
+                        href="https://github.com/mabel-dev/rugo.dev/blob/main/tools/build_avro_diagrams.py"
+                        ><code>tools/build_avro_diagrams.py</code></a
+                    >, which parses the Avro file directly.
+                </p>
+            </div>
+        </article>
+
+        <footer>
+            <div class="container">
+                <span
+                    >rugo is part of the
+                    <a href="https://opteryx.app/">Opteryx</a> project — Apache
+                    2.0</span
+                >
+                <span>
+                    <a href="https://github.com/mabel-dev/opteryx-core"
+                        >GitHub</a
+                    >
+                    ·
+                    <a href="https://pypi.org/project/rugo/">PyPI</a>
+                </span>
+            </div>
+        </footer>
+
+        <script>
+            document.addEventListener("DOMContentLoaded", () => {
+                document.querySelectorAll("pre").forEach((pre) => {
+                    const btn = document.createElement("button");
+                    btn.className = "copy-btn";
+                    btn.textContent = "copy";
+                    btn.addEventListener("click", () => {
+                        navigator.clipboard
+                            .writeText(pre.innerText)
+                            .then(() => {
+                                btn.textContent = "copied";
+                                btn.classList.add("copied");
+                                setTimeout(() => {
+                                    btn.textContent = "copy";
+                                    btn.classList.remove("copied");
+                                }, 1500);
+                            });
+                    });
+                    pre.appendChild(btn);
+                });
+            });
+        </script>
+    </body>
+</html>
