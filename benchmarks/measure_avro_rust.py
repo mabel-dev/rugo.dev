@@ -3,6 +3,7 @@
 
     python3 benchmarks/measure_avro_rust.py [--rows 200000] [--rounds 5] [--reps 5]
                                             [--python 3.14] [--rugo-src /path/to/opteryx-core]
+                                            [--tag name]   # results/<date>-avro-rust-<name>.json
 
 Needs `uv` and `cargo` on PATH. Same file and method as measure_avro.py: gen_avro.py
 writes a deterministic 20-field file with fastavro (so no reader is timed on its own
@@ -37,6 +38,7 @@ ap.add_argument("--rounds", type=int, default=5)
 ap.add_argument("--reps", type=int, default=5)
 ap.add_argument("--python", default="3.14")
 ap.add_argument("--rugo-src")
+ap.add_argument("--tag")
 ap.add_argument("--workdir", default=tempfile.mkdtemp(prefix="rugo-avro-rust-"))
 a = ap.parse_args()
 W = a.workdir
@@ -121,7 +123,7 @@ for codec in ("deflate", "null"):
                 "rows": a.rows}
 
 os.makedirs(f"{HERE}/results", exist_ok=True)
-fn = f"{HERE}/results/{res['date'][:10]}-avro-rust.json"
+fn = f"{HERE}/results/{res['date'][:10]}-avro-rust{'-' + a.tag if a.tag else ''}.json"
 json.dump(res, open(fn, "w"), indent=2)
 print("wrote", fn)
 for key, value in res["reads"].items():

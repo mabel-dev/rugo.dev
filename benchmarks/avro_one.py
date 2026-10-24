@@ -73,4 +73,4 @@ for _ in range(reps):
     t = time.perf_counter()
     rows = go()
     times.append((time.perf_counter() - t) * 1000)
-print(json.dumps({"best_ms": round(min(times), 1), "median_ms": round(statistics.median(times), 1), "rows": rows}))
+print(json.dumps({"best_ms": round(min(times), 2), "median_ms": round(statistics.median(times), 2), "rows": rows}))
