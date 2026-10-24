@@ -44,16 +44,22 @@ fn main() {
     };
     let data = std::fs::read(path).expect("read file");
 
-    // Top-level field indexes / pruned schema for the narrow shape.
-    let schema = writer_schema_json(&data);
-    let fields = schema["fields"].as_array().expect("record fields");
-    let projection: Vec<usize> = NARROW
-        .iter()
-        .map(|n| fields.iter().position(|f| f["name"] == *n).expect("narrow field"))
-        .collect();
-    let mut pruned = schema.clone();
-    pruned["fields"] = serde_json::Value::Array(projection.iter().map(|&i| fields[i].clone()).collect());
-    let apache_reader_schema = apache_avro::Schema::parse_str(&pruned.to_string()).expect("reader schema");
+    // Top-level field indexes / pruned schema for the narrow shape (only then: a file
+    // without the narrow fields is fine to read whole).
+    let (projection, apache_reader_schema) = if narrow {
+        let schema = writer_schema_json(&data);
+        let fields = schema["fields"].as_array().expect("record fields");
+        let projection: Vec<usize> = NARROW
+            .iter()
+            .map(|n| fields.iter().position(|f| f["name"] == *n).expect("narrow field"))
+            .collect();
+        let mut pruned = schema.clone();
+        pruned["fields"] = serde_json::Value::Array(projection.iter().map(|&i| fields[i].clone()).collect());
+        let parsed = apache_avro::Schema::parse_str(&pruned.to_string()).expect("reader schema");
+        (projection, Some(parsed))
+    } else {
+        (Vec::new(), None)
+    };
 
     let go = || -> usize {
         match reader {
@@ -68,9 +74,9 @@ fn main() {
                 r.map(|batch| batch.expect("arrow-avro batch").num_rows()).sum()
             }
             "apache-avro" => {
-                let r = if narrow {
+                let r = if let Some(rs) = apache_reader_schema.as_ref() {
                     apache_avro::Reader::builder(Cursor::new(&data[..]))
-                        .reader_schema(&apache_reader_schema)
+                        .reader_schema(rs)
                         .build()
                 } else {
                     apache_avro::Reader::new(Cursor::new(&data[..]))
@@ -102,7 +108,7 @@ fn main() {
         (sorted[reps / 2 - 1] + sorted[reps / 2]) / 2.0
     };
     println!(
-        "{{\"best_ms\": {:.1}, \"median_ms\": {:.1}, \"rows\": {}}}",
+        "{{\"best_ms\": {:.2}, \"median_ms\": {:.2}, \"rows\": {}}}",
         best, median, rows
     );
 }

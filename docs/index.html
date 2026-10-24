@@ -779,6 +779,7 @@
                 <a href="#why">Philosophy</a>
                 <a href="#performance">Performance</a>
                 <a href="#built-for">Built&nbsp;for</a>
+                <a href="#choose">When&nbsp;to&nbsp;use</a>
                 <a href="#formats">Formats</a>
                 <a href="#quickstart">Quickstart</a>
                 <a href="#data-model">Data&nbsp;Model</a>
@@ -897,6 +898,16 @@
                             </tr>
                         </tbody>
                     </table>
+                    <p style="font-size: 0.9rem; color: var(--muted); margin: 1rem 0 0.75rem">
+                        <strong style="color: var(--text)">Peak memory on a selective read</strong>
+                        — 1% of rows, two columns, of a 509 MB, 100-column
+                        Parquet file. On one thread:
+                        <strong style="color: var(--text)">rugo 79 MB</strong>,
+                        DuckDB 112 MB, PyArrow 131 MB, Polars 132 MB. On all
+                        cores:
+                        <strong style="color: var(--text)">rugo 165 MB</strong>,
+                        DuckDB 187 MB, Polars 196 MB, PyArrow 259 MB.
+                    </p>
                     <details class="caveat">
                         <summary>How this was measured</summary>
                         <p>Installed size
@@ -915,7 +926,22 @@
                         macOS arm64 wheel is 2.9 MB compressed and 7.3 MB
                         installed. Footprint also varies by platform: rugo's
                         Linux x86_64 wheel, the one AWS Lambda uses, is 4.3 MB
-                        compressed and larger once installed.</p>
+                        compressed and larger once installed.
+                        <br /><br />
+                        Peak memory is the process's peak resident set
+                        (<code>ru_maxrss</code>), interpreter and library
+                        import included, for a fresh process per library, on
+                        the wide file described under Performance: 1,000,000
+                        rows by 100 columns, zstd, 20 row groups, two columns
+                        where an unsorted integer column keeps 1% of rows, so
+                        no row group can be skipped. "On one thread" pins every
+                        library to a single thread; "on all cores" is each
+                        library's default. Results stay in each library's
+                        native form and are not converted to Python lists.
+                        Measured 2026-10-24 with rugo 0.5.4 (parallel-read
+                        build), DuckDB 2.0.0, Polars 2.0.0 and PyArrow 26.0.0
+                        on an Apple M5 Pro, CPython 3.14. Reproduce it with
+                        <a href="https://github.com/mabel-dev/rugo.dev/blob/main/benchmarks/measure_parquet.py"><code>benchmarks/measure_parquet.py</code></a>.</p>
                     </details>
                 </div>
 
@@ -993,7 +1019,7 @@
                             need. Skip the row groups that can't match. The
                             more selective the query, the bigger rugo's
                             advantage — and Parquet reads peak at up to
-                            2.6× less memory than PyArrow.
+                            2.2× less memory than PyArrow.
                         </p>
                     </div>
                     <div class="feature-card">
@@ -1010,11 +1036,12 @@
 
                 <details class="caveat" style="margin-top: 2.5rem; margin-bottom: 0">
                     <summary>What rugo doesn't chase</summary>
-                    <p>Raw Parquet decode throughput. PyArrow has had over a
-                    decade of optimisation poured into it, and rugo doesn't try
-                    to out-decode it. It wins where serverless and embedded
-                    workloads actually hurt: a package 17× smaller, a cold
-                    start 3× faster, and up to 2.6× less peak memory.</p>
+                    <p>Being a query engine. Joins, SQL, aggregations and
+                    multi-file scans are DuckDB and Polars territory, and rugo
+                    leaves them there. It stays the file layer, and wins where
+                    serverless and embedded workloads actually hurt: a package
+                    17× smaller, a cold start 3× faster, and up to 2.2× less
+                    peak memory than PyArrow.</p>
                 </details>
             </div>
         </section>
@@ -1028,8 +1055,144 @@
                     Rugo wins by decoding less — up to 23× faster than PyArrow
                     on selective JSONL reads. The more columns and rows a query
                     lets rugo skip, the bigger the win, and even when it has to
-                    read everything it is still 2.6× faster.
+                    read everything it is still 2.6× faster. On Parquet,
+                    parallel row-group decode keeps it level with DuckDB,
+                    Polars and PyArrow.
                 </p>
+
+                <h3 style="margin-bottom: 0.75rem">
+                    Parquet — 1M rows, 100 cols, 509 MB
+                </h3>
+                <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 1rem">
+                    Rugo's Parquet reader decodes row groups in parallel, so
+                    it keeps pace with DuckDB, Polars and PyArrow on the
+                    reads it was built for. Same file, same machine, every
+                    library in its default configuration.
+                </p>
+                <h4 class="bench-sub">All cores</h4>
+                <!-- chart:parquet-read -->
+<div class="bench">
+<div class="bench-big">
+<div class="big"><span class="big-n">2.2×</span><span class="big-l">faster than DuckDB on a full read</span></div>
+<div class="big"><span class="big-n">4.5×</span><span class="big-l">faster than DuckDB on count(*)</span></div>
+<div class="big"><span class="big-n">1.3×</span><span class="big-l">faster than PyArrow, 2 of 100 columns</span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">SELECT 2 columns</div>
+<div class="bar-row" title="Rugo: ~3.5 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:40.76%"></span><span class="bar-val is-rugo">~3.5 ms</span></span></div>
+<div class="bar-row" title="DuckDB: ~6.1 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:70.97%"></span><span class="bar-val">~6.1 ms</span></span></div>
+<div class="bar-row" title="polars: ~3.5 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:40.52%"></span><span class="bar-val">~3.5 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~4.4 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:51.41%"></span><span class="bar-val">~4.4 ms</span></span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">WHERE ~10% pass</div>
+<div class="bar-row" title="Rugo: ~4.7 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:55.51%"></span><span class="bar-val is-rugo">~4.7 ms</span></span></div>
+<div class="bar-row" title="DuckDB: ~5.8 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:68.05%"></span><span class="bar-val">~5.8 ms</span></span></div>
+<div class="bar-row" title="polars: ~3.5 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:40.64%"></span><span class="bar-val">~3.5 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~4.5 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:53.17%"></span><span class="bar-val">~4.5 ms</span></span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">WHERE ~1% pass</div>
+<div class="bar-row" title="Rugo: ~4.6 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:53.52%"></span><span class="bar-val is-rugo">~4.6 ms</span></span></div>
+<div class="bar-row" title="DuckDB: ~5.8 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:67.46%"></span><span class="bar-val">~5.8 ms</span></span></div>
+<div class="bar-row" title="polars: ~3.3 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:38.77%"></span><span class="bar-val">~3.3 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~4.8 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:56.80%"></span><span class="bar-val">~4.8 ms</span></span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">SELECT * — 4 columns</div>
+<div class="bar-row" title="Rugo: ~3.0 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:35.60%"></span><span class="bar-val is-rugo">~3.0 ms</span></span></div>
+<div class="bar-row" title="DuckDB: ~6.7 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:78.00%"></span><span class="bar-val">~6.7 ms</span></span></div>
+<div class="bar-row" title="polars: ~4.1 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:47.67%"></span><span class="bar-val">~4.1 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~5.2 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:61.14%"></span><span class="bar-val">~5.2 ms</span></span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">count(*)</div>
+<div class="bar-row" title="Rugo: ~0.3 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:3.86%"></span><span class="bar-val is-rugo">~0.3 ms</span></span></div>
+<div class="bar-row" title="DuckDB: ~1.5 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:17.45%"></span><span class="bar-val">~1.5 ms</span></span></div>
+<div class="bar-row" title="polars: ~0.7 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:7.85%"></span><span class="bar-val">~0.7 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~0.7 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:8.67%"></span><span class="bar-val">~0.7 ms</span></span></div>
+</div>
+</div>
+<!-- /chart:parquet-read -->
+                <h4 class="bench-sub">One thread — a one-vCPU Lambda or container</h4>
+                <!-- chart:parquet-read-1t -->
+<div class="bench">
+<div class="bench-big">
+<div class="big"><span class="big-n">1.5×</span><span class="big-l">faster than DuckDB on one thread</span></div>
+<div class="big"><span class="big-n">1.3×</span><span class="big-l">faster than PyArrow, full read, one thread</span></div>
+<div class="big"><span class="big-n">Parity</span><span class="big-l">with polars on 2-column and full reads — within 1 ms</span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">SELECT 2 columns</div>
+<div class="bar-row" title="Rugo: ~23 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:38.29%"></span><span class="bar-val is-rugo">~23 ms</span></span></div>
+<div class="bar-row" title="DuckDB: ~35 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:58.49%"></span><span class="bar-val">~35 ms</span></span></div>
+<div class="bar-row" title="polars: ~22 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:36.11%"></span><span class="bar-val">~22 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~28 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:47.29%"></span><span class="bar-val">~28 ms</span></span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">WHERE ~10% pass</div>
+<div class="bar-row" title="Rugo: ~27 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:45.21%"></span><span class="bar-val is-rugo">~27 ms</span></span></div>
+<div class="bar-row" title="DuckDB: ~32 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:54.03%"></span><span class="bar-val">~32 ms</span></span></div>
+<div class="bar-row" title="polars: ~23 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:39.20%"></span><span class="bar-val">~23 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~30 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:49.86%"></span><span class="bar-val">~30 ms</span></span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">WHERE ~1% pass</div>
+<div class="bar-row" title="Rugo: ~27 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:45.38%"></span><span class="bar-val is-rugo">~27 ms</span></span></div>
+<div class="bar-row" title="DuckDB: ~31 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:52.87%"></span><span class="bar-val">~31 ms</span></span></div>
+<div class="bar-row" title="polars: ~23 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:38.48%"></span><span class="bar-val">~23 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~35 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:58.84%"></span><span class="bar-val">~35 ms</span></span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">SELECT * — 4 columns</div>
+<div class="bar-row" title="Rugo: ~30 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:50.50%"></span><span class="bar-val is-rugo">~30 ms</span></span></div>
+<div class="bar-row" title="DuckDB: ~46 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:78.00%"></span><span class="bar-val">~46 ms</span></span></div>
+<div class="bar-row" title="polars: ~31 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:51.73%"></span><span class="bar-val">~31 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~38 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:63.53%"></span><span class="bar-val">~38 ms</span></span></div>
+</div>
+<div class="bench-group"><div class="bench-shape">count(*)</div>
+<div class="bar-row" title="Rugo: ~0.4 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:0.60%"></span><span class="bar-val is-rugo">~0.4 ms</span></span></div>
+<div class="bar-row" title="DuckDB: ~1.3 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:2.17%"></span><span class="bar-val">~1.3 ms</span></span></div>
+<div class="bar-row" title="polars: ~0.5 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:0.91%"></span><span class="bar-val">~0.5 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~0.8 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:1.26%"></span><span class="bar-val">~0.8 ms</span></span></div>
+</div>
+</div>
+<!-- /chart:parquet-read-1t -->
+                <details class="caveat" style="margin-bottom: 2.5rem">
+                    <summary>How this was measured</summary>
+                    <p><!-- TODO(release): re-run benchmarks/measure_parquet.py against the released rugo, repoint PARQUET_READ in tools/build_perf_charts.py, re-run it, and update the versions, Python version and date in this note and in the hero memory line. -->
+                    Best of 11 runs, each library in a fresh process, with
+                    the file already in the OS page cache. Rugo 0.5.4 with
+                    parallel Parquet reads (pre-release build), DuckDB 2.0.0,
+                    Polars 2.0.0 (<code>scan_parquet</code>) and PyArrow
+                    26.0.0, CPython 3.14 on an Apple M5 Pro with 18 cores,
+                    measured 2026-10-24.
+                    <br /><br />
+                    <strong>Files.</strong> The wide file is 1,000,000 rows by
+                    100 columns of integers, floats and strings, 509 MB, zstd,
+                    20 row groups of 50,000 rows, written by PyArrow with no
+                    bloom filters. The narrow file has the first four columns:
+                    1,000,000 rows, 19 MB, also 20 row groups. The sort column
+                    is <code>id</code>; the filter column <code>k</code> is
+                    uniform and unsorted, so no row group can be skipped.
+                    Filters on the sorted column, where rugo can prune row
+                    groups, are in the results file alongside the rest.
+                    <br /><br />
+                    <strong>Queries.</strong> "2 columns" selects
+                    <code>a</code> and <code>b</code>; the filtered queries
+                    keep ~10% and ~1% of rows by <code>k</code>;
+                    "SELECT *" reads the narrow file in full; count(*) reads
+                    only the footer's row count.
+                    <br /><br />
+                    <strong>Threading and materialisation.</strong> DuckDB,
+                    Polars and PyArrow use every core by default; rugo decodes
+                    row groups across all cores by default too. The one-thread
+                    chart pins every library to a single thread
+                    (<code>threads=1</code> in rugo, <code>SET threads=1</code>
+                    in DuckDB, <code>POLARS_MAX_THREADS=1</code>,
+                    <code>use_threads=False</code> in PyArrow). Results stay in
+                    each library's native form (rugo Morsels, a Polars
+                    DataFrame, Arrow tables) and are not converted to Python
+                    lists.
+                    <br /><br />
+                    Reproduce it with
+                    <a href="https://github.com/mabel-dev/rugo.dev/blob/main/benchmarks/measure_parquet.py"><code>benchmarks/measure_parquet.py</code></a>;
+                    the scripts it drives are
+                    <a href="https://github.com/mabel-dev/rugo.dev/blob/main/benchmarks/bench_parquet_one.py"><code>bench_parquet_one.py</code></a>
+                    and
+                    <a href="https://github.com/mabel-dev/rugo.dev/blob/main/benchmarks/gen_parquet.py"><code>gen_parquet.py</code></a>.</p>
+                </details>
 
                 <h3 style="margin-bottom: 0.75rem">
                     JSONL — 1M rows, 110 cols, 2.0 GB
@@ -1343,6 +1506,61 @@
                         <h3>Low-memory data applications</h3>
                     </div>
                 </div>
+            </div>
+        </section>
+
+        <!-- ── CHOOSE ── -->
+        <section id="choose">
+            <div class="container">
+                <div class="section-label">When to use rugo</div>
+                <h2>Rugo is for reading, not loading.</h2>
+                <p class="section-intro">
+                    Use it to scan Parquet with column projection and
+                    predicate pushdown, stream the result as Morsels, and never
+                    pull the whole file into a DataFrame. When the job is
+                    loading a table wholesale or running a complex query,
+                    DuckDB and Polars are built for that, and they pair well
+                    with rugo in the same stack.
+                </p>
+
+                <div class="feature-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr))">
+                    <div class="feature-card">
+                        <div class="feature-icon">🪶</div>
+                        <h3>Choose rugo when</h3>
+                        <ul style="color: var(--muted); font-size: 0.9rem; margin: 0.5rem 0 0 1.1rem">
+                            <li>package size, cold start or dependency count matters: Lambda, containers, embedded</li>
+                            <li>the workload is selective: a few columns, a filter, a slice of the file</li>
+                            <li>you want a streaming Morsel interface and a small, steady memory footprint</li>
+                            <li>you need file I/O, not a query engine</li>
+                        </ul>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🦆</div>
+                        <h3>Choose DuckDB or Polars when</h3>
+                        <ul style="color: var(--muted); font-size: 0.9rem; margin: 0.5rem 0 0 1.1rem">
+                            <li>you need SQL, joins, aggregations or multi-file and S3 scans</li>
+                            <li>you want every core on a full-table scan</li>
+                            <li>you want a DataFrame or SQL API out of the box</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3 style="margin: 2.5rem 0 0.75rem">Try it on a public file</h3>
+                <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 1rem">
+                    Thirty seconds, one install, no setup: read two columns of
+                    the successful launches in a Parquet file hosted on this
+                    site.
+                </p>
+                <pre><span class="k">import</span> urllib.request
+<span class="k">from</span> rugo <span class="k">import</span> parquet
+
+path, _ = urllib.request.<span class="f">urlretrieve</span>(<span class="s">"https://rugo.dev/data/space_missions.parquet"</span>)
+<span class="k">with</span> parquet.<span class="f">read_parquet</span>(
+    path,
+    columns=[<span class="s">"Company"</span>, <span class="s">"Price"</span>],
+    predicates=[(<span class="s">"Mission_Status"</span>, <span class="s">"=="</span>, <span class="s">"Success"</span>)],
+) <span class="k">as</span> reader:
+    <span class="f">print</span>(<span class="f">sum</span>(<span class="f">len</span>(morsel) <span class="k">for</span> morsel <span class="k">in</span> reader), <span class="s">"rows"</span>)   <span class="c"># 4162 rows</span></pre>
             </div>
         </section>
 

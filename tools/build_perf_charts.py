@@ -137,6 +137,42 @@ CHARTS += [
 ]
 
 
+# Parquet reads (benchmarks/measure_parquet.py). Key: <threads>/<file>/<query>/<library>.
+# Re-run the benchmark against the release and point PARQUET_READ at the new file.
+PARQUET_READ = "2026-10-24-parquet-read-prerelease.json"
+LIBS = [("Rugo", "rugo", True), ("DuckDB", "duckdb", False), ("polars", "polars", False), ("PyArrow", "pyarrow", False)]
+
+
+def parquet_groups(threads):
+    shapes = [("SELECT 2 columns", "wide/select2"), ("WHERE ~10% pass", "wide/unsorted_p10"),
+              ("WHERE ~1% pass", "wide/unsorted_p1"), ("SELECT * — 4 columns", "narrow/full"),
+              ("count(*)", "wide/count")]
+    return [(label, [(name, f"{threads}/{q}/{lib}", rugo) for name, lib, rugo in LIBS]) for label, q in shapes]
+
+
+CHARTS += [
+    {
+        "id": "parquet-read", "file": PARQUET_READ, "section": "queries",
+        "groups": parquet_groups("all"),
+        "tiles": [
+            (("ratio", "all/narrow/full/duckdb", "all/narrow/full/rugo"), "faster than DuckDB on a full read"),
+            (("ratio", "all/wide/count/duckdb", "all/wide/count/rugo"), "faster than DuckDB on count(*)"),
+            (("ratio", "all/wide/select2/pyarrow", "all/wide/select2/rugo"), "faster than PyArrow, 2 of 100 columns"),
+        ],
+    },
+    {
+        "id": "parquet-read-1t", "file": PARQUET_READ, "section": "queries",
+        "groups": parquet_groups("1"),
+        "tiles": [
+            (("ratio", "1/wide/select2/duckdb", "1/wide/select2/rugo"), "faster than DuckDB on one thread"),
+            (("ratio", "1/narrow/full/pyarrow", "1/narrow/full/rugo"), "faster than PyArrow, full read, one thread"),
+            ("Parity", ("gap", [("1/wide/select2/rugo", "1/wide/select2/polars"), ("1/narrow/full/rugo", "1/narrow/full/polars")],
+                        "with polars on 2-column and full reads — within {gap} ms")),
+        ],
+    },
+]
+
+
 def render(chart):
     data = load(chart["file"])[chart["section"]]
     value = lambda key: data[key]["best_ms"]
