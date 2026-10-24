@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Bye-bye vendor lock-in: a data stack made of open files and 13.5 MB of open-source Python</title>
+        <meta
+            name="description"
+            content="Lock-in lives in your file format and your engine, not in the logo on the invoice. Keep your data in Parquet, Avro and JSON Lines, read it with a 13.5 MB library, and every vendor becomes optional."
+        />
+        <link
+            rel="canonical"
+            href="https://rugo.dev/blog/open-formats-no-vendor-lock-in.html"
+        />
+        <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+        <link rel="stylesheet" href="../blog.css" />
+    </head>
+    <body>
+        <nav>
+            <a class="nav-logo" href="../index.html">ru<span>go</span></a>
+            <div class="nav-links">
+                <a href="../index.html">Home</a>
+                <a href="index.html">Blog</a>
+                <a href="https://github.com/mabel-dev/opteryx-core/tree/main/rugo"
+                    >Docs</a
+                >
+            </div>
+        </nav>
+
+        <article>
+            <div class="container">
+                <header class="post-header">
+                    <h1>
+                        Bye-bye vendor lock-in: a data stack made of open files
+                        and 13.5 MB of open-source Python
+                    </h1>
+                    <p class="post-meta">
+                        Justin Joyce <span class="sep">·</span> 21 October 2026
+                        <span class="sep">·</span> 7 min read
+                    </p>
+                    <div class="post-tags">
+                        <span>open source</span>
+                        <span>vendor lock-in</span>
+                        <span>parquet</span>
+                        <span>aws lambda</span>
+                    </div>
+                    <p class="post-notice">
+                        Correct at time of publishing. For up-to-date
+                        performance and feature information, see
+                        <a href="../">rugo.dev</a>.
+                    </p>
+                </header>
+
+                <p class="lede">
+                    Lock-in isn't the logo on the invoice. It's the
+                    <strong>file format</strong> your data sits in and the
+                    <strong>engine</strong> that's the only thing able to read
+                    it. Keep your data in Parquet, Avro and JSON Lines, read it
+                    with an open-source library that takes
+                    <strong>5.4%</strong> of a Lambda package, and every vendor
+                    in your stack becomes optional.
+                </p>
+
+                <p>
+                    Platforms like Databricks and Snowflake are good at what they
+                    do, and for a lot of teams they're the right call. The
+                    trouble starts later, when the bill grows with usage in ways
+                    that are hard to forecast, and moving anything out means
+                    rewriting everything that touches it. Nobody chose that on
+                    day one. It accumulated.
+                </p>
+
+                <p>
+                    The way out isn't a heroic migration. It's a handful of
+                    small decisions, made early, that keep the exit door
+                    unlocked. This post is the blueprint: what to keep open,
+                    what a minimal stack looks like, what it costs to run, and
+                    where a bigger engine plugs in when you need one.
+                </p>
+
+                <h2>Where lock-in actually lives</h2>
+
+                <p>
+                    There are three places a platform can hold on to you, and
+                    only the first two are really about the vendor.
+                </p>
+
+                <ul>
+                    <li>
+                        <strong>The storage format.</strong> If your tables
+                        live in a proprietary layout, only that vendor's engine
+                        can read them. Export is a project.
+                    </li>
+                    <li>
+                        <strong>The metadata.</strong> Catalogs, permissions
+                        and job definitions that exist only inside one product.
+                        You can rebuild these, but it takes time.
+                    </li>
+                    <li>
+                        <strong>The code.</strong> SQL dialects, proprietary
+                        functions and notebooks that call vendor APIs.
+                        This is the one you control completely, and it's the
+                        part that's cheapest to keep portable.
+                    </li>
+                </ul>
+
+                <p>
+                    The first is the one that matters most, and it's also the
+                    easiest to fix. If your data is in an open file format in a
+                    bucket you own, anything can read it: today's engine,
+                    tomorrow's engine, a script you write on a Friday. The
+                    format is the contract, and nobody can put a price on it.
+                </p>
+
+                <h2>The three files that cover almost everything</h2>
+
+                <p>
+                    You don't need a long list of formats. Three open ones cover
+                    nearly every pipeline, and each is good at one job. We
+                    opened the same 4,630 rows in all three in
+                    <a href="avro-vs-parquet-vs-jsonl.html"
+                        >Avro vs Parquet vs JSON Lines</a
+                    >:
+                </p>
+
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Format</th>
+                                <th>Same 4,630 rows</th>
+                                <th>Use it for</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>JSON Lines</td>
+                                <td>1.09 MB</td>
+                                <td>Logs and API exports. Anything can write it.</td>
+                            </tr>
+                            <tr>
+                                <td>Avro</td>
+                                <td>113 KB</td>
+                                <td>Streams and event pipelines, written one record at a time.</td>
+                            </tr>
+                            <tr>
+                                <td>Parquet</td>
+                                <td class="win">93 KB</td>
+                                <td>Analytics. Readers skip columns and whole row groups.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    All three are open specifications with readers in every
+                    major language. Land raw data as JSON Lines or Avro, keep
+                    the curated tables as Parquet, and you've covered the whole
+                    path from ingest to analysis without a single proprietary
+                    byte.
+                </p>
+
+                <h2>The stack, piece by piece</h2>
+
+                <p>
+                    Here's what each job in a managed platform looks like when
+                    you build it from open parts. Every row has more than one
+                    good answer, which is exactly the point.
+                </p>
+
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Job</th>
+                                <th>Open building block</th>
+                                <th>Why it stays swappable</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Storage</td>
+                                <td>Object storage (S3 or any compatible store)</td>
+                                <td>It's just files in a bucket you own</td>
+                            </tr>
+                            <tr>
+                                <td>Table format</td>
+                                <td>Parquet, Avro, JSON Lines</td>
+                                <td>Open specs, many readers</td>
+                            </tr>
+                            <tr>
+                                <td>Small and mid-size reads</td>
+                                <td>rugo in a Lambda or a container</td>
+                                <td>Apache 2.0, 13.5 MB, no dependencies</td>
+                            </tr>
+                            <tr>
+                                <td>Heavy SQL and joins</td>
+                                <td>DuckDB, Spark or Opteryx over the same files</td>
+                                <td>They read the same Parquet</td>
+                            </tr>
+                            <tr>
+                                <td>Orchestration</td>
+                                <td>Airflow, EventBridge, cron, anything</td>
+                                <td>A scheduler holds no data</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    The middle rows are where the money goes, so they're where
+                    we'll spend the rest of the post.
+                </p>
+
+                <h2>What the compute layer costs</h2>
+
+                <p>
+                    A lot of what a warehouse is used for is unglamorous: read a
+                    file as it lands, check it, filter it, compute a number,
+                    write a smaller file. That doesn't need a cluster. It needs
+                    a function that starts quickly and reads efficiently, and
+                    that's what you pay for on Lambda: every millisecond of
+                    start-up and every millisecond of reading.
+                </p>
+
+                <p>
+                    This is what a Parquet reader costs to ship to Lambda,
+                    measured by building each package the way Lambda does
+                    (<a href="parquet-in-aws-lambda-without-pyarrow.html"
+                        >full write-up</a
+                    >):
+                </p>
+
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Library</th>
+                                <th>Unzipped</th>
+                                <th>Of the 250 MB limit</th>
+                                <th>Direct upload?</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="highlight">
+                                <td>rugo 0.5.4</td>
+                                <td class="win">13.5 MB</td>
+                                <td class="win">5.4%</td>
+                                <td class="win">yes</td>
+                            </tr>
+                            <tr>
+                                <td>duckdb 1.5.6</td>
+                                <td>61.7 MB</td>
+                                <td>24.7%</td>
+                                <td>yes</td>
+                            </tr>
+                            <tr>
+                                <td>pyarrow 26.0.0</td>
+                                <td>172.5 MB</td>
+                                <td>69.0%</td>
+                                <td class="lose">no</td>
+                            </tr>
+                            <tr>
+                                <td>polars 2.0.0</td>
+                                <td>196.3 MB</td>
+                                <td>78.5%</td>
+                                <td class="lose">no</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    A small package means a fast start, and on Lambda a fast
+                    start is money. rugo starts 1.5 to 2.2 times faster than
+                    PyArrow, DuckDB or Polars, and in
+                    <a href="lambda-cost-break-even.html"
+                        >our cost comparison</a
+                    >
+                    it came out <strong>15% to 35% cheaper than PyArrow</strong>
+                    in every configuration we ran. At 1024 MB on x86 it was the
+                    cheapest of all four once about one call in ten was a cold
+                    start.
+                </p>
+
+                <p>
+                    In absolute terms the bill is small. Reading most of a
+                    38.6 MB Parquet file on every call, a million calls cost
+                    <strong>$2.33</strong> when every call is warm and
+                    <strong>$22.70</strong> when every call is cold, requests
+                    included. That's the whole price of the compute. There's no
+                    cluster to size, nothing idling overnight, and the meter
+                    stops when the function does.
+                </p>
+
+                <p>
+                    rugo is open source too, under the Apache 2.0 licence. The
+                    code that reads your files is as open as the files
+                    themselves: you can read it, fork it and run it anywhere,
+                    with no licence server and no per-seat or per-query meter.
+                    That's the other half of keeping the exit unlocked.
+                </p>
+
+                <h2>The pipeline, in code</h2>
+
+                <p>
+                    Here's a landing step that turns a raw JSON Lines drop into
+                    Parquet. It uses the same two calls whether it runs on your
+                    laptop, in a container or in a Lambda:
+                </p>
+
+                <pre><span class="k">from</span> rugo <span class="k">import</span> jsonl, parquet
+
+<span class="k">with</span> jsonl.<span class="f">read_jsonl</span>(<span class="s">"events.jsonl"</span>) <span class="k">as</span> reader:
+    <span class="k">with</span> <span class="f">open</span>(<span class="s">"events.parquet"</span>, <span class="s">"wb"</span>) <span class="k">as</span> f:
+        <span class="k">with</span> parquet.<span class="f">open_parquet_writer</span>(f.write) <span class="k">as</span> writer:
+            <span class="k">for</span> morsel <span class="k">in</span> reader:
+                writer.<span class="f">write_row_group</span>(morsel)</pre>
+
+                <p>
+                    And here's the read side, pulling only the columns and rows
+                    a question needs:
+                </p>
+
+                <pre><span class="k">from</span> rugo <span class="k">import</span> parquet
+
+<span class="k">with</span> parquet.<span class="f">read_parquet</span>(
+    <span class="s">"events.parquet"</span>,
+    columns=[<span class="s">"status"</span>, <span class="s">"response_ms"</span>],
+    predicates=[(<span class="s">"status"</span>, <span class="s">"=="</span>, <span class="n">200</span>)],
+) <span class="k">as</span> reader:
+    <span class="k">for</span> morsel <span class="k">in</span> reader:
+        <span class="f">print</span>(morsel.num_rows)</pre>
+
+                <p>
+                    There's no session to open, no cluster to attach to and no
+                    credentials for a platform. A file goes in and a file comes
+                    out, and the Parquet it writes is readable by every engine
+                    that exists. The full Lambda handler, including the S3
+                    download and the deployment commands, is in
+                    <a href="parquet-in-aws-lambda-without-pyarrow.html"
+                        >Reading Parquet in AWS Lambda without PyArrow</a
+                    >.
+                </p>
+
+                <h2>It isn't only Parquet</h2>
+
+                <p>
+                    Open formats only help if the readers are good, so the
+                    other two are held to the same standard. On a 1 GB JSON
+                    Lines log, rugo answered the question in
+                    <strong>1.23 seconds</strong> with about
+                    <strong>5 MB</strong> of native overhead, where pandas
+                    needed 2,500 MB
+                    (<a href="jsonl-logs-grep-vs-pandas-vs-rugo.html"
+                        >the comparison</a
+                    >). On Avro, called from Python, it was
+                    <strong>2.3 to 4.5 times faster</strong> than arrow-avro,
+                    Apache Arrow's own Rust reader, on its defaults
+                    (<a href="performant-python-pipelines-without-the-rust.html"
+                        >the race</a
+                    >). Raw landing zones and curated tables get the same
+                    treatment, with the same library.
+                </p>
+
+                <h2>When you want a bigger engine</h2>
+
+                <p>
+                    This is where the open-format choice pays off. Some work
+                    does deserve a bigger engine: wide joins across large tables,
+                    many analysts running SQL at once, a long tail of ad-hoc
+                    exploration. Because your data is plain Parquet in your own
+                    bucket, you don't migrate to get that. You point DuckDB,
+                    Spark or <a href="https://opteryx.app/">Opteryx</a> at the
+                    same files, and they run alongside the Lambda functions that
+                    are already there.
+                </p>
+
+                <p>
+                    That's the shape of a stack with no lock-in: small functions
+                    for the many small jobs, big engines for the few big ones,
+                    and one set of files underneath that nobody owns but you.
+                    Swapping any component is a configuration change instead of
+                    a rewrite.
+                </p>
+
+                <h2>A short exit-proofing checklist</h2>
+
+                <ul>
+                    <li>
+                        Land raw data as JSON Lines or Avro, in a bucket you
+                        control.
+                    </li>
+                    <li>
+                        Store curated tables as Parquet, with row groups sized
+                        so readers can skip them.
+                    </li>
+                    <li>
+                        Keep transformations in plain Python and SQL you can run
+                        outside any one platform.
+                    </li>
+                    <li>
+                        Keep your orchestration and permissions in code, in your
+                        repository.
+                    </li>
+                    <li>
+                        Once a quarter, read a table with a different engine
+                        than the one that wrote it. If it works, you're free.
+                    </li>
+                </ul>
+
+                <h2>Try it</h2>
+
+                <p>
+                    <code>pip install rugo</code> is the whole install. The
+                    notebooks run in your browser on the same launch data used
+                    in the file-format post:
+                    <a
+                        href="https://colab.research.google.com/github/mabel-dev/rugo.dev/blob/main/docs/notebooks/parquet.ipynb"
+                        >Parquet</a
+                    >,
+                    <a
+                        href="https://colab.research.google.com/github/mabel-dev/rugo.dev/blob/main/docs/notebooks/avro.ipynb"
+                        >Avro</a
+                    >
+                    and
+                    <a
+                        href="https://colab.research.google.com/github/mabel-dev/rugo.dev/blob/main/docs/notebooks/jsonl.ipynb"
+                        >JSON Lines</a
+                    >.
+                </p>
+
+                <h2>Where the numbers come from</h2>
+
+                <p>
+                    File sizes are the bytes on disk of
+                    <code>space_missions.jsonl</code>,
+                    <code>.avro</code> (deflate) and <code>.parquet</code>
+                    (zstd) in
+                    <a
+                        href="https://github.com/mabel-dev/rugo.dev/tree/main/docs/data"
+                        ><code>docs/data</code></a
+                    >. Package sizes, start-up times and costs are from the
+                    Lambda benchmarks in
+                    <a href="parquet-in-aws-lambda-without-pyarrow.html"
+                        >Reading Parquet in AWS Lambda without PyArrow</a
+                    >
+                    and
+                    <a href="lambda-cost-break-even.html"
+                        >When rugo makes your Lambda cheaper</a
+                    >: a 38.6 MB, 2-million-row file, functions deployed to
+                    AWS, costs read off Lambda's own REPORT lines. The $2.33 and
+                    $22.70 are the broad query at 1024 MB on x86 with requests
+                    included. The JSON Lines and Avro figures are from
+                    <a href="jsonl-logs-grep-vs-pandas-vs-rugo.html"
+                        >the log comparison</a
+                    >
+                    and <a href="performant-python-pipelines-without-the-rust.html"
+                        >the Rust race</a
+                    >, which list their machines and caveats.
+                </p>
+            </div>
+        </article>
+
+        <footer>
+            <div class="container">
+                <span
+                    >rugo is part of the
+                    <a href="https://opteryx.app/">Opteryx</a> project — Apache
+                    2.0</span
+                >
+                <span>
+                    <a href="https://github.com/mabel-dev/opteryx-core"
+                        >GitHub</a
+                    >
+                    ·
+                    <a href="https://pypi.org/project/rugo/">PyPI</a>
+                </span>
+            </div>
+        </footer>
+
+        <script>
+            document.addEventListener("DOMContentLoaded", () => {
+                document.querySelectorAll("pre").forEach((pre) => {
+                    const btn = document.createElement("button");
+                    btn.className = "copy-btn";
+                    btn.textContent = "copy";
+                    btn.addEventListener("click", () => {
+                        navigator.clipboard
+                            .writeText(pre.innerText)
+                            .then(() => {
+                                btn.textContent = "copied";
+                                btn.classList.add("copied");
+                                setTimeout(() => {
+                                    btn.textContent = "copy";
+                                    btn.classList.remove("copied");
+                                }, 1500);
+                            });
+                    });
+                    pre.appendChild(btn);
+                });
+            });
+        </script>
+    </body>
+</html>
