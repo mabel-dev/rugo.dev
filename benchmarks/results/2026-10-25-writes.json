@@ -1,0 +1,115 @@
+{
+  "date": "2026-10-25T09:37:46+00:00",
+  "machine": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "cpu": "arm",
+    "python": "3.13",
+    "cores": 18
+  },
+  "reps": 5,
+  "versions": {
+    "rugo": "0.5.4",
+    "pyarrow": "26.0.0",
+    "polars": "2.0.0",
+    "duckdb": "2.0.0",
+    "fastparquet": "2026.9.0",
+    "pandas": "3.1.0"
+  },
+  "writes": {
+    "parquet/rugo": {
+      "best_ms": 90.1,
+      "median_ms": 106.6,
+      "bytes": 38375926,
+      "rows": 200000
+    },
+    "parquet/rugo-defaults": {
+      "best_ms": 101.2,
+      "median_ms": 107.8,
+      "bytes": 48152834,
+      "rows": 200000
+    },
+    "parquet/pyarrow": {
+      "best_ms": 384.0,
+      "median_ms": 391.5,
+      "bytes": 41820237,
+      "rows": 200000
+    },
+    "parquet/polars": {
+      "best_ms": 25.0,
+      "median_ms": 25.8,
+      "bytes": 36315599,
+      "rows": 200000
+    },
+    "parquet/duckdb": {
+      "best_ms": 227.4,
+      "median_ms": 232.1,
+      "bytes": 33961123,
+      "rows": 200000
+    },
+    "parquet/fastparquet": {
+      "best_ms": 363.7,
+      "median_ms": 366.2,
+      "bytes": 34078051,
+      "rows": 200000
+    },
+    "csv/rugo": {
+      "best_ms": 38.7,
+      "median_ms": 39.7,
+      "bytes": 82426105,
+      "rows": 200000
+    },
+    "csv/pyarrow": {
+      "best_ms": 214.9,
+      "median_ms": 220.8,
+      "bytes": 88819869,
+      "rows": 200000
+    },
+    "csv/polars": {
+      "best_ms": 10.5,
+      "median_ms": 11.9,
+      "bytes": 82426105,
+      "rows": 200000
+    },
+    "csv/duckdb": {
+      "best_ms": 196.1,
+      "median_ms": 201.5,
+      "bytes": 82426105,
+      "rows": 200000
+    },
+    "csv/python": {
+      "best_ms": 968.2,
+      "median_ms": 970.5,
+      "bytes": 82626106,
+      "rows": 200000
+    },
+    "jsonl/rugo": {
+      "best_ms": 50.2,
+      "median_ms": 53.0,
+      "bytes": 159225855,
+      "rows": 200000
+    },
+    "jsonl/polars": {
+      "best_ms": 16.6,
+      "median_ms": 16.8,
+      "bytes": 159225855,
+      "rows": 200000
+    },
+    "jsonl/duckdb": {
+      "best_ms": 214.6,
+      "median_ms": 219.9,
+      "bytes": 159225855,
+      "rows": 200000
+    },
+    "jsonl/python": {
+      "best_ms": 1154.8,
+      "median_ms": 1159.9,
+      "bytes": 179025855,
+      "rows": 200000
+    }
+  },
+  "table": {
+    "rows": 200000,
+    "columns": 50,
+    "csv_mb": 82.6
+  }
+}

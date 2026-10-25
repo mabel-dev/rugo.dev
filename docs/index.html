@@ -519,8 +519,15 @@
                 background: color-mix(in srgb, var(--muted) 55%, var(--bg));
                 flex: none;
             }
+            .bar.is-us {
+                background: color-mix(in srgb, var(--text) 55%, var(--bg));
+            }
             .bar.is-rugo {
                 background: var(--green);
+            }
+            .bar-name.is-us {
+                color: var(--text);
+                font-weight: 600;
             }
             .bar-val {
                 font-size: 0.82rem;
@@ -1001,13 +1008,15 @@
                     </div>
                     <div class="feature-card">
                         <div class="feature-icon">📦</div>
-                        <h3>Smaller packages &amp; images</h3>
+                        <h3>Smaller packages, no dependencies</h3>
                         <p style="color: var(--muted); font-size: 0.9rem">
                             At 17× smaller than PyArrow and 23× smaller than
                             Polars, rugo shrinks Lambda deployment packages and
                             container images, speeds up deploys, and leaves
                             almost all of AWS Lambda's 250 MB unzipped limit
-                            for your own code.
+                            for your own code. The wheel bundles everything it
+                            needs, so <code>pip install rugo</code> is the
+                            entire dependency story.
                         </p>
                     </div>
                     <div class="feature-card">
@@ -1022,23 +1031,13 @@
                             2.2× less memory than PyArrow.
                         </p>
                     </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🔒</div>
-                        <h3>No surprise dependencies</h3>
-                        <p style="color: var(--muted); font-size: 0.9rem">
-                            The wheel bundles everything it needs — Draken, the
-                            columnar substrate, ships inside.
-                            <code>pip install rugo</code> is the entire
-                            dependency story.
-                        </p>
-                    </div>
                 </div>
 
                 <details class="caveat" style="margin-top: 2.5rem; margin-bottom: 0">
                     <summary>What rugo doesn't chase</summary>
-                    <p>Being a query engine. Joins, SQL, aggregations and
-                    multi-file scans are DuckDB and Polars territory, and rugo
-                    leaves them there. It stays the file layer, and wins where
+                    <p>Being a query engine. Joins, SQL and aggregations
+                    belong to Opteryx, the engine built on rugo. Rugo stays
+                    the file layer, and wins where
                     serverless and embedded workloads actually hurt: a package
                     17× smaller, a cold start 3× faster, and up to 2.2× less
                     peak memory than PyArrow.</p>
@@ -1078,31 +1077,31 @@
 <div class="big"><span class="big-n">1.3×</span><span class="big-l">faster than PyArrow, 2 of 100 columns</span></div>
 </div>
 <div class="bench-group"><div class="bench-shape">SELECT 2 columns</div>
-<div class="bar-row" title="Rugo: ~3.5 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:40.76%"></span><span class="bar-val is-rugo">~3.5 ms</span></span></div>
+<div class="bar-row" title="Rugo: ~3.5 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-rugo is-us" style="width:40.76%"></span><span class="bar-val is-rugo">~3.5 ms</span></span></div>
 <div class="bar-row" title="DuckDB: ~6.1 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:70.97%"></span><span class="bar-val">~6.1 ms</span></span></div>
-<div class="bar-row" title="polars: ~3.5 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:40.52%"></span><span class="bar-val">~3.5 ms</span></span></div>
+<div class="bar-row" title="polars: ~3.5 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar is-rugo" style="width:40.52%"></span><span class="bar-val is-rugo">~3.5 ms</span></span></div>
 <div class="bar-row" title="PyArrow: ~4.4 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:51.41%"></span><span class="bar-val">~4.4 ms</span></span></div>
 </div>
 <div class="bench-group"><div class="bench-shape">WHERE ~10% pass</div>
-<div class="bar-row" title="Rugo: ~4.7 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:55.51%"></span><span class="bar-val is-rugo">~4.7 ms</span></span></div>
+<div class="bar-row" title="Rugo: ~4.7 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-us" style="width:55.51%"></span><span class="bar-val">~4.7 ms</span></span></div>
 <div class="bar-row" title="DuckDB: ~5.8 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:68.05%"></span><span class="bar-val">~5.8 ms</span></span></div>
-<div class="bar-row" title="polars: ~3.5 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:40.64%"></span><span class="bar-val">~3.5 ms</span></span></div>
+<div class="bar-row" title="polars: ~3.5 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar is-rugo" style="width:40.64%"></span><span class="bar-val is-rugo">~3.5 ms</span></span></div>
 <div class="bar-row" title="PyArrow: ~4.5 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:53.17%"></span><span class="bar-val">~4.5 ms</span></span></div>
 </div>
 <div class="bench-group"><div class="bench-shape">WHERE ~1% pass</div>
-<div class="bar-row" title="Rugo: ~4.6 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:53.52%"></span><span class="bar-val is-rugo">~4.6 ms</span></span></div>
+<div class="bar-row" title="Rugo: ~4.6 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-us" style="width:53.52%"></span><span class="bar-val">~4.6 ms</span></span></div>
 <div class="bar-row" title="DuckDB: ~5.8 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:67.46%"></span><span class="bar-val">~5.8 ms</span></span></div>
-<div class="bar-row" title="polars: ~3.3 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:38.77%"></span><span class="bar-val">~3.3 ms</span></span></div>
+<div class="bar-row" title="polars: ~3.3 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar is-rugo" style="width:38.77%"></span><span class="bar-val is-rugo">~3.3 ms</span></span></div>
 <div class="bar-row" title="PyArrow: ~4.8 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:56.80%"></span><span class="bar-val">~4.8 ms</span></span></div>
 </div>
 <div class="bench-group"><div class="bench-shape">SELECT * — 4 columns</div>
-<div class="bar-row" title="Rugo: ~3.0 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:35.60%"></span><span class="bar-val is-rugo">~3.0 ms</span></span></div>
+<div class="bar-row" title="Rugo: ~3.0 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-rugo is-us" style="width:35.60%"></span><span class="bar-val is-rugo">~3.0 ms</span></span></div>
 <div class="bar-row" title="DuckDB: ~6.7 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:78.00%"></span><span class="bar-val">~6.7 ms</span></span></div>
 <div class="bar-row" title="polars: ~4.1 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:47.67%"></span><span class="bar-val">~4.1 ms</span></span></div>
 <div class="bar-row" title="PyArrow: ~5.2 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:61.14%"></span><span class="bar-val">~5.2 ms</span></span></div>
 </div>
 <div class="bench-group"><div class="bench-shape">count(*)</div>
-<div class="bar-row" title="Rugo: ~0.3 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:3.86%"></span><span class="bar-val is-rugo">~0.3 ms</span></span></div>
+<div class="bar-row" title="Rugo: ~0.3 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-rugo is-us" style="width:3.86%"></span><span class="bar-val is-rugo">~0.3 ms</span></span></div>
 <div class="bar-row" title="DuckDB: ~1.5 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:17.45%"></span><span class="bar-val">~1.5 ms</span></span></div>
 <div class="bar-row" title="polars: ~0.7 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:7.85%"></span><span class="bar-val">~0.7 ms</span></span></div>
 <div class="bar-row" title="PyArrow: ~0.7 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:8.67%"></span><span class="bar-val">~0.7 ms</span></span></div>
@@ -1118,31 +1117,31 @@
 <div class="big"><span class="big-n">Parity</span><span class="big-l">with polars on 2-column and full reads — within 1 ms</span></div>
 </div>
 <div class="bench-group"><div class="bench-shape">SELECT 2 columns</div>
-<div class="bar-row" title="Rugo: ~23 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:38.29%"></span><span class="bar-val is-rugo">~23 ms</span></span></div>
+<div class="bar-row" title="Rugo: ~23 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-us" style="width:38.29%"></span><span class="bar-val">~23 ms</span></span></div>
 <div class="bar-row" title="DuckDB: ~35 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:58.49%"></span><span class="bar-val">~35 ms</span></span></div>
-<div class="bar-row" title="polars: ~22 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:36.11%"></span><span class="bar-val">~22 ms</span></span></div>
+<div class="bar-row" title="polars: ~22 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar is-rugo" style="width:36.11%"></span><span class="bar-val is-rugo">~22 ms</span></span></div>
 <div class="bar-row" title="PyArrow: ~28 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:47.29%"></span><span class="bar-val">~28 ms</span></span></div>
 </div>
 <div class="bench-group"><div class="bench-shape">WHERE ~10% pass</div>
-<div class="bar-row" title="Rugo: ~27 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:45.21%"></span><span class="bar-val is-rugo">~27 ms</span></span></div>
+<div class="bar-row" title="Rugo: ~27 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-us" style="width:45.21%"></span><span class="bar-val">~27 ms</span></span></div>
 <div class="bar-row" title="DuckDB: ~32 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:54.03%"></span><span class="bar-val">~32 ms</span></span></div>
-<div class="bar-row" title="polars: ~23 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:39.20%"></span><span class="bar-val">~23 ms</span></span></div>
+<div class="bar-row" title="polars: ~23 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar is-rugo" style="width:39.20%"></span><span class="bar-val is-rugo">~23 ms</span></span></div>
 <div class="bar-row" title="PyArrow: ~30 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:49.86%"></span><span class="bar-val">~30 ms</span></span></div>
 </div>
 <div class="bench-group"><div class="bench-shape">WHERE ~1% pass</div>
-<div class="bar-row" title="Rugo: ~27 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:45.38%"></span><span class="bar-val is-rugo">~27 ms</span></span></div>
+<div class="bar-row" title="Rugo: ~27 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-us" style="width:45.38%"></span><span class="bar-val">~27 ms</span></span></div>
 <div class="bar-row" title="DuckDB: ~31 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:52.87%"></span><span class="bar-val">~31 ms</span></span></div>
-<div class="bar-row" title="polars: ~23 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:38.48%"></span><span class="bar-val">~23 ms</span></span></div>
+<div class="bar-row" title="polars: ~23 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar is-rugo" style="width:38.48%"></span><span class="bar-val is-rugo">~23 ms</span></span></div>
 <div class="bar-row" title="PyArrow: ~35 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:58.84%"></span><span class="bar-val">~35 ms</span></span></div>
 </div>
 <div class="bench-group"><div class="bench-shape">SELECT * — 4 columns</div>
-<div class="bar-row" title="Rugo: ~30 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:50.50%"></span><span class="bar-val is-rugo">~30 ms</span></span></div>
+<div class="bar-row" title="Rugo: ~30 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-rugo is-us" style="width:50.50%"></span><span class="bar-val is-rugo">~30 ms</span></span></div>
 <div class="bar-row" title="DuckDB: ~46 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:78.00%"></span><span class="bar-val">~46 ms</span></span></div>
 <div class="bar-row" title="polars: ~31 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:51.73%"></span><span class="bar-val">~31 ms</span></span></div>
 <div class="bar-row" title="PyArrow: ~38 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:63.53%"></span><span class="bar-val">~38 ms</span></span></div>
 </div>
 <div class="bench-group"><div class="bench-shape">count(*)</div>
-<div class="bar-row" title="Rugo: ~0.4 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:0.60%"></span><span class="bar-val is-rugo">~0.4 ms</span></span></div>
+<div class="bar-row" title="Rugo: ~0.4 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-rugo is-us" style="width:0.60%"></span><span class="bar-val is-rugo">~0.4 ms</span></span></div>
 <div class="bar-row" title="DuckDB: ~1.3 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:2.17%"></span><span class="bar-val">~1.3 ms</span></span></div>
 <div class="bar-row" title="polars: ~0.5 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:0.91%"></span><span class="bar-val">~0.5 ms</span></span></div>
 <div class="bar-row" title="PyArrow: ~0.8 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:1.26%"></span><span class="bar-val">~0.8 ms</span></span></div>
@@ -1211,19 +1210,19 @@
 <div class="big"><span class="big-n">2.6×</span><span class="big-l">faster, every column</span></div>
 </div>
 <div class="bench-group"><div class="bench-shape">SELECT 1 column</div>
-<div class="bar-row" title="Rugo: ~76 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:3.58%"></span><span class="bar-val is-rugo">~76 ms</span></span></div>
+<div class="bar-row" title="Rugo: ~76 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-rugo is-us" style="width:3.58%"></span><span class="bar-val is-rugo">~76 ms</span></span></div>
 <div class="bar-row" title="PyArrow: ~1.24 s"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:58.82%"></span><span class="bar-val">~1.24 s</span></span></div>
 </div>
 <div class="bench-group"><div class="bench-shape">WHERE ~10% pass</div>
-<div class="bar-row" title="Rugo: ~72 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:3.40%"></span><span class="bar-val is-rugo">~72 ms</span></span></div>
+<div class="bar-row" title="Rugo: ~72 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-rugo is-us" style="width:3.40%"></span><span class="bar-val is-rugo">~72 ms</span></span></div>
 <div class="bar-row" title="PyArrow: ~1.65 s"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:78.00%"></span><span class="bar-val">~1.65 s</span></span></div>
 </div>
 <div class="bench-group"><div class="bench-shape">WHERE ~1% pass</div>
-<div class="bar-row" title="Rugo: ~70 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:3.29%"></span><span class="bar-val is-rugo">~70 ms</span></span></div>
+<div class="bar-row" title="Rugo: ~70 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-rugo is-us" style="width:3.29%"></span><span class="bar-val is-rugo">~70 ms</span></span></div>
 <div class="bar-row" title="PyArrow: ~1.55 s"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:73.07%"></span><span class="bar-val">~1.55 s</span></span></div>
 </div>
 <div class="bench-group"><div class="bench-shape">SELECT *</div>
-<div class="bar-row" title="Rugo: ~471 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:22.25%"></span><span class="bar-val is-rugo">~471 ms</span></span></div>
+<div class="bar-row" title="Rugo: ~471 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-rugo is-us" style="width:22.25%"></span><span class="bar-val is-rugo">~471 ms</span></span></div>
 <div class="bar-row" title="PyArrow: ~1.25 s"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:58.95%"></span><span class="bar-val">~1.25 s</span></span></div>
 </div>
 </div>
@@ -1234,46 +1233,6 @@
                     (multithreaded), CPython 3.13 on an Apple-silicon Mac,
                     measured 2026-10-10. Even the last row — no projection, no
                     filter, nothing to skip — is a 2.6× win.</p>
-                </details>
-
-                <h3 style="margin-bottom: 0.75rem">
-                    CSV — wide file, 50 cols, 200k rows, 83 MB
-                </h3>
-                <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 1rem">
-                    On CSV, rugo goes toe-to-toe with PyArrow — within a few
-                    of milliseconds on every query shape, and dead level once a
-                    predicate drops rows before the typed column build. All
-                    from a package a fraction of the size.
-                </p>
-                <!-- chart:csv-read -->
-<div class="bench">
-<div class="bench-big">
-<div class="big"><span class="big-n">Parity</span><span class="big-l">with PyArrow — within 3 ms on every query</span></div>
-</div>
-<div class="bench-group"><div class="bench-shape">SELECT *</div>
-<div class="bar-row" title="Rugo: ~25 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:78.00%"></span><span class="bar-val is-rugo">~25 ms</span></span></div>
-<div class="bar-row" title="PyArrow: ~22 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:69.97%"></span><span class="bar-val">~22 ms</span></span></div>
-</div>
-<div class="bench-group"><div class="bench-shape">SELECT 2 columns</div>
-<div class="bar-row" title="Rugo: ~12 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:37.97%"></span><span class="bar-val is-rugo">~12 ms</span></span></div>
-<div class="bar-row" title="PyArrow: ~10 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:31.70%"></span><span class="bar-val">~10 ms</span></span></div>
-</div>
-<div class="bench-group"><div class="bench-shape">WHERE ~10% pass</div>
-<div class="bar-row" title="Rugo: ~11 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:34.92%"></span><span class="bar-val is-rugo">~11 ms</span></span></div>
-<div class="bar-row" title="PyArrow: ~11 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:34.36%"></span><span class="bar-val">~11 ms</span></span></div>
-</div>
-<div class="bench-group"><div class="bench-shape">WHERE ~1% pass</div>
-<div class="bar-row" title="Rugo: ~10 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:31.98%"></span><span class="bar-val is-rugo">~10 ms</span></span></div>
-<div class="bar-row" title="PyArrow: ~10 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:32.39%"></span><span class="bar-val">~10 ms</span></span></div>
-</div>
-</div>
-<!-- /chart:csv-read -->
-                <details class="caveat">
-                    <summary>How this was measured</summary>
-                    <p>Same machine and versions as the JSONL table, best of 5
-                    runs. The wider the file and the more selective the query,
-                    the better rugo does — every column it skips and every row
-                    it drops is work it never pays for.</p>
                 </details>
 
                 <h3 style="margin: 2.5rem 0 0.75rem">
@@ -1299,14 +1258,14 @@
 <div class="big"><span class="big-n">50×</span><span class="big-l">faster than avro (Apache)</span></div>
 </div>
 <div class="bench-group"><div class="bench-shape">Every field</div>
-<div class="bar-row" title="Rugo: ~116 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:1.56%"></span><span class="bar-val is-rugo">~116 ms</span></span></div>
-<div class="bar-row" title="Rugo → Python: ~213 ms"><span class="bar-name">Rugo → Python</span><span class="bar-track"><span class="bar is-rugo" style="width:2.86%"></span><span class="bar-val is-rugo">~213 ms</span></span></div>
+<div class="bar-row" title="Rugo: ~116 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-rugo is-us" style="width:1.56%"></span><span class="bar-val is-rugo">~116 ms</span></span></div>
+<div class="bar-row" title="Rugo → Python: ~213 ms"><span class="bar-name is-us">Rugo → Python</span><span class="bar-track"><span class="bar is-us" style="width:2.86%"></span><span class="bar-val">~213 ms</span></span></div>
 <div class="bar-row" title="fastavro: ~912 ms"><span class="bar-name">fastavro</span><span class="bar-track"><span class="bar" style="width:12.24%"></span><span class="bar-val">~912 ms</span></span></div>
 <div class="bar-row" title="avro (Apache): ~5.81 s"><span class="bar-name">avro (Apache)</span><span class="bar-track"><span class="bar" style="width:78.00%"></span><span class="bar-val">~5.81 s</span></span></div>
 </div>
 <div class="bench-group"><div class="bench-shape">3 of 20 fields</div>
-<div class="bar-row" title="Rugo: ~81 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:1.09%"></span><span class="bar-val is-rugo">~81 ms</span></span></div>
-<div class="bar-row" title="Rugo → Python: ~88 ms"><span class="bar-name">Rugo → Python</span><span class="bar-track"><span class="bar is-rugo" style="width:1.17%"></span><span class="bar-val is-rugo">~88 ms</span></span></div>
+<div class="bar-row" title="Rugo: ~81 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-rugo is-us" style="width:1.09%"></span><span class="bar-val is-rugo">~81 ms</span></span></div>
+<div class="bar-row" title="Rugo → Python: ~88 ms"><span class="bar-name is-us">Rugo → Python</span><span class="bar-track"><span class="bar is-us" style="width:1.17%"></span><span class="bar-val">~88 ms</span></span></div>
 <div class="bar-row" title="fastavro: ~712 ms"><span class="bar-name">fastavro</span><span class="bar-track"><span class="bar" style="width:9.55%"></span><span class="bar-val">~712 ms</span></span></div>
 <div class="bar-row" title="avro (Apache): ~3.48 s"><span class="bar-name">avro (Apache)</span><span class="bar-track"><span class="bar" style="width:46.75%"></span><span class="bar-val">~3.48 s</span></span></div>
 </div>
@@ -1350,20 +1309,20 @@
 <div class="big"><span class="big-n">4.6×</span><span class="big-l">faster than fastavro on one thread</span></div>
 </div>
 <div class="bench-group"><div class="bench-shape">deflate</div>
-<div class="bar-row" title="Rugo: ~33 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:0.40%"></span><span class="bar-val is-rugo">~33 ms</span></span></div>
-<div class="bar-row" title="Rugo, 1 thread: ~354 ms"><span class="bar-name">Rugo, 1 thread</span><span class="bar-track"><span class="bar is-rugo" style="width:3.39%"></span><span class="bar-val is-rugo">~354 ms</span></span></div>
+<div class="bar-row" title="Rugo: ~33 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-rugo is-us" style="width:0.40%"></span><span class="bar-val is-rugo">~33 ms</span></span></div>
+<div class="bar-row" title="Rugo, 1 thread: ~354 ms"><span class="bar-name is-us">Rugo, 1 thread</span><span class="bar-track"><span class="bar is-us" style="width:3.39%"></span><span class="bar-val">~354 ms</span></span></div>
 <div class="bar-row" title="fastavro: ~1.61 s"><span class="bar-name">fastavro</span><span class="bar-track"><span class="bar" style="width:15.44%"></span><span class="bar-val">~1.61 s</span></span></div>
 <div class="bar-row" title="avro (Apache): ~8.13 s"><span class="bar-name">avro (Apache)</span><span class="bar-track"><span class="bar" style="width:78.00%"></span><span class="bar-val">~8.13 s</span></span></div>
 </div>
 <div class="bench-group"><div class="bench-shape">zstandard</div>
-<div class="bar-row" title="Rugo: ~13 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:0.40%"></span><span class="bar-val is-rugo">~13 ms</span></span></div>
-<div class="bar-row" title="Rugo, 1 thread: ~120 ms"><span class="bar-name">Rugo, 1 thread</span><span class="bar-track"><span class="bar is-rugo" style="width:1.15%"></span><span class="bar-val is-rugo">~120 ms</span></span></div>
+<div class="bar-row" title="Rugo: ~13 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-rugo is-us" style="width:0.40%"></span><span class="bar-val is-rugo">~13 ms</span></span></div>
+<div class="bar-row" title="Rugo, 1 thread: ~120 ms"><span class="bar-name is-us">Rugo, 1 thread</span><span class="bar-track"><span class="bar is-us" style="width:1.15%"></span><span class="bar-val">~120 ms</span></span></div>
 <div class="bar-row" title="fastavro: ~1.17 s"><span class="bar-name">fastavro</span><span class="bar-track"><span class="bar" style="width:11.22%"></span><span class="bar-val">~1.17 s</span></span></div>
 <div class="bar-row" title="avro (Apache): ~7.65 s"><span class="bar-name">avro (Apache)</span><span class="bar-track"><span class="bar" style="width:73.36%"></span><span class="bar-val">~7.65 s</span></span></div>
 </div>
 <div class="bench-group"><div class="bench-shape">Uncompressed</div>
-<div class="bar-row" title="Rugo: ~4.7 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:0.40%"></span><span class="bar-val is-rugo">~4.7 ms</span></span></div>
-<div class="bar-row" title="Rugo, 1 thread: ~22 ms"><span class="bar-name">Rugo, 1 thread</span><span class="bar-track"><span class="bar is-rugo" style="width:0.40%"></span><span class="bar-val is-rugo">~22 ms</span></span></div>
+<div class="bar-row" title="Rugo: ~4.7 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-rugo is-us" style="width:0.40%"></span><span class="bar-val is-rugo">~4.7 ms</span></span></div>
+<div class="bar-row" title="Rugo, 1 thread: ~22 ms"><span class="bar-name is-us">Rugo, 1 thread</span><span class="bar-track"><span class="bar is-us" style="width:0.40%"></span><span class="bar-val">~22 ms</span></span></div>
 <div class="bar-row" title="fastavro: ~1.05 s"><span class="bar-name">fastavro</span><span class="bar-track"><span class="bar" style="width:10.09%"></span><span class="bar-val">~1.05 s</span></span></div>
 <div class="bar-row" title="avro (Apache): ~7.31 s"><span class="bar-name">avro (Apache)</span><span class="bar-track"><span class="bar" style="width:70.12%"></span><span class="bar-val">~7.31 s</span></span></div>
 </div>
@@ -1390,7 +1349,7 @@
                 </details>
 
                 <h3 style="margin: 2.5rem 0 0.75rem">
-                    Writing Parquet, CSV and JSONL — 200k rows, 50 columns
+                    Writing Parquet and JSONL — 200k rows, 50 columns
                 </h3>
                 <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 1rem">
                     Every library writes the same table, from its own in-memory
@@ -1400,66 +1359,50 @@
 <!-- chart:parquet-write -->
 <div class="bench">
 <div class="bench-big">
-<div class="big"><span class="big-n is-plain">~756 ms</span><span class="big-l">rugo, with its bloom filters and page index off — a plain Parquet write</span></div>
+<div class="big"><span class="big-n">4.3×</span><span class="big-l">faster than PyArrow</span></div>
+<div class="big"><span class="big-n">2.5×</span><span class="big-l">faster than DuckDB</span></div>
+<div class="big"><span class="big-n">4.0×</span><span class="big-l">faster than fastparquet</span></div>
 </div>
 <div class="bench-group">
-<div class="bar-row" title="Rugo: ~756 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:78.00%"></span><span class="bar-val is-rugo">~756 ms</span></span></div>
-<div class="bar-row" title="polars: ~26 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:2.64%"></span><span class="bar-val">~26 ms</span></span></div>
-<div class="bar-row" title="DuckDB: ~227 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:23.46%"></span><span class="bar-val">~227 ms</span></span></div>
-<div class="bar-row" title="PyArrow: ~372 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:38.40%"></span><span class="bar-val">~372 ms</span></span></div>
-<div class="bar-row" title="fastparquet: ~354 ms"><span class="bar-name">fastparquet</span><span class="bar-track"><span class="bar" style="width:36.47%"></span><span class="bar-val">~354 ms</span></span></div>
+<div class="bar-row" title="Rugo: ~90 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-us" style="width:18.30%"></span><span class="bar-val">~90 ms</span></span></div>
+<div class="bar-row" title="polars: ~25 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar is-rugo" style="width:5.08%"></span><span class="bar-val is-rugo">~25 ms</span></span></div>
+<div class="bar-row" title="DuckDB: ~227 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:46.19%"></span><span class="bar-val">~227 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~384 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:78.00%"></span><span class="bar-val">~384 ms</span></span></div>
+<div class="bar-row" title="fastparquet: ~364 ms"><span class="bar-name">fastparquet</span><span class="bar-track"><span class="bar" style="width:73.88%"></span><span class="bar-val">~364 ms</span></span></div>
 </div>
 </div>
 <!-- /chart:parquet-write -->
-                <h4 class="bench-sub">CSV</h4>
-<!-- chart:csv-write -->
-<div class="bench">
-<div class="bench-big">
-<div class="big"><span class="big-n">4.1×</span><span class="big-l">faster than Python&#x27;s csv module</span></div>
-<div class="big"><span class="big-n">Parity</span><span class="big-l">with PyArrow and DuckDB — within 24 ms</span></div>
-</div>
-<div class="bench-group">
-<div class="bar-row" title="Rugo: ~236 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:19.11%"></span><span class="bar-val is-rugo">~236 ms</span></span></div>
-<div class="bar-row" title="polars: ~11 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:0.92%"></span><span class="bar-val">~11 ms</span></span></div>
-<div class="bar-row" title="PyArrow: ~212 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:17.14%"></span><span class="bar-val">~212 ms</span></span></div>
-<div class="bar-row" title="DuckDB: ~219 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:17.77%"></span><span class="bar-val">~219 ms</span></span></div>
-<div class="bar-row" title="Python (csv): ~963 ms"><span class="bar-name">Python (csv)</span><span class="bar-track"><span class="bar" style="width:78.00%"></span><span class="bar-val">~963 ms</span></span></div>
-</div>
-</div>
-<!-- /chart:csv-write -->
                 <h4 class="bench-sub">JSONL</h4>
 <!-- chart:jsonl-write -->
 <div class="bench">
 <div class="bench-big">
-<div class="big"><span class="big-n">17×</span><span class="big-l">faster than Python&#x27;s json module</span></div>
-<div class="big"><span class="big-n">3.9×</span><span class="big-l">faster than DuckDB</span></div>
+<div class="big"><span class="big-n">23×</span><span class="big-l">faster than Python&#x27;s json module</span></div>
+<div class="big"><span class="big-n">4.3×</span><span class="big-l">faster than DuckDB</span></div>
 </div>
 <div class="bench-group">
-<div class="bar-row" title="Rugo: ~69 ms"><span class="bar-name">Rugo</span><span class="bar-track"><span class="bar is-rugo" style="width:4.52%"></span><span class="bar-val is-rugo">~69 ms</span></span></div>
-<div class="bar-row" title="polars: ~18 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar" style="width:1.17%"></span><span class="bar-val">~18 ms</span></span></div>
-<div class="bar-row" title="DuckDB: ~264 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:17.45%"></span><span class="bar-val">~264 ms</span></span></div>
-<div class="bar-row" title="Python (json): ~1.18 s"><span class="bar-name">Python (json)</span><span class="bar-track"><span class="bar" style="width:78.00%"></span><span class="bar-val">~1.18 s</span></span></div>
+<div class="bar-row" title="Rugo: ~50 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-us" style="width:3.39%"></span><span class="bar-val">~50 ms</span></span></div>
+<div class="bar-row" title="polars: ~17 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar is-rugo" style="width:1.12%"></span><span class="bar-val is-rugo">~17 ms</span></span></div>
+<div class="bar-row" title="DuckDB: ~215 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:14.49%"></span><span class="bar-val">~215 ms</span></span></div>
+<div class="bar-row" title="Python (json): ~1.15 s"><span class="bar-name">Python (json)</span><span class="bar-track"><span class="bar" style="width:78.00%"></span><span class="bar-val">~1.15 s</span></span></div>
 </div>
 </div>
 <!-- /chart:jsonl-write -->
                 <details class="caveat">
                     <summary>How this was measured</summary>
                     <p>Best of 5 runs, each library in a fresh process: rugo
-                    0.5.2, PyArrow 26.0.0, polars 2.0.0, DuckDB 1.5.6 and
-                    fastparquet 2026.9.0 (with pandas 3.0.6), CPython 3.13 on an
-                    Apple-silicon Mac, measured 2026-10-16. The table is the CSV
-                    benchmark's — 200,000 rows by 50 columns of integers, floats
-                    and strings, 83 MB as CSV — loaded into each library's own
-                    form before the clock starts. Every library runs at its
+                    0.5.4, PyArrow 26.0.0, polars 2.0.0, DuckDB 2.0.0 and
+                    fastparquet 2026.9.0 (with pandas 3.1.0), CPython 3.13 on an
+                    Apple-silicon Mac, measured 2026-10-25. The table is 200,000
+                    rows by 50 columns of integers, floats and strings, loaded
+                    into each library's own form before the clock starts. Every library runs at its
                     default threading (polars, DuckDB and PyArrow use every
                     core). Parquet is zstd for every writer, and rugo writes it
                     without its bloom filters and page index (both on by
-                    default — with them it took ~813 ms), so its file holds
+                    default — with them it took ~101 ms), so its file holds
                     what a plain Parquet writer's does. Output goes to
                     memory, except DuckDB and fastparquet, which only write to a
                     file, so their times include that write. "Python" is the
-                    standard library: <code>csv.writer</code>, and
-                    <code>json.dumps</code> per row. Reproduce it with
+                    standard library's <code>json.dumps</code> per row. Reproduce it with
                     <a href="https://github.com/mabel-dev/rugo.dev/blob/main/benchmarks/measure_writes.py"><code>benchmarks/measure_writes.py</code></a>.</p>
                 </details>
             </div>
@@ -1490,6 +1433,14 @@
                         <h3>Serverless data processing</h3>
                     </div>
                     <div class="feature-card">
+                        <div class="feature-icon">λ</div>
+                        <h3>AWS Lambda</h3>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">☁️</div>
+                        <h3>Google Cloud Run</h3>
+                    </div>
+                    <div class="feature-card">
                         <div class="feature-icon">🤖</div>
                         <h3>AI / RAG preprocessing</h3>
                     </div>
@@ -1515,12 +1466,12 @@
                 <div class="section-label">When to use rugo</div>
                 <h2>Rugo is for reading, not loading.</h2>
                 <p class="section-intro">
-                    Use it to scan Parquet with column projection and
-                    predicate pushdown, stream the result as Morsels, and never
-                    pull the whole file into a DataFrame. When the job is
-                    loading a table wholesale or running a complex query,
-                    DuckDB and Polars are built for that, and they pair well
-                    with rugo in the same stack.
+                    Rugo is the file layer under
+                    <a href="https://opteryx.app/">Opteryx</a>, the SQL engine
+                    it was built for. Use it directly to scan Parquet with
+                    column projection and predicate pushdown and stream the
+                    result as Morsels, with no query engine in the way. When
+                    you want SQL, reach for Opteryx, which runs on rugo.
                 </p>
 
                 <div class="feature-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr))">
@@ -1528,20 +1479,23 @@
                         <div class="feature-icon">🪶</div>
                         <h3>Choose rugo when</h3>
                         <ul style="color: var(--muted); font-size: 0.9rem; margin: 0.5rem 0 0 1.1rem">
-                            <li>package size, cold start or dependency count matters: Lambda, containers, embedded</li>
+                            <li>package size, cold start or dependency count matters: Lambda, Cloud Run, containers, embedded</li>
                             <li>the workload is selective: a few columns, a filter, a slice of the file</li>
                             <li>you want a streaming Morsel interface and a small, steady memory footprint</li>
                             <li>you need file I/O, not a query engine</li>
                         </ul>
                     </div>
                     <div class="feature-card">
-                        <div class="feature-icon">🦆</div>
-                        <h3>Choose DuckDB or Polars when</h3>
+                        <div class="feature-icon">🦖</div>
+                        <h3>Choose Opteryx when</h3>
                         <ul style="color: var(--muted); font-size: 0.9rem; margin: 0.5rem 0 0 1.1rem">
-                            <li>you need SQL, joins, aggregations or multi-file and S3 scans</li>
-                            <li>you want every core on a full-table scan</li>
-                            <li>you want a DataFrame or SQL API out of the box</li>
+                            <li>you want to write SQL over your Parquet, JSONL and CSV files</li>
+                            <li>you need joins, aggregations and a query planner</li>
+                            <li>you want projection pruning and predicate pushdown handled for you, on the same rugo readers</li>
                         </ul>
+                        <p style="font-size: 0.9rem; margin: 1rem 0 0">
+                            <a href="https://opteryx.app/" style="font-weight: 600">Meet Opteryx →</a>
+                        </p>
                     </div>
                 </div>
 
@@ -1803,9 +1757,6 @@ data = parquet.<span class="f">write_parquet</span>(morsel)
                     <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem">
                         Type inference: <code>int64</code> → <code>float64</code> → <code>VARCHAR</code> → <code>null</code>.
                     </p>
-                    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem">
-                        CSV timings are in <a href="#performance">Performance</a>.
-                    </p>
                     <pre><span class="k">from</span> rugo <span class="k">import</span> csv
 
 <span class="c"># Schema without reading all data</span>
@@ -2047,7 +1998,7 @@ values = vec.<span class="f">to_pylist</span>()  <span class="c"># ["Mercury", "
                         max-width: 640px;
                     "
                 >
-                    Rugo isn't designed to decode data faster.<br />
+                    Rugo isn't just designed to decode data faster.<br />
                     <em
                         style="
                             font-style: normal;
@@ -2133,10 +2084,22 @@ values = vec.<span class="f">to_pylist</span>()  <span class="c"># ["Mercury", "
                         style="display: block; color: inherit"
                     >
                         <div class="feature-icon">💻</div>
-                        <h3>Source &amp; examples</h3>
+                        <h3>Source</h3>
                         <p style="color: var(--muted); font-size: 0.9rem">
                             Rugo is developed inside <code>opteryx-core</code>.
-                            Source, examples, and issue tracking are all there.
+                            Source and issue tracking are both there.
+                        </p>
+                    </a>
+                    <a
+                        class="feature-card"
+                        href="https://github.com/mabel-dev/opteryx-core/tree/main/rugo/examples"
+                        style="display: block; color: inherit"
+                    >
+                        <div class="feature-icon">📂</div>
+                        <h3>Examples</h3>
+                        <p style="color: var(--muted); font-size: 0.9rem">
+                            Eight short, runnable scripts: read, stream,
+                            convert and write Parquet, CSV, JSONL and Avro.
                         </p>
                     </a>
                     <a
