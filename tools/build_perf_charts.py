@@ -48,7 +48,7 @@ def times(ratio):
 # |rugo - other| over the pairs, in whole ms.
 CHARTS = [
     {
-        "id": "jsonl-read", "file": "2026-10-10.json", "section": "queries",
+        "id": "jsonl-read", "file": "2026-10-25.json", "section": "queries",
         "groups": [
             ("SELECT 1 column", [("Rugo", "jsonl/select1/rugo", True), ("PyArrow", "jsonl/select1/pyarrow", False)]),
             ("WHERE ~10% pass", [("Rugo", "jsonl/p10/rugo", True), ("PyArrow", "jsonl/p10/pyarrow", False)]),
@@ -93,7 +93,7 @@ CHARTS = [
 ]
 
 
-WRITES = "2026-10-25-writes.json"
+WRITES = "2026-10-25-writes-0.5.5.json"
 CHARTS += [
     {
         "id": "parquet-write", "file": WRITES, "section": "writes",
@@ -119,8 +119,7 @@ CHARTS += [
 
 
 # Parquet reads (benchmarks/measure_parquet.py). Key: <threads>/<file>/<query>/<library>.
-# Re-run the benchmark against the release and point PARQUET_READ at the new file.
-PARQUET_READ = "2026-10-24-parquet-read-prerelease.json"
+PARQUET_READ = "2026-10-25-parquet-read-0.5.5.json"
 LIBS = [("Rugo", "rugo", True), ("DuckDB", "duckdb", False), ("polars", "polars", False), ("PyArrow", "pyarrow", False)]
 
 
