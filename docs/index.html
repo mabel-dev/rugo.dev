@@ -978,8 +978,9 @@
                     Often it comes from avoiding decoding data you don't need
                     in the first place. Rugo was built as the file layer for
                     the <a href="https://opteryx.app/">Opteryx</a> SQL engine,
-                    where the goals were simple: read as little data as
-                    possible, hold as little in memory as possible. Column
+                    where the goal was simple:
+                    <strong style="color: var(--text)">if we don't need it, we
+                    don't read it.</strong> Column
                     projection and row-group pruning happen
                     <em style="font-style: normal; color: var(--text)"
                         >before</em
