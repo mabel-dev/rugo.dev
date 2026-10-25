@@ -180,14 +180,15 @@ def render(chart):
         # The win colour marks the fastest bar of each group, whoever it is (a tie at the
         # printed precision marks both); rugo is always listed first.
         fastest = ms(min(value(k) for _, k, _ in bars))
-        for name, key, _ in bars:
+        for name, key, rugo in bars:
             v = value(key)
             win = " is-rugo" if ms(v) == fastest else ""
+            us = " is-us" if rugo else ""  # rugo's own rows read brighter even when they don't win
             width = max(0.4, v / top * 78)  # the longest bar leaves room for its value
             out.append(
                 f'<div class="bar-row" title="{html.escape(name)}: {ms(v)}">'
-                f'<span class="bar-name">{html.escape(name)}</span>'
-                f'<span class="bar-track"><span class="bar{win}" style="width:{width:.2f}%"></span>'
+                f'<span class="bar-name{us}">{html.escape(name)}</span>'
+                f'<span class="bar-track"><span class="bar{win}{us}" style="width:{width:.2f}%"></span>'
                 f'<span class="bar-val{win}">{ms(v)}</span></span></div>')
         out.append("</div>")
     out.append("</div>")
