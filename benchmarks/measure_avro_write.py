@@ -45,7 +45,8 @@ def sh(*cmd):
     return subprocess.run(cmd, check=True, capture_output=True, text=True, env=ENV, cwd=W).stdout
 
 
-libs = ["fastavro", "avro", "zstandard"] + ([] if a.rugo_src else ["rugo"])
+# fastavro 1.13 takes its zstd codec from backports.zstd (stdlib on 3.14+)
+libs = ["fastavro", "avro", "zstandard", "backports.zstd; python_version < '3.14'"] + ([] if a.rugo_src else ["rugo"])
 venv = f"{W}/venv"
 sh(UV, "venv", "--python", a.python, venv)
 sh(UV, "pip", "install", "--python", f"{venv}/bin/python", *libs)

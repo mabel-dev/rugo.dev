@@ -62,7 +62,7 @@ CHARTS = [
         ],
     },
     {
-        "id": "avro-read", "file": "2026-10-11-avro.json", "section": "reads",
+        "id": "avro-read", "file": "2026-10-25-avro.json", "section": "reads",
         "groups": [
             ("Every field", [("Rugo", "all/rugo", True), ("Rugo → Python", "all/rugo+pylist", True),
                              ("fastavro", "all/fastavro", False), ("avro (Apache)", "all/avro", False)]),
@@ -75,7 +75,7 @@ CHARTS = [
         ],
     },
     {
-        "id": "avro-write", "file": "2026-10-16-avro-write.json", "section": "writes",
+        "id": "avro-write", "file": "2026-10-25-avro-write.json", "section": "writes",
         "groups": [
             ("deflate", [("Rugo", "deflate/rugo", True), ("Rugo, 1 thread", "deflate/rugo-1t", True),
                          ("fastavro", "deflate/fastavro", False), ("avro (Apache)", "deflate/avro", False)]),
@@ -93,7 +93,7 @@ CHARTS = [
 ]
 
 
-WRITES = "2026-10-25-writes-0.9.173.json"
+WRITES = "2026-10-25-writes.json"
 CHARTS += [
     {
         "id": "parquet-write", "file": WRITES, "section": "writes",
@@ -120,7 +120,7 @@ CHARTS += [
 
 
 # Parquet reads (benchmarks/measure_parquet.py). Key: <threads>/<file>/<query>/<library>.
-PARQUET_READ = "2026-10-25-parquet-read-0.5.5.json"
+PARQUET_READ = "2026-10-25-parquet-read.json"
 LIBS = [("Rugo", "rugo", True), ("DuckDB", "duckdb", False), ("polars", "polars", False), ("PyArrow", "pyarrow", False)]
 
 

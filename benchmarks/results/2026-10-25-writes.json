@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-25T09:37:46+00:00",
+  "date": "2026-10-25T13:14:39+00:00",
   "machine": {
     "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
     "cpu": "arm",
@@ -8,7 +8,7 @@
   },
   "reps": 5,
   "versions": {
-    "rugo": "0.5.4",
+    "rugo": "0.5.5",
     "pyarrow": "26.0.0",
     "polars": "2.0.0",
     "duckdb": "2.0.0",
@@ -17,92 +17,98 @@
   },
   "writes": {
     "parquet/rugo": {
-      "best_ms": 90.1,
-      "median_ms": 106.6,
-      "bytes": 38375926,
+      "best_ms": 65.7,
+      "median_ms": 67.6,
+      "bytes": 38381104,
+      "rows": 200000
+    },
+    "parquet/rugo-fast": {
+      "best_ms": 36.0,
+      "median_ms": 37.0,
+      "bytes": 33577867,
       "rows": 200000
     },
     "parquet/rugo-defaults": {
-      "best_ms": 101.2,
-      "median_ms": 107.8,
-      "bytes": 48152834,
+      "best_ms": 69.6,
+      "median_ms": 70.9,
+      "bytes": 48157520,
       "rows": 200000
     },
     "parquet/pyarrow": {
-      "best_ms": 384.0,
-      "median_ms": 391.5,
+      "best_ms": 360.7,
+      "median_ms": 377.1,
       "bytes": 41820237,
       "rows": 200000
     },
     "parquet/polars": {
-      "best_ms": 25.0,
-      "median_ms": 25.8,
+      "best_ms": 25.4,
+      "median_ms": 25.7,
       "bytes": 36315599,
       "rows": 200000
     },
     "parquet/duckdb": {
-      "best_ms": 227.4,
-      "median_ms": 232.1,
+      "best_ms": 228.6,
+      "median_ms": 232.8,
       "bytes": 33961123,
       "rows": 200000
     },
     "parquet/fastparquet": {
-      "best_ms": 363.7,
-      "median_ms": 366.2,
+      "best_ms": 372.4,
+      "median_ms": 373.4,
       "bytes": 34078051,
       "rows": 200000
     },
     "csv/rugo": {
-      "best_ms": 38.7,
-      "median_ms": 39.7,
+      "best_ms": 33.4,
+      "median_ms": 33.8,
       "bytes": 82426105,
       "rows": 200000
     },
     "csv/pyarrow": {
-      "best_ms": 214.9,
-      "median_ms": 220.8,
+      "best_ms": 213.2,
+      "median_ms": 216.2,
       "bytes": 88819869,
       "rows": 200000
     },
     "csv/polars": {
-      "best_ms": 10.5,
-      "median_ms": 11.9,
+      "best_ms": 11.5,
+      "median_ms": 11.5,
       "bytes": 82426105,
       "rows": 200000
     },
     "csv/duckdb": {
-      "best_ms": 196.1,
-      "median_ms": 201.5,
+      "best_ms": 193.9,
+      "median_ms": 196.0,
       "bytes": 82426105,
       "rows": 200000
     },
     "csv/python": {
-      "best_ms": 968.2,
-      "median_ms": 970.5,
+      "best_ms": 952.8,
+      "median_ms": 964.7,
       "bytes": 82626106,
       "rows": 200000
     },
     "jsonl/rugo": {
-      "best_ms": 50.2,
-      "median_ms": 53.0,
+      "best_ms": 41.4,
+      "median_ms": 42.9,
       "bytes": 159225855,
       "rows": 200000
     },
     "jsonl/polars": {
-      "best_ms": 16.6,
-      "median_ms": 16.8,
+      "best_ms": 16.5,
+      "median_ms": 17.1,
       "bytes": 159225855,
       "rows": 200000
     },
     "jsonl/duckdb": {
-      "best_ms": 214.6,
-      "median_ms": 219.9,
+      "best_ms": 207.5,
+      "median_ms": 212.7,
       "bytes": 159225855,
       "rows": 200000
     },
     "jsonl/python": {
-      "best_ms": 1154.8,
-      "median_ms": 1159.9,
+      "best_ms": 1204.8,
+      "median_ms": 1205.9,
       "bytes": 179025855,
       "rows": 200000
     }

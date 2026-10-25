@@ -1,0 +1,76 @@
+{
+  "date": "2026-10-25T13:18:07+00:00",
+  "machine": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "cpu": "arm",
+    "python": "3.13"
+  },
+  "rows": 200000,
+  "reps": 5,
+  "codec": "deflate",
+  "footprint": {
+    "rugo": {
+      "version": "0.5.5",
+      "installed_mb": 9.4,
+      "cold_import_ms": 13.4
+    },
+    "fastavro": {
+      "version": "1.13.1",
+      "installed_mb": 3.1,
+      "cold_import_ms": 19.8
+    },
+    "avro": {
+      "version": "1.12.2",
+      "installed_mb": 0.5,
+      "cold_import_ms": 21.9
+    }
+  },
+  "reads": {
+    "all/rugo": {
+      "best_ms": 28.58,
+      "median_ms": 29.07,
+      "rows": 200000
+    },
+    "all/rugo+pylist": {
+      "best_ms": 130.47,
+      "median_ms": 130.69,
+      "rows": 200000
+    },
+    "all/fastavro": {
+      "best_ms": 953.16,
+      "median_ms": 957.52,
+      "rows": 200000
+    },
+    "all/avro": {
+      "best_ms": 5949.82,
+      "median_ms": 5961.43,
+      "rows": 200000
+    },
+    "narrow/rugo": {
+      "best_ms": 18.33,
+      "median_ms": 18.41,
+      "rows": 200000
+    },
+    "narrow/rugo+pylist": {
+      "best_ms": 24.25,
+      "median_ms": 24.47,
+      "rows": 200000
+    },
+    "narrow/fastavro": {
+      "best_ms": 750.13,
+      "median_ms": 752.84,
+      "rows": 200000
+    },
+    "narrow/avro": {
+      "best_ms": 3421.63,
+      "median_ms": 3433.77,
+      "rows": 200000
+    }
+  },
+  "versions": {
+    "rugo": "0.5.5",
+    "fastavro": "1.13.1",
+    "avro": "1.12.2"
+  },
+  "file_mb": 21.6
+}
