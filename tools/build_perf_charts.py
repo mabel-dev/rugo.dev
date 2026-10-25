@@ -9,8 +9,9 @@ file in benchmarks/results/ (best-of-N `best_ms`), so the page can't drift from 
 was measured: re-run a benchmark, point CHARTS at the new file, re-run this.
 
 The form (ruled 2026-10-16): big headline multiples over horizontal bars on a LINEAR
-scale - one scale per chart, shared by all its bars, so lengths compare honestly; rugo
-in the win colour, every other library muted; the value printed at each bar's end.
+scale - one scale per chart, shared by all its bars, so lengths compare honestly; the
+fastest bar of each group in the win colour (rugo is always listed first), every other
+bar muted; the value printed at each bar's end.
 Plain HTML and CSS, no script.
 """
 import html, json, os, re
@@ -61,19 +62,6 @@ CHARTS = [
         ],
     },
     {
-        "id": "csv-read", "file": "2026-10-10.json", "section": "queries",
-        "groups": [
-            ("SELECT *", [("Rugo", "csv/select_star/rugo", True), ("PyArrow", "csv/select_star/pyarrow", False)]),
-            ("SELECT 2 columns", [("Rugo", "csv/select1/rugo", True), ("PyArrow", "csv/select1/pyarrow", False)]),
-            ("WHERE ~10% pass", [("Rugo", "csv/p10/rugo", True), ("PyArrow", "csv/p10/pyarrow", False)]),
-            ("WHERE ~1% pass", [("Rugo", "csv/p1/rugo", True), ("PyArrow", "csv/p1/pyarrow", False)]),
-        ],
-        "tiles": [
-            ("Parity", ("gap", [(f"csv/{q}/rugo", f"csv/{q}/pyarrow") for q in ("select_star", "select1", "p10", "p1")],
-                        "with PyArrow — within {gap} ms on every query")),
-        ],
-    },
-    {
         "id": "avro-read", "file": "2026-10-11-avro.json", "section": "reads",
         "groups": [
             ("Every field", [("Rugo", "all/rugo", True), ("Rugo → Python", "all/rugo+pylist", True),
@@ -105,24 +93,17 @@ CHARTS = [
 ]
 
 
-WRITES = "2026-10-16-writes.json"
+WRITES = "2026-10-25-writes.json"
 CHARTS += [
     {
         "id": "parquet-write", "file": WRITES, "section": "writes",
         "groups": [(None, [("Rugo", "parquet/rugo", True), ("polars", "parquet/polars", False),
                                       ("DuckDB", "parquet/duckdb", False), ("PyArrow", "parquet/pyarrow", False),
                                       ("fastparquet", "parquet/fastparquet", False)])],
-        "tiles": [(("time", "parquet/rugo"), "rugo, with its bloom filters and page index off — a plain Parquet write")],
-    },
-    {
-        "id": "csv-write", "file": WRITES, "section": "writes",
-        "groups": [(None, [("Rugo", "csv/rugo", True), ("polars", "csv/polars", False),
-                            ("PyArrow", "csv/pyarrow", False), ("DuckDB", "csv/duckdb", False),
-                            ("Python (csv)", "csv/python", False)])],
         "tiles": [
-            (("ratio", "csv/python", "csv/rugo"), "faster than Python's csv module"),
-            ("Parity", ("gap", [("csv/rugo", "csv/pyarrow"), ("csv/rugo", "csv/duckdb")],
-                        "with PyArrow and DuckDB — within {gap} ms")),
+            (("ratio", "parquet/pyarrow", "parquet/rugo"), "faster than PyArrow"),
+            (("ratio", "parquet/duckdb", "parquet/rugo"), "faster than DuckDB"),
+            (("ratio", "parquet/fastparquet", "parquet/rugo"), "faster than fastparquet"),
         ],
     },
     {
@@ -196,14 +177,18 @@ def render(chart):
         # A chart of one group is titled on the page; its group needs no label of its own.
         shape = "" if label is None else f'<div class="bench-shape">{html.escape(label)}</div>'
         out.append(f'<div class="bench-group">{shape}')
-        for name, key, rugo in bars:
+        # The win colour marks the fastest bar of each group, whoever it is (a tie at the
+        # printed precision marks both); rugo is always listed first.
+        fastest = ms(min(value(k) for _, k, _ in bars))
+        for name, key, _ in bars:
             v = value(key)
+            win = " is-rugo" if ms(v) == fastest else ""
             width = max(0.4, v / top * 78)  # the longest bar leaves room for its value
             out.append(
                 f'<div class="bar-row" title="{html.escape(name)}: {ms(v)}">'
                 f'<span class="bar-name">{html.escape(name)}</span>'
-                f'<span class="bar-track"><span class="bar{" is-rugo" if rugo else ""}" style="width:{width:.2f}%"></span>'
-                f'<span class="bar-val{" is-rugo" if rugo else ""}">{ms(v)}</span></span></div>')
+                f'<span class="bar-track"><span class="bar{win}" style="width:{width:.2f}%"></span>'
+                f'<span class="bar-val{win}">{ms(v)}</span></span></div>')
         out.append("</div>")
     out.append("</div>")
     return "\n".join(out)
