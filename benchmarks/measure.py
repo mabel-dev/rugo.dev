@@ -2,11 +2,14 @@
 """Re-measure rugo's headline numbers on this machine and append a results file.
 
     python3 benchmarks/measure.py [--rows 200000] [--reps 5] [--python 3.13]
+                                [--rugo-wheel PATH [--rugo-version 0.5.5+local]]
 
 Needs `uv` on PATH. Builds one fresh venv per library (footprint + cold import),
 one shared venv for rugo/pyarrow/duckdb/polars (query timings), generates
 deterministic data, and writes benchmarks/results/<UTC date>.json.
 Results are only comparable to earlier runs from the same machine.
+--rugo-wheel PATH installs rugo from a local wheel (matching --python) instead of PyPI and
+records --rugo-version (default "<wheel version>+local") as its version.
 """
 import argparse, datetime, json, os, platform, shutil, statistics, subprocess, sys, tempfile, time
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -14,9 +17,14 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--rows", type=int, default=200_000)
 ap.add_argument("--reps", type=int, default=5)
 ap.add_argument("--python", default="3.13")
+ap.add_argument("--rugo-wheel", default=None, help="install rugo from this local wheel instead of PyPI")
+ap.add_argument("--rugo-version", default=None, help="version to record for the local wheel (default: its own version + '+local')")
 ap.add_argument("--workdir", default=tempfile.mkdtemp(prefix="rugo-bench-"))
 a = ap.parse_args()
 W = a.workdir
+if a.rugo_version and not a.rugo_wheel:
+    ap.error("--rugo-version only applies together with --rugo-wheel")
+RUGO = os.path.abspath(a.rugo_wheel) if a.rugo_wheel else "rugo"
 
 def sh(*cmd, **kw):
     return subprocess.run(cmd, check=True, capture_output=True, text=True, **kw).stdout
@@ -24,7 +32,7 @@ def sh(*cmd, **kw):
 def venv(name, pkgs):
     p = f"{W}/venv-{name}"
     sh("uv", "venv", "--python", a.python, p)
-    sh("uv", "pip", "install", "--python", f"{p}/bin/python", *pkgs)
+    sh("uv", "pip", "install", "--python", f"{p}/bin/python", *[RUGO if p == "rugo" else p for p in pkgs])
     return p
 
 def dir_size(p):
@@ -33,7 +41,10 @@ def dir_size(p):
 def versions(py, pkgs):
     out = sh("uv", "pip", "list", "--python", py, "--format", "json")
     have = {x["name"].lower().replace("_", "-"): x["version"] for x in json.loads(out)}
-    return {p: have.get(p) for p in pkgs}
+    out = {p: have.get(p) for p in pkgs}
+    if a.rugo_wheel and "rugo" in out:
+        out["rugo"] = a.rugo_version or f"{out['rugo']}+local"
+    return out
 
 ENTRY = {"rugo": "rugo.parquet", "duckdb": "duckdb", "fastparquet": "fastparquet",
          "pyarrow": "pyarrow.parquet", "polars": "polars"}

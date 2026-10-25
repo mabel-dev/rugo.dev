@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """Head-to-head Parquet read benchmark: rugo vs DuckDB vs Polars (scan_parquet) vs PyArrow.
 
-    python3 benchmarks/measure_parquet.py [--rows 1000000] [--reps 7] [--python 3.13] [--rugo-path DIR]
+    python3 benchmarks/measure_parquet.py [--rows 1000000] [--reps 7] [--python 3.13]
+                                      [--rugo-wheel PATH [--rugo-version 0.5.5+local]]
 
 Needs `uv` on PATH. Builds one venv with the four libraries, generates a wide (100-column) and a
 narrow (4-column) zstd Parquet file with 20 row groups (see gen_parquet.py), and times each
 query in a fresh process per library, at each library's default threading and again pinned to
 one thread. Writes benchmarks/results/<UTC date>-parquet-read.json.
 
---rugo-path DIR benchmarks a local rugo checkout/build (a directory containing the `rugo` and
-`draken` packages, built in place for the --python version) instead of the PyPI wheel; the
-version is recorded as "<rugo.__version__>+local" and the file is named ...-parquet-read-prerelease.json
-so it never overwrites a release run.
+--rugo-wheel PATH installs rugo from a local wheel instead of PyPI (it must match --python) and
+records --rugo-version (default "<wheel version>+local") as its version; the results file then
+gets a "-<version>" suffix (e.g. ...-parquet-read-0.5.5.json) so it never overwrites another run.
 """
 import argparse, datetime, json, os, platform, subprocess, tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -19,13 +19,15 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--rows", type=int, default=1_000_000)
 ap.add_argument("--reps", type=int, default=7)
 ap.add_argument("--python", default="3.13")
-ap.add_argument("--rugo-path", default=None, help="local rugo checkout to use instead of the PyPI wheel")
+ap.add_argument("--rugo-wheel", default=None, help="install rugo from this local wheel instead of PyPI")
+ap.add_argument("--rugo-version", default=None, help="version to record for the local wheel (default: its own version + '+local')")
 ap.add_argument("--workdir", default=tempfile.mkdtemp(prefix="rugo-parquet-bench-"))
 a = ap.parse_args()
 W = a.workdir
 
-if a.rugo_path:
-    os.environ["PYTHONPATH"] = os.path.abspath(a.rugo_path)  # inherited by every benchmark subprocess
+if a.rugo_version and not a.rugo_wheel:
+    ap.error("--rugo-version only applies together with --rugo-wheel")
+RUGO = os.path.abspath(a.rugo_wheel) if a.rugo_wheel else "rugo"
 
 def sh(*cmd):
     return subprocess.run(cmd, check=True, capture_output=True, text=True).stdout
@@ -33,10 +35,10 @@ def sh(*cmd):
 LIBS = ["rugo", "duckdb", "polars", "pyarrow"]
 sh("uv", "venv", "--python", a.python, f"{W}/venv")
 py = f"{W}/venv/bin/python"
-sh("uv", "pip", "install", "--python", py, *[l for l in LIBS if not (a.rugo_path and l == "rugo")])
+sh("uv", "pip", "install", "--python", py, *[RUGO if l == "rugo" else l for l in LIBS])
 have = {x["name"].lower(): x["version"] for x in json.loads(sh("uv", "pip", "list", "--python", py, "--format", "json"))}
-if a.rugo_path:
-    have["rugo"] = sh(py, "-c", "import rugo; print(rugo.__version__)").strip() + "+local"
+if a.rugo_wheel:
+    have["rugo"] = a.rugo_version or have["rugo"] + "+local"
 
 data = f"{W}/data"
 sh(py, f"{HERE}/gen_parquet.py", data, str(a.rows))
@@ -63,7 +65,8 @@ for threads in ["all", "1"]:
             out = sh(py, f"{HERE}/bench_parquet_one.py", lib, q, files[f], str(a.reps), threads)
             res["queries"][f"{threads}/{f}/{q}/{lib}"] = json.loads(out.strip().splitlines()[-1])
 
-fn = f"{HERE}/results/{res['date'][:10]}-parquet-read{'-prerelease' if a.rugo_path else ''}.json"
+suffix = "-" + have["rugo"].split("+")[0] if a.rugo_wheel else ""
+fn = f"{HERE}/results/{res['date'][:10]}-parquet-read{suffix}.json"
 os.makedirs(os.path.dirname(fn), exist_ok=True)
 json.dump(res, open(fn, "w"), indent=2)
 print("wrote", fn)

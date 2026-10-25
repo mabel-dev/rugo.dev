@@ -3,13 +3,16 @@
 libraries on this machine and write a results file.
 
     python3 benchmarks/measure_writes.py [--reps 5] [--python 3.13]
+                                     [--rugo-wheel PATH [--rugo-version 0.5.5+local]]
 
 Needs `uv` on PATH. Builds one venv with the published packages, generates the
 same deterministic data as measure.py (gen_data.py), and has every library write
 the same 200,000-row, 50-column table (wide.csv) in each format it can, each
 (library, format) timed in a fresh process (write_one.py). Results go to
 benchmarks/results/<UTC date>-writes.json and are only comparable to earlier runs
-from the same machine.
+from the same machine. --rugo-wheel PATH installs rugo from a local wheel (matching --python)
+instead of PyPI and records --rugo-version (default "<wheel version>+local"); the file then
+gets a "-<version>" suffix (...-writes-0.5.5.json).
 """
 import argparse, datetime, json, os, platform, subprocess, tempfile
 
@@ -17,9 +20,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ap = argparse.ArgumentParser()
 ap.add_argument("--reps", type=int, default=5)
 ap.add_argument("--python", default="3.13")
+ap.add_argument("--rugo-wheel", default=None, help="install rugo from this local wheel instead of PyPI")
+ap.add_argument("--rugo-version", default=None, help="version to record for the local wheel (default: its own version + '+local')")
 ap.add_argument("--workdir", default=tempfile.mkdtemp(prefix="rugo-write-bench-"))
 a = ap.parse_args()
 W = a.workdir
+if a.rugo_version and not a.rugo_wheel:
+    ap.error("--rugo-version only applies together with --rugo-wheel")
+RUGO = os.path.abspath(a.rugo_wheel) if a.rugo_wheel else "rugo"
 UV = os.environ.get("UV", "uv")
 
 
@@ -34,9 +42,11 @@ PLAN = {"parquet": ["rugo", "rugo-defaults", "pyarrow", "polars", "duckdb", "fas
 
 venv = f"{W}/venv"
 sh(UV, "venv", "--python", a.python, venv)
-sh(UV, "pip", "install", "--python", f"{venv}/bin/python", *PKGS)
+sh(UV, "pip", "install", "--python", f"{venv}/bin/python", *[RUGO if p == "rugo" else p for p in PKGS])
 py = f"{venv}/bin/python"
 have = {x["name"].lower(): x["version"] for x in json.loads(sh(UV, "pip", "list", "--python", py, "--format", "json"))}
+if a.rugo_wheel:
+    have["rugo"] = a.rugo_version or have["rugo"] + "+local"
 
 res = {"date": datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds"),
        "machine": {"platform": platform.platform(), "cpu": platform.processor() or platform.machine(),
@@ -58,7 +68,8 @@ for fmt, libs in PLAN.items():
         res["writes"][f"{fmt}/{lib}"] = out
 
 os.makedirs(f"{HERE}/results", exist_ok=True)
-fn = f"{HERE}/results/{res['date'][:10]}-writes.json"
+suffix = "-" + have["rugo"].split("+")[0] if a.rugo_wheel else ""
+fn = f"{HERE}/results/{res['date'][:10]}-writes{suffix}.json"
 json.dump(res, open(fn, "w"), indent=2)
 print("wrote", fn)
 for key, value in res["writes"].items():
