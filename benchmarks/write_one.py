@@ -16,7 +16,10 @@ path, so theirs goes to a file in <tmpdir> and the timing includes that write.
                written without rugo's bloom filters and page index (both on by
                default), so it writes what a plain Parquet writer writes
   rugo-defaults  rugo's Parquet writer at its defaults (bloom filters + page index)
-  pyarrow      pyarrow.parquet.write_table / pyarrow.csv.write_csv (no JSON writer)
+  rugo-fast    rugo.parquet.write_parquet_fast (Parquet only): no statistics, dictionary,
+               bloom filters or page index. Valid Parquet any reader can read in full, but
+               with nothing to prune row groups by
+  pyarrow     pyarrow.parquet.write_table / pyarrow.csv.write_csv (no JSON writer)
   polars       DataFrame.write_parquet / write_csv / write_ndjson
   duckdb       COPY ... TO (FORMAT parquet | csv | json) from an in-memory table
   fastparquet  fastparquet.write from a pandas DataFrame (Parquet only)
@@ -33,14 +36,18 @@ def file_bytes():
     return open(target, "rb").read()
 
 
-if lib in ("rugo", "rugo-defaults"):
+if lib in ("rugo", "rugo-defaults", "rugo-fast"):
     from rugo import csv as rcsv
     with rcsv.read_csv(src) as r:
         morsel = next(iter(r))
+    if lib == "rugo-fast" and fmt != "parquet":
+        sys.exit("rugo-fast is a Parquet writer preset")
     if fmt == "parquet":
         from rugo import parquet
         if lib == "rugo":
             go = lambda: parquet.write_parquet(morsel, compression="zstd", bloom_filters=False, page_index=False)
+        elif lib == "rugo-fast":
+            go = lambda: parquet.write_parquet_fast(morsel, compression="zstd")
         else:
             go = lambda: parquet.write_parquet(morsel, compression="zstd")
     elif fmt == "csv":

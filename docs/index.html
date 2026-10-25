@@ -1355,16 +1355,17 @@
 <!-- chart:parquet-write -->
 <div class="bench">
 <div class="bench-big">
-<div class="big"><span class="big-n">5.1×</span><span class="big-l">faster than PyArrow</span></div>
-<div class="big"><span class="big-n">3.2×</span><span class="big-l">faster than DuckDB</span></div>
-<div class="big"><span class="big-n">5.1×</span><span class="big-l">faster than fastparquet</span></div>
+<div class="big"><span class="big-n">5.4×</span><span class="big-l">faster than PyArrow</span></div>
+<div class="big"><span class="big-n">3.4×</span><span class="big-l">faster than DuckDB</span></div>
+<div class="big"><span class="big-n">5.3×</span><span class="big-l">faster than fastparquet</span></div>
 </div>
 <div class="bench-group">
-<div class="bar-row" title="Rugo: ~70 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-us" style="width:15.27%"></span><span class="bar-val">~70 ms</span></span></div>
-<div class="bar-row" title="polars: ~25 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar is-rugo" style="width:5.46%"></span><span class="bar-val is-rugo">~25 ms</span></span></div>
-<div class="bar-row" title="DuckDB: ~227 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:49.16%"></span><span class="bar-val">~227 ms</span></span></div>
-<div class="bar-row" title="PyArrow: ~359 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:77.78%"></span><span class="bar-val">~359 ms</span></span></div>
-<div class="bar-row" title="fastparquet: ~360 ms"><span class="bar-name">fastparquet</span><span class="bar-track"><span class="bar" style="width:78.00%"></span><span class="bar-val">~360 ms</span></span></div>
+<div class="bar-row" title="Rugo: ~68 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-us" style="width:14.56%"></span><span class="bar-val">~68 ms</span></span></div>
+<div class="bar-row" title="Rugo (fast write): ~38 ms"><span class="bar-name is-us">Rugo (fast write)</span><span class="bar-track"><span class="bar is-us" style="width:8.22%"></span><span class="bar-val">~38 ms</span></span></div>
+<div class="bar-row" title="polars: ~25 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar is-rugo" style="width:5.36%"></span><span class="bar-val is-rugo">~25 ms</span></span></div>
+<div class="bar-row" title="DuckDB: ~232 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:49.57%"></span><span class="bar-val">~232 ms</span></span></div>
+<div class="bar-row" title="PyArrow: ~365 ms"><span class="bar-name">PyArrow</span><span class="bar-track"><span class="bar" style="width:78.00%"></span><span class="bar-val">~365 ms</span></span></div>
+<div class="bar-row" title="fastparquet: ~364 ms"><span class="bar-name">fastparquet</span><span class="bar-track"><span class="bar" style="width:77.74%"></span><span class="bar-val">~364 ms</span></span></div>
 </div>
 </div>
 <!-- /chart:parquet-write -->
@@ -1372,30 +1373,39 @@
 <!-- chart:jsonl-write -->
 <div class="bench">
 <div class="bench-big">
-<div class="big"><span class="big-n">22×</span><span class="big-l">faster than Python&#x27;s json module</span></div>
-<div class="big"><span class="big-n">4.1×</span><span class="big-l">faster than DuckDB</span></div>
+<div class="big"><span class="big-n">29×</span><span class="big-l">faster than Python&#x27;s json module</span></div>
+<div class="big"><span class="big-n">5.4×</span><span class="big-l">faster than DuckDB</span></div>
 </div>
 <div class="bench-group">
-<div class="bar-row" title="Rugo: ~51 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-us" style="width:3.49%"></span><span class="bar-val">~51 ms</span></span></div>
-<div class="bar-row" title="polars: ~17 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar is-rugo" style="width:1.16%"></span><span class="bar-val is-rugo">~17 ms</span></span></div>
-<div class="bar-row" title="DuckDB: ~211 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:14.44%"></span><span class="bar-val">~211 ms</span></span></div>
-<div class="bar-row" title="Python (json): ~1.14 s"><span class="bar-name">Python (json)</span><span class="bar-track"><span class="bar" style="width:78.00%"></span><span class="bar-val">~1.14 s</span></span></div>
+<div class="bar-row" title="Rugo: ~39 ms"><span class="bar-name is-us">Rugo</span><span class="bar-track"><span class="bar is-us" style="width:2.67%"></span><span class="bar-val">~39 ms</span></span></div>
+<div class="bar-row" title="polars: ~17 ms"><span class="bar-name">polars</span><span class="bar-track"><span class="bar is-rugo" style="width:1.15%"></span><span class="bar-val is-rugo">~17 ms</span></span></div>
+<div class="bar-row" title="DuckDB: ~213 ms"><span class="bar-name">DuckDB</span><span class="bar-track"><span class="bar" style="width:14.41%"></span><span class="bar-val">~213 ms</span></span></div>
+<div class="bar-row" title="Python (json): ~1.15 s"><span class="bar-name">Python (json)</span><span class="bar-track"><span class="bar" style="width:78.00%"></span><span class="bar-val">~1.15 s</span></span></div>
 </div>
 </div>
 <!-- /chart:jsonl-write -->
                 <details class="caveat">
                     <summary>How this was measured</summary>
-                    <p>Best of 5 runs, each library in a fresh process: rugo
-                    0.5.5, PyArrow 26.0.0, polars 2.0.0, DuckDB 2.0.0 and
-                    fastparquet 2026.9.0 (with pandas 3.1.0), CPython 3.13 on an
+                    <p>Best of 11 runs, each library in a fresh process: rugo
+                    built from source on 2026-10-25 (the writers in the
+                    unreleased 0.9.173 build, not a published wheel), PyArrow
+                    26.0.0, polars 2.0.0, DuckDB 2.0.0 and
+                    fastparquet 2026.9.0 (with pandas 3.1.0), CPython 3.14 on an
                     Apple-silicon Mac, measured 2026-10-25. The table is 200,000
                     rows by 50 columns of integers, floats and strings, loaded
                     into each library's own form before the clock starts. Every library runs at its
                     default threading (polars, DuckDB and PyArrow use every
-                    core). Parquet is zstd for every writer, and rugo writes it
+                    core). Parquet is zstd for every writer. "Rugo" writes it
                     without its bloom filters and page index (both on by
-                    default — with them it took ~71 ms), so its file holds
-                    what a plain Parquet writer's does. Output goes to
+                    default — with them it took ~72 ms), so its file holds
+                    what a plain Parquet writer's does: statistics and
+                    dictionaries included, as the other libraries write them at
+                    their defaults. "Rugo (fast write)" is
+                    <code>write_parquet_fast</code>: it also drops the
+                    statistics and the dictionary. The file is valid Parquet
+                    that any reader can read in full (33.6 MB against 38.4 MB),
+                    but it carries nothing a reader could use to skip row
+                    groups, so a selective scan reads all of it. Output goes to
                     memory, except DuckDB and fastparquet, which only write to a
                     file, so their times include that write. "Python" is the
                     standard library's <code>json.dumps</code> per row. Reproduce it with
