@@ -93,11 +93,12 @@ CHARTS = [
 ]
 
 
-WRITES = "2026-10-25-writes-0.5.5.json"
+WRITES = "2026-10-25-writes-0.9.173.json"
 CHARTS += [
     {
         "id": "parquet-write", "file": WRITES, "section": "writes",
-        "groups": [(None, [("Rugo", "parquet/rugo", True), ("polars", "parquet/polars", False),
+        "groups": [(None, [("Rugo", "parquet/rugo", True), ("Rugo (fast write)", "parquet/rugo-fast", True),
+                                      ("polars", "parquet/polars", False),
                                       ("DuckDB", "parquet/duckdb", False), ("PyArrow", "parquet/pyarrow", False),
                                       ("fastparquet", "parquet/fastparquet", False)])],
         "tiles": [
