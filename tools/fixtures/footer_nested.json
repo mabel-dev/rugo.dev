@@ -1,0 +1,469 @@
+{
+ "fileSize": 87647,
+ "footer": {
+  "num_rows": 3000,
+  "num_row_groups": 2,
+  "schema": [
+   {
+    "name": "id",
+    "physical_type": "int64",
+    "logical_type": "int64",
+    "nullable": true
+   },
+   {
+    "name": "name",
+    "physical_type": "byte_array",
+    "logical_type": "varchar",
+    "nullable": true
+   },
+   {
+    "name": "score",
+    "physical_type": "float64",
+    "logical_type": "float64",
+    "nullable": true
+   },
+   {
+    "name": "ts",
+    "physical_type": "int64",
+    "logical_type": "timestamp[ms]",
+    "nullable": true
+   },
+   {
+    "name": "tags",
+    "physical_type": "list",
+    "logical_type": "array<varchar>",
+    "nullable": true
+   },
+   {
+    "name": "addr",
+    "physical_type": "struct",
+    "logical_type": "json",
+    "nullable": true
+   },
+   {
+    "name": "attrs",
+    "physical_type": "map",
+    "logical_type": "map",
+    "nullable": true
+   }
+  ],
+  "row_groups": [
+   {
+    "num_rows": 1500,
+    "total_byte_size": 74750,
+    "total_compressed_size": 41746,
+    "file_offset": 4,
+    "columns": [
+     {
+      "name": "id",
+      "physical_type": "int64",
+      "logical_type": "int64",
+      "codec": "SNAPPY",
+      "encodings": [
+       "PLAIN",
+       "RLE",
+       "RLE_DICTIONARY"
+      ],
+      "num_values": 1500,
+      "total_compressed_size": 8178,
+      "total_uncompressed_size": 14163,
+      "null_count": 0,
+      "distinct_count": -1,
+      "has_min": true,
+      "has_max": true,
+      "has_bloom_filter": false,
+      "has_page_index": false
+     },
+     {
+      "name": "name",
+      "physical_type": "byte_array",
+      "logical_type": "varchar",
+      "codec": "SNAPPY",
+      "encodings": [
+       "PLAIN",
+       "RLE",
+       "RLE_DICTIONARY"
+      ],
+      "num_values": 1500,
+      "total_compressed_size": 7078,
+      "total_uncompressed_size": 16501,
+      "null_count": 215,
+      "distinct_count": -1,
+      "has_min": true,
+      "has_max": true,
+      "has_bloom_filter": false,
+      "has_page_index": false
+     },
+     {
+      "name": "score",
+      "physical_type": "float64",
+      "logical_type": "float64",
+      "codec": "SNAPPY",
+      "encodings": [
+       "PLAIN",
+       "RLE",
+       "RLE_DICTIONARY"
+      ],
+      "num_values": 1500,
+      "total_compressed_size": 8107,
+      "total_uncompressed_size": 14163,
+      "null_count": 0,
+      "distinct_count": -1,
+      "has_min": true,
+      "has_max": true,
+      "has_bloom_filter": false,
+      "has_page_index": false
+     },
+     {
+      "name": "ts",
+      "physical_type": "int64",
+      "logical_type": "timestamp[ms]",
+      "codec": "SNAPPY",
+      "encodings": [
+       "PLAIN",
+       "RLE",
+       "RLE_DICTIONARY"
+      ],
+      "num_values": 1500,
+      "total_compressed_size": 9686,
+      "total_uncompressed_size": 14163,
+      "null_count": 0,
+      "distinct_count": -1,
+      "has_min": true,
+      "has_max": true,
+      "has_bloom_filter": false,
+      "has_page_index": false
+     },
+     {
+      "name": "tags",
+      "physical_type": "byte_array",
+      "logical_type": "array<varchar>",
+      "codec": "SNAPPY",
+      "encodings": [
+       "PLAIN",
+       "RLE",
+       "RLE_DICTIONARY"
+      ],
+      "num_values": 2500,
+      "total_compressed_size": 178,
+      "total_uncompressed_size": 1269,
+      "null_count": 500,
+      "distinct_count": -1,
+      "has_min": true,
+      "has_max": true,
+      "has_bloom_filter": false,
+      "has_page_index": false
+     },
+     {
+      "name": "addr.city",
+      "physical_type": "byte_array",
+      "logical_type": "varchar",
+      "codec": "SNAPPY",
+      "encodings": [
+       "PLAIN",
+       "RLE",
+       "RLE_DICTIONARY"
+      ],
+      "num_values": 1500,
+      "total_compressed_size": 64,
+      "total_uncompressed_size": 60,
+      "null_count": 0,
+      "distinct_count": -1,
+      "has_min": true,
+      "has_max": true,
+      "has_bloom_filter": false,
+      "has_page_index": false
+     },
+     {
+      "name": "addr.geo.lat",
+      "physical_type": "float64",
+      "logical_type": "float64",
+      "codec": "SNAPPY",
+      "encodings": [
+       "PLAIN",
+       "RLE",
+       "RLE_DICTIONARY"
+      ],
+      "num_values": 1500,
+      "total_compressed_size": 101,
+      "total_uncompressed_size": 97,
+      "null_count": 0,
+      "distinct_count": -1,
+      "has_min": true,
+      "has_max": true,
+      "has_bloom_filter": false,
+      "has_page_index": false
+     },
+     {
+      "name": "addr.geo.lon",
+      "physical_type": "float64",
+      "logical_type": "float64",
+      "codec": "SNAPPY",
+      "encodings": [
+       "PLAIN",
+       "RLE",
+       "RLE_DICTIONARY"
+      ],
+      "num_values": 1500,
+      "total_compressed_size": 101,
+      "total_uncompressed_size": 97,
+      "null_count": 0,
+      "distinct_count": -1,
+      "has_min": true,
+      "has_max": true,
+      "has_bloom_filter": false,
+      "has_page_index": false
+     },
+     {
+      "name": "attrs.key_value.key",
+      "physical_type": "byte_array",
+      "logical_type": "varchar",
+      "codec": "SNAPPY",
+      "encodings": [
+       "PLAIN",
+       "RLE",
+       "RLE_DICTIONARY"
+      ],
+      "num_values": 1500,
+      "total_compressed_size": 71,
+      "total_uncompressed_size": 67,
+      "null_count": 0,
+      "distinct_count": -1,
+      "has_min": true,
+      "has_max": true,
+      "has_bloom_filter": false,
+      "has_page_index": false
+     },
+     {
+      "name": "attrs.key_value.value",
+      "physical_type": "int64",
+      "logical_type": "int64",
+      "codec": "SNAPPY",
+      "encodings": [
+       "PLAIN",
+       "RLE",
+       "RLE_DICTIONARY"
+      ],
+      "num_values": 1500,
+      "total_compressed_size": 8182,
+      "total_uncompressed_size": 14170,
+      "null_count": 0,
+      "distinct_count": -1,
+      "has_min": true,
+      "has_max": true,
+      "has_bloom_filter": false,
+      "has_page_index": false
+     }
+    ]
+   },
+   {
+    "num_rows": 1500,
+    "total_byte_size": 75716,
+    "total_compressed_size": 42345,
+    "file_offset": 41750,
+    "columns": [
+     {
+      "name": "id",
+      "physical_type": "int64",
+      "logical_type": "int64",
+      "codec": "SNAPPY",
+      "encodings": [
+       "PLAIN",
+       "RLE",
+       "RLE_DICTIONARY"
+      ],
+      "num_values": 1500,
+      "total_compressed_size": 8183,
+      "total_uncompressed_size": 14163,
+      "null_count": 0,
+      "distinct_count": -1,
+      "has_min": true,
+      "has_max": true,
+      "has_bloom_filter": false,
+      "has_page_index": false
+     },
+     {
+      "name": "name",
+      "physical_type": "byte_array",
+      "logical_type": "varchar",
+      "codec": "SNAPPY",
+      "encodings": [
+       "PLAIN",
+       "RLE",
+       "RLE_DICTIONARY"
+      ],
+      "num_values": 1500,
+      "total_compressed_size": 7585,
+      "total_uncompressed_size": 17467,
+      "null_count": 214,
+      "distinct_count": -1,
+      "has_min": true,
+      "has_max": true,
+      "has_bloom_filter": false,
+      "has_page_index": false
+     },
+     {
+      "name": "score",
+      "physical_type": "float64",
+      "logical_type": "float64",
+      "codec": "SNAPPY",
+      "encodings": [
+       "PLAIN",
+       "RLE",
+       "RLE_DICTIONARY"
+      ],
+      "num_values": 1500,
+      "total_compressed_size": 8172,
+      "total_uncompressed_size": 14163,
+      "null_count": 0,
+      "distinct_count": -1,
+      "has_min": true,
+      "has_max": true,
+      "has_bloom_filter": false,
+      "has_page_index": false
+     },
+     {
+      "name": "ts",
+      "physical_type": "int64",
+      "logical_type": "timestamp[ms]",
+      "codec": "SNAPPY",
+      "encodings": [
+       "PLAIN",
+       "RLE",
+       "RLE_DICTIONARY"
+      ],
+      "num_values": 1500,
+      "total_compressed_size": 9703,
+      "total_uncompressed_size": 14163,
+      "null_count": 0,
+      "distinct_count": -1,
+      "has_min": true,
+      "has_max": true,
+      "has_bloom_filter": false,
+      "has_page_index": false
+     },
+     {
+      "name": "tags",
+      "physical_type": "byte_array",
+      "logical_type": "array<varchar>",
+      "codec": "SNAPPY",
+      "encodings": [
+       "PLAIN",
+       "RLE",
+       "RLE_DICTIONARY"
+      ],
+      "num_values": 2500,
+      "total_compressed_size": 178,
+      "total_uncompressed_size": 1269,
+      "null_count": 500,
+      "distinct_count": -1,
+      "has_min": true,
+      "has_max": true,
+      "has_bloom_filter": false,
+      "has_page_index": false
+     },
+     {
+      "name": "addr.city",
+      "physical_type": "byte_array",
+      "logical_type": "varchar",
+      "codec": "SNAPPY",
+      "encodings": [
+       "PLAIN",
+       "RLE",
+       "RLE_DICTIONARY"
+      ],
+      "num_values": 1500,
+      "total_compressed_size": 64,
+      "total_uncompressed_size": 60,
+      "null_count": 0,
+      "distinct_count": -1,
+      "has_min": true,
+      "has_max": true,
+      "has_bloom_filter": false,
+      "has_page_index": false
+     },
+     {
+      "name": "addr.geo.lat",
+      "physical_type": "float64",
+      "logical_type": "float64",
+      "codec": "SNAPPY",
+      "encodings": [
+       "PLAIN",
+       "RLE",
+       "RLE_DICTIONARY"
+      ],
+      "num_values": 1500,
+      "total_compressed_size": 101,
+      "total_uncompressed_size": 97,
+      "null_count": 0,
+      "distinct_count": -1,
+      "has_min": true,
+      "has_max": true,
+      "has_bloom_filter": false,
+      "has_page_index": false
+     },
+     {
+      "name": "addr.geo.lon",
+      "physical_type": "float64",
+      "logical_type": "float64",
+      "codec": "SNAPPY",
+      "encodings": [
+       "PLAIN",
+       "RLE",
+       "RLE_DICTIONARY"
+      ],
+      "num_values": 1500,
+      "total_compressed_size": 101,
+      "total_uncompressed_size": 97,
+      "null_count": 0,
+      "distinct_count": -1,
+      "has_min": true,
+      "has_max": true,
+      "has_bloom_filter": false,
+      "has_page_index": false
+     },
+     {
+      "name": "attrs.key_value.key",
+      "physical_type": "byte_array",
+      "logical_type": "varchar",
+      "codec": "SNAPPY",
+      "encodings": [
+       "PLAIN",
+       "RLE",
+       "RLE_DICTIONARY"
+      ],
+      "num_values": 1500,
+      "total_compressed_size": 71,
+      "total_uncompressed_size": 67,
+      "null_count": 0,
+      "distinct_count": -1,
+      "has_min": true,
+      "has_max": true,
+      "has_bloom_filter": false,
+      "has_page_index": false
+     },
+     {
+      "name": "attrs.key_value.value",
+      "physical_type": "int64",
+      "logical_type": "int64",
+      "codec": "SNAPPY",
+      "encodings": [
+       "PLAIN",
+       "RLE",
+       "RLE_DICTIONARY"
+      ],
+      "num_values": 1500,
+      "total_compressed_size": 8187,
+      "total_uncompressed_size": 14170,
+      "null_count": 0,
+      "distinct_count": -1,
+      "has_min": true,
+      "has_max": true,
+      "has_bloom_filter": false,
+      "has_page_index": false
+     }
+    ]
+   }
+  ]
+ }
+}
