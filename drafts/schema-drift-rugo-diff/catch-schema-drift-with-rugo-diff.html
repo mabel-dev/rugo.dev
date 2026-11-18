@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Catch schema drift with rugo diff</title>
+        <meta
+            name="description"
+            content="Compare the schemas of two Parquet, Avro or CSV files in one command. rugo diff lists added, removed and retyped columns and exits 1 on any change. Build a breaking-change gate for pull requests in 15 lines of shell."
+        />
+        <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+        <link rel="stylesheet" href="../blog.css" />
+    </head>
+    <body>
+        <nav>
+            <a class="nav-logo" href="../index.html">ru<span>go</span></a>
+            <div class="nav-links">
+                <a href="../index.html">Home</a>
+                <a href="index.html">Blog</a>
+                <a href="https://github.com/mabel-dev/opteryx-core/tree/main/rugo"
+                    >Docs</a
+                >
+            </div>
+        </nav>
+
+        <article>
+            <div class="container">
+                <header class="post-header">
+                    <h1>Catch schema drift with rugo diff</h1>
+                    <p class="post-meta">
+                        Justin Joyce <span class="sep">·</span> 18 November 2026
+                        <span class="sep">·</span> 6 min read
+                    </p>
+                    <div class="post-tags">
+                        <span>schema drift</span>
+                        <span>parquet</span>
+                        <span>ci</span>
+                        <span>data quality</span>
+                        <span>how-to</span>
+                    </div>
+                    <p class="post-notice">
+                        Correct at time of publishing, tested with rugo 0.5.12.
+                        For up-to-date performance and feature information, see
+                        <a href="../">rugo.dev</a>.
+                    </p>
+                </header>
+
+                <p class="lede">
+                    Nobody announces a schema change. A column is renamed
+                    upstream, an ID that was a number turns into text, a new
+                    field appears. Every one of those still produces a perfectly
+                    valid file, and every one can break whatever reads it next.
+                    <code>rugo diff</code> compares the schemas of two files in
+                    one command, tells you exactly what moved, and
+                    <strong>exits <code>1</code></strong> when anything did.
+                    That exit code is all you need to turn it into a
+                    gate.
+                </p>
+
+                <h2>Two exports, one quiet change</h2>
+
+                <p>
+                    Say an orders export runs every night. Here is last week's
+                    file, and this week's, after an upstream team "tidied" the
+                    schema without telling anyone. The customer name became a
+                    numeric <code>customer_id</code>, order IDs gained a
+                    prefix, and there is a new <code>coupon</code> column.
+                </p>
+
+                <pre><code class="language-bash">pip install rugo</code></pre>
+
+                <pre><code class="language-bash">cat &gt; orders_v1.csv &lt;&lt;'EOF'
+order_id,customer,amount,placed_at,note
+1001,ada,19.99,2026-11-01,gift
+1002,grace,5.00,2026-11-01,
+1003,linus,42.50,2026-11-02,rush
+EOF
+
+cat &gt; orders_v2.csv &lt;&lt;'EOF'
+order_id,customer_id,amount,placed_at,note,coupon
+A-1001,7,19.99,2026-11-01,gift,SAVE5
+A-1002,8,5.00,2026-11-01,,
+A-1003,9,42.50,2026-11-02,rush,
+EOF
+
+rugo convert orders_v1.csv orders_v1.parquet
+rugo convert orders_v2.csv orders_v2.parquet</code></pre>
+
+                <pre><code class="language-output">orders_v1.csv (csv, 3 rows) -&gt; orders_v1.parquet (parquet)
+orders_v2.csv (csv, 3 rows) -&gt; orders_v2.parquet (parquet)</code></pre>
+
+                <h2>Ask what changed</h2>
+
+                <p>
+                    One command, two paths. Left is the baseline, right is the
+                    candidate:
+                </p>
+
+                <pre><code class="language-bash">rugo diff orders_v1.parquet orders_v2.parquet; echo "exit code: $?"</code></pre>
+
+                <pre><code class="language-output">+ added:   coupon, customer_id
+- removed: customer
+~ changed:
+name      left_type  right_type  left_nullable  right_nullable
+--------  ---------  ----------  -------------  --------------
+order_id  int64      varchar     True           True
+exit code: 1</code></pre>
+
+                <p>
+                    Three kinds of change, each on its own line:
+                    <code>+ added</code> columns, <code>- removed</code>
+                    columns, and <code>~ changed</code> columns, which shows the
+                    old and new type and nullability side by side. A rename is
+                    a removal plus an addition, which is how
+                    <code>customer</code> became <code>customer_id</code> here.
+                    The type change is the dangerous one: <code>order_id</code>
+                    quietly stopped being a number.
+                </p>
+
+                <p>
+                    Compare a file with itself and you get the all-clear, with
+                    exit code <code>0</code>:
+                </p>
+
+                <pre><code class="language-bash">rugo diff orders_v1.parquet orders_v1.parquet; echo "exit code: $?"</code></pre>
+
+                <pre><code class="language-output">schemas are identical
+exit code: 0</code></pre>
+
+                <h2>Machine-readable, with --json</h2>
+
+                <p>
+                    Add <code>--json</code> and the same result becomes
+                    structured data: <code>columns_added</code>,
+                    <code>columns_removed</code>,
+                    <code>columns_changed</code> and an
+                    <code>identical</code> flag. With
+                    <a href="https://jqlang.github.io/jq/">jq</a> you can shape
+                    it however you like:
+                </p>
+
+                <pre><code class="language-bash">rugo diff --json orders_v1.parquet orders_v2.parquet |
+  jq -c '{added: .columns_added, removed: .columns_removed, changed: [.columns_changed[].name]}'</code></pre>
+
+                <pre><code class="language-output">{"added":["coupon","customer_id"],"removed":["customer"],"changed":["order_id"]}</code></pre>
+
+                <h2>A breaking-change gate in 15 lines</h2>
+
+                <p>
+                    Not every change deserves a red build. A new column is
+                    harmless to existing readers; a removed or retyped one is
+                    not. This script encodes that policy: it prints every
+                    change, labels it, and fails only on the breaking kind.
+                    Save it as <code>tools/check_drift.sh</code>:
+                </p>
+
+                <pre><code data-save="tools/check_drift.sh">#!/usr/bin/env bash
+# Usage: check_drift.sh BASELINE CANDIDATE
+# Fails on breaking drift (a column removed or retyped). New columns are fine.
+set -uo pipefail
+
+report=$(rugo diff --json "$1" "$2") || true
+[ -n "$report" ] || { echo "rugo diff produced no report" &gt;&amp;2; exit 2; }
+
+echo "$report" | jq -r '
+  (.columns_added[]   | "  + added    \(.)  (compatible)"),
+  (.columns_removed[] | "  - removed  \(.)  (BREAKING)"),
+  (.columns_changed[] | "  ~ changed  \(.name): \(.left_type) -&gt; \(.right_type)  (BREAKING)")'
+
+breaking=$(echo "$report" | jq '(.columns_removed | length) + (.columns_changed | length)')
+if [ "$breaking" -gt 0 ]; then
+  echo "$breaking breaking change(s)"
+  exit 1
+fi
+echo "no breaking changes"</code></pre>
+
+                <p>
+                    <code>rugo diff</code> exits <code>1</code> for any
+                    difference, so the script captures the JSON report first
+                    and makes its own decision from the counts. If the files
+                    cannot be read at all there is no report, and it exits
+                    <code>2</code> so a missing file is never mistaken for
+                    clean data. Run it on the nightly pair:
+                </p>
+
+                <pre><code class="language-bash">chmod +x tools/check_drift.sh
+tools/check_drift.sh orders_v1.parquet orders_v2.parquet; echo "exit code: $?"</code></pre>
+
+                <pre><code class="language-output">  + added    coupon  (compatible)
+  + added    customer_id  (compatible)
+  - removed  customer  (BREAKING)
+  ~ changed  order_id: int64 -&gt; varchar  (BREAKING)
+2 breaking change(s)
+exit code: 1</code></pre>
+
+                <p>
+                    Now a purely additive week, where the only change is the new
+                    <code>coupon</code> column. The gate lets it through and
+                    says why:
+                </p>
+
+                <pre><code class="language-bash">cat &gt; orders_v3.csv &lt;&lt;'EOF'
+order_id,customer,amount,placed_at,note,coupon
+1001,ada,19.99,2026-11-01,gift,SAVE5
+1002,grace,5.00,2026-11-01,,
+1003,linus,42.50,2026-11-02,rush,
+EOF
+rugo convert orders_v3.csv orders_v3.parquet
+
+tools/check_drift.sh orders_v1.parquet orders_v3.parquet; echo "exit code: $?"</code></pre>
+
+                <pre><code class="language-output">orders_v3.csv (csv, 3 rows) -&gt; orders_v3.parquet (parquet)
+  + added    coupon  (compatible)
+no breaking changes
+exit code: 0</code></pre>
+
+                <h2>Run it on every pull request</h2>
+
+                <p>
+                    If Parquet files live in your repository (reference data,
+                    exported samples, fixtures that define a contract), the pull
+                    request itself is the "two exports". Compare each changed
+                    file with the version on the base branch. Save this as
+                    <code>.github/workflows/schema-drift.yml</code>:
+                </p>
+
+                <pre><code data-save=".github/workflows/schema-drift.yml">name: schema-drift
+
+on:
+  pull_request:
+    paths:
+      - "data/**.parquet"
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install rugo
+      - name: Compare each changed Parquet file with its base version
+        env:
+          BASE: origin/${{ github.base_ref }}
+        run: |
+          failed=0
+          while IFS= read -r -d '' file; do
+            echo "== $file"
+            git show "$BASE:$file" &gt; /tmp/base.parquet
+            tools/check_drift.sh /tmp/base.parquet "$file" || failed=1
+          done &lt; &lt;(git diff -z --name-only --diff-filter=M "$BASE"...HEAD -- 'data/*.parquet')
+          exit "$failed"</code></pre>
+
+                <p>
+                    The job only runs when a Parquet file under
+                    <code>data/</code> changes. <code>fetch-depth: 0</code>
+                    brings the base branch into the checkout, and
+                    <code>git diff --diff-filter=M</code> picks out the files
+                    that were modified, so brand-new files have nothing to be
+                    compared against. Each one is checked against its previous
+                    version, and one breaking change anywhere fails the job.
+                    The log reads exactly like the terminal output above.
+                </p>
+
+                <h2>Get the most from it</h2>
+
+                <ul>
+                    <li>
+                        <strong>Compare like with like.</strong> Every format
+                        has its own vocabulary for types: Parquet says
+                        <code>float64</code>, Avro says <code>double</code>.
+                        <code>rugo diff</code> compares what each file reports,
+                        so the cleanest signal comes from Parquet against
+                        Parquet, or Avro against Avro. Converting the new file
+                        to the baseline's format first (
+                        <code>rugo convert</code>) takes one line.
+                    </li>
+                    <li>
+                        <strong>Typed formats first.</strong> Parquet, Avro and
+                        CSV-to-Parquet pipelines carry their schema with
+                        them, which is what makes this check exact. A JSON
+                        Lines file has no stored schema, so rugo infers one
+                        from the start of the file. For JSONL, declare the types
+                        you expect and validate against them; see
+                        <a href="fail-the-build-on-bad-jsonl.html"
+                            >Fail the build on bad JSONL</a
+                        >.
+                    </li>
+                    <li>
+                        <strong>Stricter or looser.</strong> The policy lives in
+                        about five lines of jq. To block new columns too, count
+                        <code>columns_added</code> as breaking. To allow
+                        widening a type, whitelist specific pairs such as
+                        <code>int64 -&gt; float64</code>.
+                    </li>
+                    <li>
+                        <strong>Catch it at the door.</strong> The same gate fits
+                        anywhere two files meet: before promoting last night's
+                        export, or inside a Lambda that checks files as they
+                        land in S3, as in
+                        <a href="validate-parquet-in-s3-with-lambda.html"
+                            >Validate Parquet files the moment they land in S3</a
+                        >.
+                    </li>
+                </ul>
+
+                <p>
+                    Two files in, one verdict out, and an exit code every
+                    scheduler and CI system already understands. Schema drift
+                    stops being a surprise in a dashboard and becomes a
+                    one-line message in a pull request.
+                </p>
+            </div>
+        </article>
+
+        <footer>
+            <div class="container">
+                <span
+                    >rugo is part of the
+                    <a href="https://opteryx.app/">Opteryx</a> project — Apache
+                    2.0</span
+                >
+                <span>
+                    <a href="https://github.com/mabel-dev/opteryx-core"
+                        >GitHub</a
+                    >
+                    ·
+                    <a href="https://pypi.org/project/rugo/">PyPI</a>
+                </span>
+            </div>
+        </footer>
+    </body>
+</html>

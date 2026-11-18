@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Fail the build on bad JSONL</title>
+        <meta
+            name="description"
+            content="Validate every JSONL file in your repository on each pull request with GitHub Actions and rugo: malformed lines, wrong types, missing fields, empty files. A 70-line script, one pip install, errors pinned to the line."
+        />
+        <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+        <link rel="stylesheet" href="../blog.css" />
+    </head>
+    <body>
+        <nav>
+            <a class="nav-logo" href="../index.html">ru<span>go</span></a>
+            <div class="nav-links">
+                <a href="../index.html">Home</a>
+                <a href="index.html">Blog</a>
+                <a href="https://github.com/mabel-dev/opteryx-core/tree/main/rugo"
+                    >Docs</a
+                >
+            </div>
+        </nav>
+
+        <article>
+            <div class="container">
+                <header class="post-header">
+                    <h1>Fail the build on bad JSONL</h1>
+                    <p class="post-meta">
+                        Justin Joyce <span class="sep">·</span> 18 November 2026
+                        <span class="sep">·</span> 6 min read
+                    </p>
+                    <div class="post-tags">
+                        <span>github actions</span>
+                        <span>jsonl</span>
+                        <span>ci</span>
+                        <span>data quality</span>
+                        <span>how-to</span>
+                    </div>
+                    <p class="post-notice">
+                        Correct at time of publishing, tested with rugo 0.5.12.
+                        For up-to-date performance and feature information, see
+                        <a href="../">rugo.dev</a>.
+                    </p>
+                </header>
+
+                <p class="lede">
+                    JSON Lines files turn up everywhere in a repository: test
+                    fixtures, seed data, evaluation sets, config that grew
+                    too big for YAML. One stray comma or a half-saved line and
+                    something downstream breaks hours later, far from the
+                    commit that caused it. Here is a GitHub Actions check that
+                    reads <strong>every <code>.jsonl</code> file</strong> on
+                    each pull request and fails the build with a message that
+                    points at the broken line.
+                </p>
+
+                <h2>What the check catches</h2>
+
+                <p>
+                    Four things go wrong with JSONL files in practice, and each
+                    is caught by a different part of rugo's reader:
+                </p>
+
+                <ul>
+                    <li>
+                        <strong>A line that is not valid JSON.</strong> A
+                        truncated paste, a merge-conflict marker, a stray
+                        <code>hello world</code>. rugo's error carries the
+                        line number and byte offset.
+                    </li>
+                    <li>
+                        <strong>A value of the wrong type.</strong> A duration
+                        that became <code>"slow"</code>, an ID that became
+                        <code>1.5</code>. Declare the type of each column and
+                        rugo parses it strictly, naming the column and the
+                        offending value.
+                    </li>
+                    <li>
+                        <strong>A missing required field.</strong> An absent
+                        key counts as null, so one <code>is null</code>
+                        predicate finds records that dropped it.
+                    </li>
+                    <li>
+                        <strong>An empty file.</strong> Valid JSON Lines
+                        technically, useless in practice.
+                    </li>
+                </ul>
+
+                <h2>Set up a sample repository</h2>
+
+                <p>
+                    Start with a small dataset and a contract describing it.
+                    The contract is plain JSON: the type of each column, using
+                    rugo's type names, and the columns that must always be
+                    present.
+                </p>
+
+                <pre><code class="language-bash">pip install rugo</code></pre>
+
+                <p>Create the files:</p>
+
+                <pre><code class="language-bash">mkdir -p data tools
+
+cat &gt; data/events.jsonl &lt;&lt;'EOF'
+{"event_id": 1, "user": "ada", "action": "login", "duration_ms": 12.5, "ts": "2026-11-01T09:00:00Z"}
+{"event_id": 2, "user": "grace", "action": "search", "duration_ms": 48.0, "ts": "2026-11-01T09:00:03Z"}
+{"event_id": 3, "user": "ada", "action": "export", "duration_ms": 910.2, "ts": "2026-11-01T09:01:10Z"}
+{"event_id": 4, "user": "linus", "action": "login", "duration_ms": 9.8, "ts": "2026-11-01T09:02:44Z"}
+{"event_id": 5, "user": "grace", "action": "logout", "duration_ms": 3.1, "ts": "2026-11-01T09:05:00Z"}
+EOF
+
+cat &gt; contract.json &lt;&lt;'EOF'
+{
+  "schema": {
+    "event_id": "INT64",
+    "user": "VARCHAR",
+    "action": "VARCHAR",
+    "duration_ms": "FLOAT64",
+    "ts": "TIMESTAMP[us]"
+  },
+  "required": ["event_id", "user", "action"]
+}
+EOF</code></pre>
+
+                <p>
+                    A quick look with rugo's own CLI confirms the file reads:
+                </p>
+
+                <pre><code class="language-bash">rugo count data/events.jsonl</code></pre>
+
+                <pre><code class="language-output">5</code></pre>
+
+                <h2>The checker</h2>
+
+                <p>
+                    <code>rugo count</code> already fails on malformed JSON,
+                    but a script gives you readable messages, the type and
+                    required-field rules, and a place to grow. Save this as
+                    <code>tools/check_jsonl.py</code>:
+                </p>
+
+                <pre><code data-save="tools/check_jsonl.py">#!/usr/bin/env python3
+"""Validate JSONL files against a contract. Exits 1 if any file fails.
+
+    python tools/check_jsonl.py contract.json data/*.jsonl
+
+contract.json:
+    {"schema":   {"event_id": "INT64", "user": "VARCHAR", ...},
+     "required": ["event_id", "user"]}
+"""
+import json
+import os
+import re
+import sys
+
+from rugo import jsonl
+
+
+def problems(path, schema, required):
+    """Return (list of problems, number of records) for one file."""
+    # 1. Every line is valid JSON, and every value fits its declared type.
+    #    rugo's error names the line (malformed JSON) or the column and value.
+    try:
+        rows = 0
+        with jsonl.read_jsonl(path, explicit_schema=schema) as reader:
+            for morsel in reader:
+                rows += len(morsel)
+    except Exception as exc:
+        return [str(exc)], 0
+
+    if rows == 0:
+        return ["file has no records"], 0
+
+    # 2. Required fields are present. An absent key counts as null.
+    found = []
+    for name in required:
+        with jsonl.read_jsonl(
+            path,
+            columns=[name],
+            predicates=[(name, "is null", None)],
+            explicit_schema=schema,
+        ) as reader:
+            missing = sum(len(m) for m in reader)
+        if missing:
+            found.append(f"{name}: missing or null in {missing} of {rows} records")
+    return found, rows
+
+
+def annotate(path, message):
+    """Print a GitHub Actions error annotation, pinned to a line when known."""
+    line = re.search(r"at line (\d+)", message)
+    where = f"file={path}" + (f",line={line.group(1)}" if line else "")
+    escaped = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    print(f"::error {where}::{escaped}")
+
+
+def main(argv):
+    if len(argv) &lt; 3:
+        print(__doc__)
+        return 2
+    with open(argv[1]) as handle:
+        contract = json.load(handle)
+    schema, required = contract["schema"], contract.get("required", [])
+
+    failed = 0
+    for path in argv[2:]:
+        found, rows = problems(path, schema, required)
+        if not found:
+            print(f"ok    {path}  ({rows} records)")
+            continue
+        failed += 1
+        for message in found:
+            print(f"FAIL  {path}: {message}")
+            if os.environ.get("GITHUB_ACTIONS"):
+                annotate(path, message)
+    print(f"\n{len(argv) - 2 - failed} passed, {failed} failed")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))</code></pre>
+
+                <p>
+                    The first read does the heavy lifting.
+                    <code>explicit_schema</code> tells rugo the exact type of
+                    each column, and it then parses strictly: no guessing, no
+                    widening, and a clear error the moment a value does not
+                    fit. The second read reuses a predicate,
+                    <code>("user", "is null", None)</code>, and counts what
+                    comes back.
+                </p>
+
+                <h2>Break it on purpose</h2>
+
+                <p>
+                    Make four bad files, one for each failure, then run the
+                    checker over everything:
+                </p>
+
+                <pre><code class="language-bash"># a line cut off mid-record
+{ sed -n 1,2p data/events.jsonl
+  echo '{"event_id": 3, "user": "ada", "acti'
+  sed -n 4,5p data/events.jsonl; } &gt; data/truncated.jsonl
+
+# a duration that became text
+sed '3s/910.2/"slow"/' data/events.jsonl &gt; data/types.jsonl
+
+# a record that lost its user
+sed '2s/"user": "grace", //' data/events.jsonl &gt; data/missing.jsonl
+
+# nothing at all
+: &gt; data/empty.jsonl
+
+python tools/check_jsonl.py contract.json data/*.jsonl
+echo "exit code: $?"</code></pre>
+
+                <pre><code class="language-output">FAIL  data/empty.jsonl: file has no records
+ok    data/events.jsonl  (5 records)
+FAIL  data/missing.jsonl: user: missing or null in 1 of 5 records
+FAIL  data/truncated.jsonl: Malformed JSONL at line 3 (byte offset 205): '{"event_id": 3, "user": "ada", "acti'
+FAIL  data/types.jsonl: explicit_schema: column 'duration_ms' row 2 value 'slow' is not a valid FLOAT64 (declared type mismatch)
+
+1 passed, 4 failed
+exit code: 1</code></pre>
+
+                <p>
+                    The script exits <code>1</code>, which is all a CI job
+                    needs to go red. Note that <code>row</code> in the type
+                    error counts records from zero, so
+                    <code>row 2</code> is the third record. For the malformed
+                    line, rugo reports the true line number.
+                </p>
+
+                <h2>Wire it into GitHub Actions</h2>
+
+                <p>
+                    Save this as <code>.github/workflows/validate-data.yml</code>.
+                    It runs on pull requests that touch a <code>.jsonl</code>
+                    file or the checker itself, installs rugo (one wheel, no
+                    other dependencies) and feeds every tracked JSONL file to
+                    the script:
+                </p>
+
+                <pre><code data-save=".github/workflows/validate-data.yml">name: validate-data
+
+on:
+  pull_request:
+    paths:
+      - "**.jsonl"
+      - "contract.json"
+      - "tools/check_jsonl.py"
+
+jobs:
+  jsonl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install rugo
+      - name: Validate every tracked .jsonl file
+        run: git ls-files -z '*.jsonl' | xargs -r -0 python tools/check_jsonl.py contract.json</code></pre>
+
+                <p>
+                    <code>git ls-files</code> means only committed files are
+                    checked, so scratch files never fail a build, and
+                    <code>-z</code> with <code>xargs -0</code> keeps
+                    filenames with spaces intact. Because the script runs on
+                    the runner with <code>GITHUB_ACTIONS</code> set, every
+                    failure is also printed as a workflow annotation.
+                    GitHub shows these as red markers on the pull request, and
+                    for a malformed line the marker is pinned to that line
+                    when it is part of the diff. GitHub sets
+                    <code>GITHUB_ACTIONS</code> for you; set it by hand to see
+                    exactly what the runner sees:
+                </p>
+
+                <pre><code class="language-bash">GITHUB_ACTIONS=true python tools/check_jsonl.py contract.json data/truncated.jsonl data/types.jsonl
+echo "exit code: $?"</code></pre>
+
+                <pre><code class="language-output">FAIL  data/truncated.jsonl: Malformed JSONL at line 3 (byte offset 205): '{"event_id": 3, "user": "ada", "acti'
+::error file=data/truncated.jsonl,line=3::Malformed JSONL at line 3 (byte offset 205): '{"event_id": 3, "user": "ada", "acti'
+FAIL  data/types.jsonl: explicit_schema: column 'duration_ms' row 2 value 'slow' is not a valid FLOAT64 (declared type mismatch)
+::error file=data/types.jsonl::explicit_schema: column 'duration_ms' row 2 value 'slow' is not a valid FLOAT64 (declared type mismatch)
+
+0 passed, 2 failed
+exit code: 1</code></pre>
+
+                <h2>Adapt it to your data</h2>
+
+                <ul>
+                    <li>
+                        <strong>Your contract.</strong> Replace the schema and
+                        <code>required</code> list. Type names include
+                        <code>INT64</code>, <code>FLOAT64</code>,
+                        <code>BOOL</code>, <code>VARCHAR</code>,
+                        <code>DATE</code> and
+                        <code>TIMESTAMP[us]</code>.
+                    </li>
+                    <li>
+                        <strong>Several shapes of file.</strong> Keep one
+                        contract per folder and run the script once per
+                        folder, passing each contract in turn.
+                    </li>
+                    <li>
+                        <strong>Value rules.</strong> Any predicate works as a
+                        check. Count rows where
+                        <code>("duration_ms", "&lt;", 0)</code> and fail when
+                        the count is not zero.
+                    </li>
+                    <li>
+                        <strong>Run it before you push.</strong> The script
+                        has no CI dependency, so
+                        <code>python tools/check_jsonl.py contract.json data/*.jsonl</code>
+                        runs the same check locally, or from a pre-commit hook.
+                    </li>
+                </ul>
+
+                <p>
+                    Everything here is one file of Python and one
+                    <code>pip install rugo</code>, so the job starts quickly
+                    and has nothing to cache or pin. When you also publish the
+                    data as Parquet, the same idea carries over; see
+                    <a href="validate-parquet-in-s3-with-lambda.html"
+                        >Validate Parquet files the moment they land in S3</a
+                    >.
+                </p>
+            </div>
+        </article>
+
+        <footer>
+            <div class="container">
+                <span
+                    >rugo is part of the
+                    <a href="https://opteryx.app/">Opteryx</a> project — Apache
+                    2.0</span
+                >
+                <span>
+                    <a href="https://github.com/mabel-dev/opteryx-core"
+                        >GitHub</a
+                    >
+                    ·
+                    <a href="https://pypi.org/project/rugo/">PyPI</a>
+                </span>
+            </div>
+        </footer>
+    </body>
+</html>
