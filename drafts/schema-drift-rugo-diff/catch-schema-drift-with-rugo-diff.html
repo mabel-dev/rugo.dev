@@ -127,6 +127,20 @@ exit code: 1</code></pre>
                 <pre><code class="language-output">schemas are identical
 exit code: 0</code></pre>
 
+                <h2>It reads footers, not data</h2>
+
+                <p>
+                    A schema diff and a data diff are different questions. A
+                    data diff tells you that rows changed, which they do every
+                    night. A schema diff tells you the shape of the table
+                    changed, which almost never happens on purpose. For Parquet
+                    that answer lives in the file footer, and rugo reads only
+                    the footer. Comparing a 945 MB, 100-column Parquet file
+                    with itself finishes in under a tenth of a second on a
+                    laptop, so the check costs nothing whether the files hold
+                    three rows or three billion.
+                </p>
+
                 <h2>Machine-readable, with --json</h2>
 
                 <p>
@@ -270,8 +284,8 @@ jobs:
                 <ul>
                     <li>
                         <strong>Compare like with like.</strong> Every format
-                        has its own vocabulary for types: Parquet says
-                        <code>float64</code>, Avro says <code>double</code>.
+                        has its own vocabulary for types: Parquet reports
+                        <code>float64</code>, Avro reports <code>FLOAT64</code>.
                         <code>rugo diff</code> compares what each file reports,
                         so the cleanest signal comes from Parquet against
                         Parquet, or Avro against Avro. Converting the new file

@@ -56,6 +56,16 @@
                     points at the broken line.
                 </p>
 
+                <p>
+                    The usual defence is hoping that someone opens the file.
+                    Nobody does: a fixture with 5,000 lines is not reviewed
+                    line by line, and the diff view of a data file is a wall of
+                    JSON. A check that runs on every pull request costs
+                    seconds, needs no service to host and no schema registry
+                    to run, and turns "someone should look at that" into a red
+                    mark on the exact change that caused it.
+                </p>
+
                 <h2>What the check catches</h2>
 
                 <p>
@@ -328,6 +338,15 @@ FAIL  data/types.jsonl: explicit_schema: column 'duration_ms' row 2 value 'slow'
 
 0 passed, 2 failed
 exit code: 1</code></pre>
+
+                <p>
+                    The contract is just a file in the repository, so it is
+                    reviewed like code. When a producer legitimately adds or
+                    retypes a field, the change shows up as a diff to
+                    <code>contract.json</code> in the same pull request as the
+                    data, and the people who care about the shape of the data
+                    see it before it merges.
+                </p>
 
                 <h2>Adapt it to your data</h2>
 
