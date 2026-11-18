@@ -11,6 +11,8 @@ __pycache__/
 build/
 develop-eggs/
 dist/
+# The viewer's WebAssembly engine is published here (see opteryx-core release-rugo-wasm).
+!docs/wasm/dist/
 downloads/
 eggs/
 .eggs/
