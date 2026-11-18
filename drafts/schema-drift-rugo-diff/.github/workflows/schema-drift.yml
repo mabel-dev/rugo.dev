@@ -1,0 +1,29 @@
+name: schema-drift
+
+on:
+  pull_request:
+    paths:
+      - "data/**.parquet"
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install rugo
+      - name: Compare each changed Parquet file with its base version
+        env:
+          BASE: origin/${{ github.base_ref }}
+        run: |
+          failed=0
+          while IFS= read -r -d '' file; do
+            echo "== $file"
+            git show "$BASE:$file" > /tmp/base.parquet
+            tools/check_drift.sh /tmp/base.parquet "$file" || failed=1
+          done < <(git diff -z --name-only --diff-filter=M "$BASE"...HEAD -- 'data/*.parquet')
+          exit "$failed"

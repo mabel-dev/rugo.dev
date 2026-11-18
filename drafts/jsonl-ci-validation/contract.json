@@ -1,0 +1,10 @@
+{
+  "schema": {
+    "event_id": "INT64",
+    "user": "VARCHAR",
+    "action": "VARCHAR",
+    "duration_ms": "FLOAT64",
+    "ts": "TIMESTAMP[us]"
+  },
+  "required": ["event_id", "user", "action"]
+}

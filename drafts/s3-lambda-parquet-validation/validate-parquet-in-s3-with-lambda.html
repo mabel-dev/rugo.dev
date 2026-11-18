@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Validate Parquet files the moment they land in S3</title>
+        <meta
+            name="description"
+            content="A 100-line AWS Lambda that checks every Parquet file as it arrives in S3: is it really Parquet, does the schema match, does every row decode. Good files are promoted, bad ones quarantined with a report. Tested code, a 15 MB package."
+        />
+        <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+        <link rel="stylesheet" href="../blog.css" />
+    </head>
+    <body>
+        <nav>
+            <a class="nav-logo" href="../index.html">ru<span>go</span></a>
+            <div class="nav-links">
+                <a href="../index.html">Home</a>
+                <a href="index.html">Blog</a>
+                <a href="https://github.com/mabel-dev/opteryx-core/tree/main/rugo"
+                    >Docs</a
+                >
+            </div>
+        </nav>
+
+        <article>
+            <div class="container">
+                <header class="post-header">
+                    <h1>Validate Parquet files the moment they land in S3</h1>
+                    <p class="post-meta">
+                        Justin Joyce <span class="sep">·</span> 18 November 2026
+                        <span class="sep">·</span> 8 min read
+                    </p>
+                    <div class="post-tags">
+                        <span>aws lambda</span>
+                        <span>s3</span>
+                        <span>parquet</span>
+                        <span>data quality</span>
+                        <span>how-to</span>
+                    </div>
+                    <p class="post-notice">
+                        Correct at time of publishing, tested with rugo 0.5.12.
+                        For up-to-date performance and feature information, see
+                        <a href="../">rugo.dev</a>.
+                    </p>
+                </header>
+
+                <p class="lede">
+                    A broken Parquet file is cheapest to catch in the second it
+                    arrives, before a dashboard, a dbt model or a nightly job
+                    trips over it. This post builds a small AWS Lambda that
+                    checks every <code>.parquet</code> object as it lands in
+                    S3, <strong>promotes the good ones</strong>, and
+                    <strong>quarantines the bad ones</strong> with a report
+                    that says exactly what was wrong. The whole deployment
+                    package is about <strong>15 MB</strong>.
+                </p>
+
+                <h2>The shape of it</h2>
+
+                <p>
+                    Producers write to <code>incoming/</code>. S3 invokes the
+                    function for each new object. The function either moves
+                    the file to <code>validated/</code>, where downstream jobs
+                    read from, or to <code>quarantine/</code> next to a JSON
+                    report.
+                </p>
+
+                <pre><code>producer ──▶ incoming/x.parquet ──▶ Lambda ──┬──▶ validated/x.parquet
+                                                 └──▶ quarantine/x.parquet
+                                                      quarantine/x.parquet.report.json</code></pre>
+
+                <p>
+                    Because the trigger only watches <code>incoming/</code>,
+                    the moves and the report never invoke the function again.
+                    Consumers only ever see files that passed.
+                </p>
+
+                <h2>What "valid" means</h2>
+
+                <p>
+                    Four checks, cheapest first. Each one stops at the first
+                    family of problems it finds, so the report stays readable.
+                </p>
+
+                <ol>
+                    <li>
+                        <strong>It is Parquet.</strong> The footer parses.
+                        Truncated uploads, zero-byte objects and CSVs renamed
+                        to <code>.parquet</code> all fail here.
+                    </li>
+                    <li>
+                        <strong>The schema matches your contract.</strong>
+                        Every expected column is present with the expected
+                        type, and nothing unexpected has appeared.
+                    </li>
+                    <li>
+                        <strong>Every row group decodes</strong>, and the
+                        number of rows decoded equals the number the footer
+                        promised. Damaged data blocks are caught, and the
+                        error names the row group and column.
+                    </li>
+                    <li>
+                        <strong>Required columns are never null.</strong>
+                    </li>
+                </ol>
+
+                <h2>Try it on your laptop first</h2>
+
+                <p>
+                    The whole thing is plain Python, so build and test it
+                    locally before touching AWS. Install rugo and grab the
+                    sample file used throughout the rugo docs, 4,630 rocket
+                    launches:
+                </p>
+
+                <pre><code class="language-bash">pip install rugo</code></pre>
+
+                <p>Then fetch the files and take a look:</p>
+
+                <pre><code class="language-bash">curl -sO https://rugo.dev/data/space_missions.parquet
+curl -sO https://rugo.dev/data/space_missions.csv
+
+rugo info space_missions.parquet</code></pre>
+
+                <pre><code class="language-output">path        : space_missions.parquet
+format      : parquet
+size_bytes  : 93169
+num_rows    : 4630
+num_columns : 8</code></pre>
+
+                <p>
+                    Now make three bad files, each one a realistic way for a
+                    file to go wrong. A cut-off upload, a file that was never
+                    Parquet, and an exporter that started writing the launch
+                    timestamp as text:
+                </p>
+
+                <pre><code class="language-bash">head -c 50000 space_missions.parquet &gt; truncated.parquet
+echo "not parquet" &gt; notes.parquet
+rugo convert space_missions.csv drift.parquet</code></pre>
+
+                <p>
+                    That last one is the sneaky kind. It is a perfectly valid
+                    Parquet file with the wrong schema, and
+                    <code>rugo diff</code> shows it instantly. Its exit code is
+                    <code>1</code> when the schemas differ:
+                </p>
+
+                <pre><code class="language-bash">rugo diff space_missions.parquet drift.parquet; echo "exit code: $?"</code></pre>
+
+                <pre><code class="language-output">~ changed:
+name        left_type      right_type  left_nullable  right_nullable
+----------  -------------  ----------  -------------  --------------
+Lauched_at  timestamp[us]  varchar     True           True
+exit code: 1</code></pre>
+
+                <h2>The validator</h2>
+
+                <p>
+                    The checking logic lives in one function,
+                    <code>validate()</code>, that takes a path (or the bytes of
+                    the file) and returns a list of problems. An empty list
+                    means pass. No AWS in sight, which is what makes it easy
+                    to test.
+                </p>
+
+                <pre><code data-save="lambda_function.py">import json
+import os
+import urllib.parse
+
+import boto3
+from rugo import parquet
+
+s3 = boto3.client("s3")
+
+# The contract: column name -&gt; the logical type rugo reports for it.
+CONTRACT = {
+    "Company": "varchar",
+    "Location": "varchar",
+    "Price": "float64",
+    "Lauched_at": "timestamp[us]",
+    "Rocket": "varchar",
+    "Rocket_Status": "varchar",
+    "Mission": "varchar",
+    "Mission_Status": "varchar",
+}
+NOT_NULL = ["Company", "Mission", "Mission_Status"]
+
+
+def validate(source):
+    """Return a list of problems. An empty list means the file passed.
+
+    `source` is a path or the bytes of the whole file.
+    """
+    # 1. Is it Parquet at all? The footer must parse.
+    try:
+        meta = parquet.read_metadata(source)
+    except Exception as exc:
+        return [f"not a readable Parquet file: {exc}"]
+
+    problems = []
+    if meta.num_rows == 0:
+        problems.append("file has no rows")
+
+    # 2. Does the schema match the contract?
+    actual = {c.name: c.logical_type for c in meta.schema_columns}
+    for name in CONTRACT.keys() - actual.keys():
+        problems.append(f"missing column: {name}")
+    for name in actual.keys() - CONTRACT.keys():
+        problems.append(f"unexpected column: {name}")
+    for name in CONTRACT.keys() &amp; actual.keys():
+        if actual[name] != CONTRACT[name]:
+            problems.append(f"{name}: expected {CONTRACT[name]}, found {actual[name]}")
+    if problems:
+        return problems
+
+    # 3. Does every row group decode, and do the row counts agree with the footer?
+    try:
+        decoded = 0
+        with parquet.read_parquet(source) as reader:
+            for morsel in reader:
+                decoded += len(morsel)
+        if decoded != meta.num_rows:
+            problems.append(f"footer says {meta.num_rows} rows, decoded {decoded}")
+
+        # 4. Are the columns that must never be null actually non-null?
+        for name in NOT_NULL:
+            with parquet.read_parquet(
+                source, columns=[name], predicates=[(name, "is null", None)]
+            ) as reader:
+                nulls = sum(len(m) for m in reader)
+            if nulls:
+                problems.append(f"{name}: {nulls} null values")
+    except Exception as exc:
+        problems.append(f"decode failed: {exc}")
+    return problems</code></pre>
+
+                <p>
+                    Two things worth noticing. The schema check reads only the
+                    footer, so a file with the wrong shape is rejected without
+                    decoding a single byte of data. And check 4 reuses
+                    rugo's predicate filtering: asking for rows where a column
+                    <code>is null</code> and counting what comes back is the
+                    whole null check, with no loop over values.
+                </p>
+
+                <p>Run it over the files you just made:</p>
+
+                <pre><code class="language-bash">python3 - &lt;&lt;'EOF'
+import lambda_function as lf
+
+for f in ["space_missions", "truncated", "notes", "drift"]:
+    print(f"{f}.parquet -&gt;", lf.validate(f"{f}.parquet") or "passed")
+EOF</code></pre>
+
+                <pre><code class="language-output">space_missions.parquet -&gt; passed
+truncated.parquet -&gt; ['not a readable Parquet file: Not a parquet file']
+notes.parquet -&gt; ['not a readable Parquet file: Not a parquet file']
+drift.parquet -&gt; ['Lauched_at: expected timestamp[us], found varchar']</code></pre>
+
+                <h2>The Lambda handler</h2>
+
+                <p>
+                    The handler is the thin AWS layer around
+                    <code>validate()</code>. rugo reads a path or a bytes
+                    buffer rather than an <code>s3://</code> URL, so the
+                    handler downloads each object to <code>/tmp</code> with
+                    boto3, which the Lambda runtime already includes, and
+                    hands rugo the path.
+                </p>
+
+                <pre><code data-append="lambda_function.py">def _tag(bucket, key, result):
+    s3.put_object_tagging(
+        Bucket=bucket,
+        Key=key,
+        Tagging={"TagSet": [{"Key": "validation", "Value": result}]},
+    )
+
+
+def _move(bucket, key, dest):
+    s3.copy_object(
+        Bucket=bucket, Key=dest, CopySource={"Bucket": bucket, "Key": key}
+    )
+    s3.delete_object(Bucket=bucket, Key=key)
+
+
+def handler(event, context):
+    results = []
+    for record in event["Records"]:
+        bucket = record["s3"]["bucket"]["name"]
+        # S3 URL-encodes keys in event notifications ("a b" arrives as "a+b").
+        key = urllib.parse.unquote_plus(record["s3"]["object"]["key"])
+        name = key.split("/", 1)[1] if "/" in key else key
+        local = "/tmp/" + os.path.basename(key)
+
+        s3.download_file(bucket, key, local)
+        try:
+            problems = validate(local)
+        finally:
+            os.remove(local)  # /tmp persists on warm starts; don't fill it
+
+        if problems:
+            report = json.dumps({"key": key, "problems": problems}, indent=2)
+            s3.put_object(
+                Bucket=bucket,
+                Key=f"quarantine/{name}.report.json",
+                Body=report.encode(),
+            )
+            _tag(bucket, key, "failed")
+            _move(bucket, key, f"quarantine/{name}")
+        else:
+            _tag(bucket, key, "passed")
+            _move(bucket, key, f"validated/{name}")
+        results.append({"key": key, "passed": not problems, "problems": problems})
+    return results</code></pre>
+
+                <p>
+                    Put <code>validate()</code>, its constants and this handler
+                    in one file called <code>lambda_function.py</code>. The
+                    complete file is
+                    <a href="code/s3-lambda-parquet-validation/lambda_function.py"
+                        >lambda_function.py</a
+                    >, and the tests below are
+                    <a href="code/s3-lambda-parquet-validation/test_handler.py"
+                        >test_handler.py</a
+                    >. A few details that matter in
+                    production: keys are decoded with
+                    <code>unquote_plus</code> because S3 encodes spaces as
+                    <code>+</code>; the temp file is removed in a
+                    <code>finally</code> so a warm container never fills its
+                    <code>/tmp</code>; and the object is tagged
+                    <code>validation=passed</code> or
+                    <code>validation=failed</code> before it moves, so the
+                    verdict travels with the file.
+                </p>
+
+                <h2>Test it without an AWS account</h2>
+
+                <p>
+                    <a href="https://github.com/getmoto/moto">moto</a> mocks S3
+                    in-process, so the real handler runs against a fake bucket.
+                    The test file covers a good file, a key with a space in
+                    it, a truncated upload, a CSV in disguise, an empty
+                    object, schema drift, a damaged data block and nulls in a
+                    required column:
+                </p>
+
+                <pre><code class="language-bash">pip install boto3 'moto[s3]' pytest</code></pre>
+
+                <pre><code class="language-bash">pytest -q test_handler.py</code></pre>
+
+                <pre><code class="language-output">........                                                                 [100%]
+8 passed in 0.85s</code></pre>
+
+                <h2>Deploy it</h2>
+
+                <p>
+                    Build the package with Linux platform tags so the compiled
+                    wheel matches the Lambda runtime, wherever you build it.
+                    Lambda's <code>python3.12</code> runtime is Amazon Linux
+                    2023, so <code>manylinux_2_34</code> wheels apply:
+                </p>
+
+                <pre><code>pip install rugo \
+  --target ./package \
+  --platform manylinux_2_34_x86_64 \
+  --python-version 3.12 \
+  --only-binary=:all: \
+  --implementation cp
+
+cp lambda_function.py package/
+(cd package &amp;&amp; zip -qr9 ../function.zip .)
+ls -lh function.zip</code></pre>
+
+                <p>
+                    That is a 5.8 MB zip, about 15 MB unpacked: roughly 6% of
+                    Lambda's 250 MB limit and small enough for a direct
+                    upload, so there is no S3 staging step and no layer. boto3
+                    comes with the runtime.
+                </p>
+
+                <p>
+                    Create the execution role. The function needs to read,
+                    tag, write and delete objects in the bucket, plus the
+                    standard logging policy:
+                </p>
+
+                <pre><code>BUCKET=your-lake-bucket
+ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+REGION=$(aws configure get region)
+
+aws iam create-role --role-name parquet-validator \
+  --assume-role-policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [{"Effect": "Allow",
+      "Principal": {"Service": "lambda.amazonaws.com"},
+      "Action": "sts:AssumeRole"}]}'
+
+aws iam attach-role-policy --role-name parquet-validator \
+  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+aws iam put-role-policy --role-name parquet-validator \
+  --policy-name lake-access --policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [{"Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:GetObjectTagging", "s3:PutObject",
+                 "s3:PutObjectTagging", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::'$BUCKET'/*"}]}'</code></pre>
+
+                <p>
+                    Create the function and let S3 invoke it. IAM is
+                    eventually consistent, so if <code>create-function</code>
+                    complains that the role cannot be assumed, wait ten
+                    seconds and run it again:
+                </p>
+
+                <pre><code>aws lambda create-function \
+  --function-name parquet-validator \
+  --runtime python3.12 \
+  --role arn:aws:iam::$ACCOUNT:role/parquet-validator \
+  --handler lambda_function.handler \
+  --zip-file fileb://function.zip \
+  --timeout 60 --memory-size 512
+
+aws lambda add-permission \
+  --function-name parquet-validator \
+  --statement-id s3-invoke \
+  --action lambda:InvokeFunction \
+  --principal s3.amazonaws.com \
+  --source-arn arn:aws:s3:::$BUCKET \
+  --source-account $ACCOUNT</code></pre>
+
+                <p>
+                    Then point the bucket's notifications at the function,
+                    watching only <code>incoming/</code> and only
+                    <code>.parquet</code> keys:
+                </p>
+
+                <pre><code>aws s3api put-bucket-notification-configuration \
+  --bucket $BUCKET \
+  --notification-configuration '{
+    "LambdaFunctionConfigurations": [{
+      "LambdaFunctionArn": "arn:aws:lambda:'$REGION':'$ACCOUNT':function:parquet-validator",
+      "Events": ["s3:ObjectCreated:*"],
+      "Filter": {"Key": {"FilterRules": [
+        {"Name": "prefix", "Value": "incoming/"},
+        {"Name": "suffix", "Value": ".parquet"}]}}}]}'</code></pre>
+
+                <p>
+                    The function and the bucket must be in the same region. The prefix
+                    filter is what keeps the function from triggering itself:
+                    nothing it writes lands under <code>incoming/</code>.
+                </p>
+
+                <h2>Watch it work</h2>
+
+                <p>
+                    Upload a good file and a bad one with the AWS CLI, then
+                    look at where they ended up:
+                </p>
+
+                <pre><code>aws s3 cp space_missions.parquet s3://$BUCKET/incoming/
+aws s3 cp drift.parquet      s3://$BUCKET/incoming/
+
+aws s3 ls s3://$BUCKET/validated/
+aws s3 ls s3://$BUCKET/quarantine/
+aws s3 cp s3://$BUCKET/quarantine/drift.parquet.report.json -</code></pre>
+
+                <p>
+                    <code>space_missions.parquet</code> appears under
+                    <code>validated/</code>. <code>drift.parquet</code> lands
+                    in <code>quarantine/</code>, and its report reads:
+                </p>
+
+                <pre><code>{
+  "key": "incoming/drift.parquet",
+  "problems": [
+    "Lauched_at: expected timestamp[us], found varchar"
+  ]
+}</code></pre>
+
+                <p>
+                    Run <code>aws logs tail /aws/lambda/parquet-validator
+                    --follow</code> in another terminal to see each
+                    invocation as it happens.
+                </p>
+
+                <h2>Make it yours</h2>
+
+                <ul>
+                    <li>
+                        <strong>Your contract.</strong> Edit
+                        <code>CONTRACT</code> and <code>NOT_NULL</code>.
+                        Run <code>rugo schema your-file.parquet</code> to see
+                        the exact type names rugo reports, and paste them in.
+                    </li>
+                    <li>
+                        <strong>Looser schemas.</strong> To tolerate new
+                        columns, delete the "unexpected column" loop. Adding a
+                        column then passes, while removing or retyping one
+                        still fails.
+                    </li>
+                    <li>
+                        <strong>More rules.</strong> Anything you can say as
+                        a rugo predicate is a one-line check: count rows where
+                        <code>("price", "&lt;", 0)</code> and fail if the
+                        count is not zero.
+                    </li>
+                    <li>
+                        <strong>Alerts.</strong> Publish to SNS from the
+                        failed branch, or alarm on the quarantine prefix
+                        with an S3 event of its own.
+                    </li>
+                    <li>
+                        <strong>Bit-level integrity.</strong> Upload with an
+                        S3 checksum (<code>--checksum-algorithm SHA256</code>
+                        on <code>aws s3 cp</code>) and S3 guarantees the bytes
+                        you stored are the bytes that were sent. rugo's checks
+                        then cover everything the checksum can't: that the
+                        bytes are a well-formed file with the right shape.
+                    </li>
+                </ul>
+
+                <h2>Why this stays cheap</h2>
+
+                <p>
+                    The function reads a footer, then streams row groups
+                    through the decoder and counts. There is no DataFrame, no
+                    pandas and no PyArrow, so a small memory setting goes a
+                    long way: start at 512 MB and raise it for your largest
+                    expected file. A 15 MB package also keeps cold starts
+                    short. For measured numbers see
+                    <a href="parquet-in-aws-lambda-without-pyarrow.html"
+                        >Reading Parquet in AWS Lambda without PyArrow</a
+                    >
+                    and
+                    <a href="lambda-cost-break-even.html"
+                        >When rugo makes your Lambda cheaper</a
+                    >.
+                </p>
+
+                <p>
+                    That is the whole pipeline: one file of Python, one small
+                    package, and a bucket that only ever hands good Parquet to
+                    the people downstream.
+                </p>
+            </div>
+        </article>
+
+        <footer>
+            <div class="container">
+                <span
+                    >rugo is part of the
+                    <a href="https://opteryx.app/">Opteryx</a> project — Apache
+                    2.0</span
+                >
+                <span>
+                    <a href="https://github.com/mabel-dev/opteryx-core"
+                        >GitHub</a
+                    >
+                    ·
+                    <a href="https://pypi.org/project/rugo/">PyPI</a>
+                </span>
+            </div>
+        </footer>
+    </body>
+</html>
