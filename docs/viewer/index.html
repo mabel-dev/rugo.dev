@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Parquet viewer — Rugo</title>
+    <title>Parquet, Avro and ORC viewer — Rugo</title>
     <meta
       name="description"
-      content="Open a Parquet file in your browser and inspect its info, schema, columns and health. Your file never leaves your machine: nothing is uploaded."
+      content="Open a Parquet, Avro or ORC file in your browser and inspect its info, schema, columns and health. Your file never leaves your machine: nothing is uploaded."
     />
     <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
     <link rel="stylesheet" href="viewer.css" />
@@ -45,21 +45,21 @@
       </div>
     </nav>
     <main class="wrap">
-      <h1>Parquet viewer</h1>
+      <h1>Parquet, Avro and ORC viewer</h1>
       <p class="lead">
-        Open a Parquet file and see its info, schema, column statistics and health, with no install and no account.
+        Open a Parquet, Avro or ORC file and see its info, schema, column statistics and health, with no install and no account.
       </p>
       <p class="private">
         <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" style="color: var(--green)"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>
-        <span><strong>Your file never leaves your machine.</strong> Rugo runs in your browser as WebAssembly and reads the file straight from your disk. Nothing is uploaded, and there is no server doing the work.</span>
+        <span><strong>Your file never leaves your machine.</strong> Everything runs in your browser and reads the file straight from your disk. Nothing is uploaded, and there is no server doing the work.</span>
       </p>
 
       <div id="viewer"></div>
       <noscript>The viewer needs JavaScript and WebAssembly. Both are on by default in current Chrome, Firefox and Safari.</noscript>
 
       <section class="how" aria-label="How it works">
-        <div><h2>Reads the footer, not the file</h2><p>A Parquet file describes itself in a small footer at its end. The viewer fetches just that, so even a file over a gigabyte opens in a fraction of a second and never loads it into memory.</p></div>
-        <div><h2>Same checks as the CLI</h2><p>Info, schema, describe and validate mirror the <code>rugo</code> command-line verbs, running on the same Parquet code compiled to WebAssembly.</p></div>
+        <div><h2>Reads the metadata, not the file</h2><p>Parquet and ORC describe themselves in a small footer at the end of the file, and Avro in a header at the start. The viewer reads just that, so even a file over a gigabyte opens in a fraction of a second and is never loaded into memory.</p></div>
+        <div><h2>Avro and ORC, too</h2><p>Formats that usually mean installing a tool to inspect. See an Avro schema and records, or an ORC file's stripes and column min/max, with a drop. Parquet runs on rugo's own code compiled to WebAssembly.</p></div>
         <div><h2>Remote files too</h2><p>Paste a URL and the viewer reads it with HTTP range requests, still pulling only the bytes it needs. The server must allow CORS.</p></div>
       </section>
     </main>

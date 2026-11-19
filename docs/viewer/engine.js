@@ -1,30 +1,25 @@
-// Engine adapter: the only module that talks to Rugo's WebAssembly build.
+// Engine adapter: the only module that talks to Rugo's WebAssembly build, which
+// the viewer uses for Parquet (Avro and ORC are read in plain JavaScript).
 //
-// The WASM build (rugo.dev/wasm) exposes blobSource / httpSource / readFooter.
-// This adapter wraps it so the rest of the viewer sees one stable contract and
+// The WASM build (rugo.dev/wasm) exposes readFooter and loadRugo. This adapter
+// wraps it so the rest of the viewer sees one stable contract and
 // machine-readable errors, whatever the underlying build can do today:
 //
 //   engine = {
 //     capabilities: { footer: true, preview: bool, minMax: bool },
-//     openFile(File)  -> source          // File.slice(): only requested bytes are read
-//     openUrl(string) -> Promise<source> // HTTP Range requests
 //     readFooter(source) -> Promise<footer>
-//     readRowGroup?(source, footer, index, { columns, limit })   // optional, see below
+//     readRowGroup?(source, footer, index, { limit })    // optional
 //   }
 //
-//   readRowGroup resolves { columns: string[], rows: any[][], totalRows: number }.
-//   It must read only that row group's column chunks through source.read().
+//   `source` is { size, read(offset, length) -> Promise<Uint8Array>, prefetched? }
+//   (see sources.js). readRowGroup resolves { columns: string[], rows: any[][],
+//   totalRows: number } and must read only that row group's column chunks through
+//   source.read().
 //
 // Nothing here reads a whole file, and nothing here sends file bytes anywhere.
 
-export class ViewerError extends Error {
-  constructor(code, message, detail) {
-    super(message);
-    this.name = "ViewerError";
-    this.code = code;
-    this.detail = detail;
-  }
-}
+import { ViewerError } from "./errors.js";
+export { ViewerError };
 
 const MAGIC = [0x50, 0x41, 0x52, 0x31]; // "PAR1"
 const isMagic = (u8) => u8.length >= 4 && MAGIC.every((b, i) => u8[i] === b);
@@ -49,15 +44,16 @@ export async function classifyError(err, source) {
       }
     } catch (_) { /* fall through */ }
     return new ViewerError(
-      "NOT_PARQUET",
+      "UNKNOWN_FORMAT",
       "This isn't a Parquet file. Parquet files begin and end with the bytes PAR1, and this one doesn't.",
       msg,
+      "parquet",
     );
   }
   if (/file too small/i.test(msg)) {
     return source && source.size === 0
       ? new ViewerError("EMPTY", "This file is empty.", msg)
-      : new ViewerError("NOT_PARQUET", "This file is too small to be a Parquet file.", msg);
+      : new ViewerError("UNKNOWN_FORMAT", "This file is too small to be a Parquet file.", msg, "parquet");
   }
   if (/footer length invalid/i.test(msg)) {
     return new ViewerError(
@@ -120,14 +116,6 @@ export async function loadEngine({ wasmBase } = {}) {
       footer: true,
       preview: typeof mod.readRowGroup === "function",
       minMax: false, // set true once the build returns min/max values per column chunk
-    },
-    openFile: (file) => mod.blobSource(file),
-    openUrl: async (url) => {
-      try {
-        return await mod.httpSource(url);
-      } catch (err) {
-        throw await classifyError(err, null);
-      }
     },
     readFooter: async (source) => {
       try {

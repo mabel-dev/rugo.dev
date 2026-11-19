@@ -133,3 +133,12 @@
   .rv-dl dd { margin-bottom: .6rem; }
   .rv-urlrow { flex-direction: column; }
 }
+
+.rv-badge { display: inline-block; margin: 0 .4rem; padding: 0 .5rem; font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--rv-accent); border: 1px solid color-mix(in srgb, var(--rv-accent) 45%, var(--rv-border)); border-radius: 999px; vertical-align: .1em; }
+.rv-kind-union { color: var(--rv-amber); }
+.rv-scan { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: 0 0 1rem; }
+.rv-scan progress { width: 14rem; max-width: 100%; accent-color: var(--rv-accent); }
+.rv-note .rv-btn { margin-top: .6rem; }
+.rv-check-pending .rv-check-icon { color: var(--rv-muted); }
+.rv-verdict-partial { border-color: color-mix(in srgb, var(--rv-accent) 45%, var(--rv-border)); }
+.rv-verdict-partial .rv-verdict-label { color: var(--rv-accent); }

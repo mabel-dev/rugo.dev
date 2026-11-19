@@ -104,9 +104,10 @@ test("validate copes with a file with no row groups", () => {
 });
 
 test("validateFailure marks the failing stage", () => {
-  assert.equal(validateFailure({ code: "NOT_PARQUET", message: "x" }).checks[0].status, "fail");
-  const c = validateFailure({ code: "CORRUPT", message: "x" });
+  assert.equal(validateFailure({ code: "UNKNOWN_FORMAT", message: "x" }).checks[0].status, "fail");
+  const c = validateFailure({ code: "CORRUPT", message: "x", format: "orc" });
   assert.deepEqual(c.checks.map((x) => x.status), ["pass", "fail"]);
+  assert.equal(c.checks[0].label, "ORC magic and postscript");
 });
 
 test("fmtBytes", () => {
@@ -118,10 +119,10 @@ test("fmtBytes", () => {
 test("classifyError maps WASM / fetch failures to codes", async () => {
   const head = (bytes) => ({ size: 100, read: async () => new Uint8Array(bytes) });
   const code = async (e, src) => (await classifyError(e, src)).code;
-  assert.equal(await code(new Error("not a parquet file (no PAR1 trailer)"), head([1, 2, 3, 4])), "NOT_PARQUET");
+  assert.equal(await code(new Error("not a parquet file (no PAR1 trailer)"), head([1, 2, 3, 4])), "UNKNOWN_FORMAT");
   assert.equal(await code(new Error("not a parquet file (no PAR1 trailer)"), head([0x50, 0x41, 0x52, 0x31])), "TRUNCATED");
   assert.equal(await code(new Error("file too small to be parquet"), { size: 0 }), "EMPTY");
-  assert.equal(await code(new Error("file too small to be parquet"), { size: 5 }), "NOT_PARQUET");
+  assert.equal(await code(new Error("file too small to be parquet"), { size: 5 }), "UNKNOWN_FORMAT");
   assert.equal(await code(new Error("footer length invalid")), "CORRUPT");
   assert.equal(await code(new Error("rugo: EOF")), "CORRUPT");
   assert.equal(await code(new Error("rugo: unsupported compression codec BROTLI")), "UNSUPPORTED_CODEC");

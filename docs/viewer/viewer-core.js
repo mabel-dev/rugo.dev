@@ -19,6 +19,30 @@ export function fmtInt(n) {
   return n == null ? "–" : Number(n).toLocaleString("en-US");
 }
 
+// Days since 1970-01-01 -> "YYYY-MM-DD"; epoch milliseconds -> "YYYY-MM-DD HH:MM:SS.mmm" (UTC).
+export function fmtDays(d) {
+  try { return new Date(Number(d) * 86400000).toISOString().slice(0, 10); } catch (_) { return String(d); }
+}
+export function fmtTimestampMs(ms) {
+  try { return new Date(Number(ms)).toISOString().replace("T", " ").replace("Z", ""); } catch (_) { return String(ms); }
+}
+
+// A cell value as text for the preview table. BigInt, bytes and nested values
+// are rendered; null / undefined stay null so the table can show them as null.
+export function displayValue(v) {
+  if (v == null) return null;
+  const plain = (x) => {
+    if (typeof x === "bigint") return x.toString();
+    if (x instanceof Uint8Array) return "0x" + [...x.subarray(0, 32)].map((b) => b.toString(16).padStart(2, "0")).join("") + (x.length > 32 ? `… (${x.length} bytes)` : "");
+    if (x instanceof Date) return x.toISOString();
+    return x;
+  };
+  if (typeof v === "object" && !(v instanceof Uint8Array) && !(v instanceof Date)) {
+    return JSON.stringify(v, (_, x) => plain(x));
+  }
+  return String(plain(v));
+}
+
 const rowGroups = (f) => f.row_groups ?? [];
 
 // Leaf columns, in file order. Nested fields appear as dotted paths ("addr.geo.lat").
@@ -274,16 +298,21 @@ export function validateFooter(footer, fileSize) {
   return summarise(checks);
 }
 
-// What validate shows when the file couldn't be opened at all.
+// What validate shows when the file couldn't be opened at all. `err.format` says
+// which format's signature to check; with none, the format wasn't recognised.
+const SIGNATURE = {
+  parquet: ["PAR1 magic and footer length", "Footer decodes"],
+  avro: ["Avro magic bytes", "Header and schema decode"],
+  orc: ["ORC magic and postscript", "Footer decodes"],
+};
 export function validateFailure(err) {
-  const magicOk = err.code === "CORRUPT"; // CORRUPT means the trailer was fine but the footer wasn't
+  const [sigLabel, bodyLabel] = SIGNATURE[err.format] ?? ["Parquet, Avro or ORC signature", "Metadata decodes"];
+  const signatureOk = err.code === "CORRUPT" || err.code === "UNSUPPORTED_CODEC"; // the file was recognised, the body wasn't readable
   const checks = [
-    magicOk
-      ? pass("magic", "PAR1 magic and footer length", "The file ends with PAR1.")
-      : fail("magic", "PAR1 magic and footer length", err.message),
-    magicOk
-      ? fail("thrift", "Footer decodes", err.message)
-      : { id: "thrift", label: "Footer decodes", status: "skip", detail: "Not run: the file couldn't be opened." },
+    signatureOk ? pass("magic", sigLabel, "The file has the right signature.") : fail("magic", sigLabel, err.message),
+    signatureOk
+      ? fail("thrift", bodyLabel, err.message)
+      : { id: "thrift", label: bodyLabel, status: "skip", detail: "Not run: the file couldn't be opened." },
   ];
   return summarise(checks);
 }
