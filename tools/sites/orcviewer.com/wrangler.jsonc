@@ -1,0 +1,7 @@
+{
+  // Static site: serves the folder built by tools/build_sites.mjs. No worker code.
+  "name": "orcviewer",
+  "compatibility_date": "2026-11-01",
+  "assets": { "directory": "../../../build/sites/orcviewer.com" },
+  "routes": [{ "pattern": "orcviewer.com", "custom_domain": true }]
+}

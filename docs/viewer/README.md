@@ -48,7 +48,9 @@ The same viewer is also published on its own domains, each with a landing page w
 one complete static site per domain; copy and FAQ live in `tools/sites/sites.mjs`. To host one, point a
 static host at its folder: build command `node tools/build_sites.mjs`, publish directory
 `build/sites/<domain>`. GitHub Pages allows one custom domain per repo, so rugo.dev keeps that and the
-standalone domains go on a host that can serve a folder per domain (Cloudflare Pages, Netlify).
+standalone domains go on a host that can serve a folder per domain. On Cloudflare, `tools/sites/<domain>/wrangler.jsonc`
+serves the built folder as static assets on the domain (Workers Builds: build command
+`node tools/build_sites.mjs`, deploy command `npx wrangler deploy --config tools/sites/<domain>/wrangler.jsonc`).
 
 ## Reusing it in a VSCode webview
 
