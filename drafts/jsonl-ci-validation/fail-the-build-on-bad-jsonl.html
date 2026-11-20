@@ -107,21 +107,21 @@
                     present.
                 </p>
 
-                <pre><code class="language-bash">pip install rugo</code></pre>
+                <pre><code class="language-bash"><span class="f">pip</span> install rugo</code></pre>
 
                 <p>Create the files:</p>
 
-                <pre><code class="language-bash">mkdir -p data tools
+                <pre><code class="language-bash"><span class="f">mkdir</span> -p data tools
 
-cat &gt; data/events.jsonl &lt;&lt;'EOF'
+<span class="f">cat</span> &gt; data/events.jsonl <span class="s">&lt;&lt;'EOF'
 {"event_id": 1, "user": "ada", "action": "login", "duration_ms": 12.5, "ts": "2026-11-01T09:00:00Z"}
 {"event_id": 2, "user": "grace", "action": "search", "duration_ms": 48.0, "ts": "2026-11-01T09:00:03Z"}
 {"event_id": 3, "user": "ada", "action": "export", "duration_ms": 910.2, "ts": "2026-11-01T09:01:10Z"}
 {"event_id": 4, "user": "linus", "action": "login", "duration_ms": 9.8, "ts": "2026-11-01T09:02:44Z"}
 {"event_id": 5, "user": "grace", "action": "logout", "duration_ms": 3.1, "ts": "2026-11-01T09:05:00Z"}
-EOF
+EOF</span>
 
-cat &gt; contract.json &lt;&lt;'EOF'
+<span class="f">cat</span> &gt; contract.json <span class="s">&lt;&lt;'EOF'
 {
   "schema": {
     "event_id": "INT64",
@@ -132,13 +132,13 @@ cat &gt; contract.json &lt;&lt;'EOF'
   },
   "required": ["event_id", "user", "action"]
 }
-EOF</code></pre>
+EOF</span></code></pre>
 
                 <p>
                     A quick look with rugo's own CLI confirms the file reads:
                 </p>
 
-                <pre><code class="language-bash">rugo count data/events.jsonl</code></pre>
+                <pre><code class="language-bash"><span class="f">rugo</span> count data/events.jsonl</code></pre>
 
                 <pre><code class="language-output">5</code></pre>
 
@@ -151,86 +151,86 @@ EOF</code></pre>
                     <code>tools/check_jsonl.py</code>:
                 </p>
 
-                <pre><code data-save="tools/check_jsonl.py">#!/usr/bin/env python3
-"""Validate JSONL files against a contract. Exits 1 if any file fails.
+                <pre><code data-save="tools/check_jsonl.py"><span class="c">#!/usr/bin/env python3</span>
+<span class="s">"""Validate JSONL files against a contract. Exits 1 if any file fails.
 
     python tools/check_jsonl.py contract.json data/*.jsonl
 
 contract.json:
     {"schema":   {"event_id": "INT64", "user": "VARCHAR", ...},
      "required": ["event_id", "user"]}
-"""
-import json
-import os
-import re
-import sys
+"""</span>
+<span class="k">import</span> json
+<span class="k">import</span> os
+<span class="k">import</span> re
+<span class="k">import</span> sys
 
-from rugo import jsonl
+<span class="k">from</span> rugo <span class="k">import</span> jsonl
 
 
-def problems(path, schema, required):
-    """Return (list of problems, number of records) for one file."""
-    # 1. Every line is valid JSON, and every value fits its declared type.
-    #    rugo's error names the line (malformed JSON) or the column and value.
-    try:
-        rows = 0
-        with jsonl.read_jsonl(path, explicit_schema=schema) as reader:
-            for morsel in reader:
-                rows += len(morsel)
-    except Exception as exc:
-        return [str(exc)], 0
+<span class="k">def</span> <span class="f">problems</span>(path, schema, required):
+    <span class="s">"""Return (list of problems, number of records) for one file."""</span>
+    <span class="c"># 1. Every line is valid JSON, and every value fits its declared type.</span>
+    <span class="c">#    rugo's error names the line (malformed JSON) or the column and value.</span>
+    <span class="k">try</span>:
+        rows = <span class="n">0</span>
+        <span class="k">with</span> jsonl.<span class="f">read_jsonl</span>(path, explicit_schema=schema) <span class="k">as</span> reader:
+            <span class="k">for</span> morsel in reader:
+                rows += <span class="f">len</span>(morsel)
+    <span class="k">except</span> Exception <span class="k">as</span> exc:
+        <span class="k">return</span> [<span class="f">str</span>(exc)], <span class="n">0</span>
 
-    if rows == 0:
-        return ["file has no records"], 0
+    <span class="k">if</span> rows == <span class="n">0</span>:
+        <span class="k">return</span> [<span class="s">"</span><span class="s">file has no records</span><span class="s">"</span>], <span class="n">0</span>
 
-    # 2. Required fields are present. An absent key counts as null.
+    <span class="c"># 2. Required fields are present. An absent key counts as null.</span>
     found = []
-    for name in required:
-        with jsonl.read_jsonl(
+    <span class="k">for</span> name in required:
+        <span class="k">with</span> jsonl.<span class="f">read_jsonl</span>(
             path,
             columns=[name],
-            predicates=[(name, "is null", None)],
+            predicates=[(name, <span class="s">"</span><span class="s">is null</span><span class="s">"</span>, <span class="n">None</span>)],
             explicit_schema=schema,
-        ) as reader:
-            missing = sum(len(m) for m in reader)
-        if missing:
-            found.append(f"{name}: missing or null in {missing} of {rows} records")
-    return found, rows
+        ) <span class="k">as</span> reader:
+            missing = <span class="f">sum</span>(<span class="f">len</span>(m) <span class="k">for</span> m in reader)
+        <span class="k">if</span> missing:
+            found.<span class="f">append</span>(<span class="s">f</span><span class="s">"</span><span class="s">{</span>name<span class="s">}</span><span class="s">: missing or null in </span><span class="s">{</span>missing<span class="s">}</span><span class="s"> of </span><span class="s">{</span>rows<span class="s">}</span><span class="s"> records</span><span class="s">"</span>)
+    <span class="k">return</span> found, rows
 
 
-def annotate(path, message):
-    """Print a GitHub Actions error annotation, pinned to a line when known."""
-    line = re.search(r"at line (\d+)", message)
-    where = f"file={path}" + (f",line={line.group(1)}" if line else "")
-    escaped = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
-    print(f"::error {where}::{escaped}")
+<span class="k">def</span> <span class="f">annotate</span>(path, message):
+    <span class="s">"""Print a GitHub Actions error annotation, pinned to a line when known."""</span>
+    line = re.<span class="f">search</span>(<span class="s">r</span><span class="s">"</span><span class="s">at line (</span><span class="s">\</span><span class="s">d+)</span><span class="s">"</span>, message)
+    where = <span class="s">f</span><span class="s">"</span><span class="s">file=</span><span class="s">{</span>path<span class="s">}</span><span class="s">"</span> + (<span class="s">f</span><span class="s">"</span><span class="s">,line=</span><span class="s">{</span>line.<span class="f">group</span>(<span class="n">1</span>)<span class="s">}</span><span class="s">"</span> <span class="k">if</span> line <span class="k">else</span> <span class="s">"</span><span class="s">"</span>)
+    escaped = message.<span class="f">replace</span>(<span class="s">"</span><span class="s">%</span><span class="s">"</span>, <span class="s">"</span><span class="s">%</span><span class="s">25</span><span class="s">"</span>).<span class="f">replace</span>(<span class="s">"</span><span class="s">\r</span><span class="s">"</span>, <span class="s">"</span><span class="s">%</span><span class="s">0D</span><span class="s">"</span>).<span class="f">replace</span>(<span class="s">"</span><span class="s">\n</span><span class="s">"</span>, <span class="s">"</span><span class="s">%</span><span class="s">0A</span><span class="s">"</span>)
+    <span class="f">print</span>(<span class="s">f</span><span class="s">"</span><span class="s">::error </span><span class="s">{</span>where<span class="s">}</span><span class="s">::</span><span class="s">{</span>escaped<span class="s">}</span><span class="s">"</span>)
 
 
-def main(argv):
-    if len(argv) &lt; 3:
-        print(__doc__)
-        return 2
-    with open(argv[1]) as handle:
-        contract = json.load(handle)
-    schema, required = contract["schema"], contract.get("required", [])
+<span class="k">def</span> <span class="f">main</span>(argv):
+    <span class="k">if</span> <span class="f">len</span>(argv) &lt; <span class="n">3</span>:
+        <span class="f">print</span>(<span class="n">__doc__</span>)
+        <span class="k">return</span> <span class="n">2</span>
+    <span class="k">with</span> <span class="f">open</span>(argv[<span class="n">1</span>]) <span class="k">as</span> handle:
+        contract = json.<span class="f">load</span>(handle)
+    schema, required = contract[<span class="s">"</span><span class="s">schema</span><span class="s">"</span>], contract.<span class="f">get</span>(<span class="s">"</span><span class="s">required</span><span class="s">"</span>, [])
 
-    failed = 0
-    for path in argv[2:]:
-        found, rows = problems(path, schema, required)
-        if not found:
-            print(f"ok    {path}  ({rows} records)")
-            continue
-        failed += 1
-        for message in found:
-            print(f"FAIL  {path}: {message}")
-            if os.environ.get("GITHUB_ACTIONS"):
-                annotate(path, message)
-    print(f"\n{len(argv) - 2 - failed} passed, {failed} failed")
-    return 1 if failed else 0
+    failed = <span class="n">0</span>
+    <span class="k">for</span> path in argv[<span class="n">2</span>:]:
+        found, rows = <span class="f">problems</span>(path, schema, required)
+        <span class="k">if</span> not found:
+            <span class="f">print</span>(<span class="s">f</span><span class="s">"</span><span class="s">ok    </span><span class="s">{</span>path<span class="s">}</span><span class="s">  (</span><span class="s">{</span>rows<span class="s">}</span><span class="s"> records)</span><span class="s">"</span>)
+            <span class="k">continue</span>
+        failed += <span class="n">1</span>
+        <span class="k">for</span> message in found:
+            <span class="f">print</span>(<span class="s">f</span><span class="s">"</span><span class="s">FAIL  </span><span class="s">{</span>path<span class="s">}</span><span class="s">: </span><span class="s">{</span>message<span class="s">}</span><span class="s">"</span>)
+            <span class="k">if</span> os.environ.<span class="f">get</span>(<span class="s">"</span><span class="s">GITHUB_ACTIONS</span><span class="s">"</span>):
+                <span class="f">annotate</span>(path, message)
+    <span class="f">print</span>(<span class="s">f</span><span class="s">"</span><span class="s">\n</span><span class="s">{</span><span class="f">len</span>(argv) - <span class="n">2</span> - failed<span class="s">}</span><span class="s"> passed, </span><span class="s">{</span>failed<span class="s">}</span><span class="s"> failed</span><span class="s">"</span>)
+    <span class="k">return</span> <span class="n">1</span> <span class="k">if</span> failed <span class="k">else</span> <span class="n">0</span>
 
 
-if __name__ == "__main__":
-    sys.exit(main(sys.argv))</code></pre>
+<span class="k">if</span> <span class="n">__name__</span> == <span class="s">"</span><span class="s">__main__</span><span class="s">"</span>:
+    sys.<span class="f">exit</span>(<span class="f">main</span>(sys.argv))</code></pre>
 
                 <p>
                     The first read does the heavy lifting.
@@ -249,22 +249,22 @@ if __name__ == "__main__":
                     checker over everything:
                 </p>
 
-                <pre><code class="language-bash"># a line cut off mid-record
-{ sed -n 1,2p data/events.jsonl
-  echo '{"event_id": 3, "user": "ada", "acti'
-  sed -n 4,5p data/events.jsonl; } &gt; data/truncated.jsonl
+                <pre><code class="language-bash"><span class="c"># a line cut off mid-record
+</span>{ <span class="f">sed</span> -n <span class="n">1</span>,2p data/events.jsonl
+  <span class="f">echo</span> <span class="s">'{"event_id": 3, "user": "ada", "acti'</span>
+  <span class="f">sed</span> -n <span class="n">4</span>,5p data/events.jsonl; } &gt; data/truncated.jsonl
 
-# a duration that became text
-sed '3s/910.2/"slow"/' data/events.jsonl &gt; data/types.jsonl
+<span class="c"># a duration that became text
+</span>sed <span class="s">'3s/910.2/"slow"/'</span> data/events.jsonl &gt; data/types.jsonl
 
-# a record that lost its user
-sed '2s/"user": "grace", //' data/events.jsonl &gt; data/missing.jsonl
+<span class="c"># a record that lost its user
+</span>sed <span class="s">'2s/"user": "grace", //'</span> data/events.jsonl &gt; data/missing.jsonl
 
-# nothing at all
-: &gt; data/empty.jsonl
+<span class="c"># nothing at all
+</span>: &gt; data/empty.jsonl
 
-python tools/check_jsonl.py contract.json data/*.jsonl
-echo "exit code: $?"</code></pre>
+<span class="f">python</span> tools/check_jsonl.py contract.json data/*.jsonl
+<span class="f">echo</span> <span class="s">"</span><span class="s">exit code: </span><span class="n">$?</span><span class="s">"</span></code></pre>
 
                 <pre><code class="language-output">FAIL  data/empty.jsonl: file has no records
 ok    data/events.jsonl  (5 records)
@@ -293,26 +293,26 @@ exit code: 1</code></pre>
                     the script:
                 </p>
 
-                <pre><code data-save=".github/workflows/validate-data.yml">name: validate-data
+                <pre><code data-save=".github/workflows/validate-data.yml"><span class="f">name</span>: validate-data
 
-on:
-  pull_request:
-    paths:
-      - "**.jsonl"
-      - "contract.json"
-      - "tools/check_jsonl.py"
+<span class="f">on</span>:
+  <span class="f">pull_request</span>:
+    <span class="f">paths</span>:
+      - <span class="s">"</span><span class="s">**.jsonl</span><span class="s">"</span>
+      - <span class="s">"</span><span class="s">contract.json</span><span class="s">"</span>
+      - <span class="s">"</span><span class="s">tools/check_jsonl.py</span><span class="s">"</span>
 
-jobs:
-  jsonl:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-      - run: pip install rugo
-      - name: Validate every tracked .jsonl file
-        run: git ls-files -z '*.jsonl' | xargs -r -0 python tools/check_jsonl.py contract.json</code></pre>
+<span class="f">jobs</span>:
+  <span class="f">jsonl</span>:
+    <span class="f">runs-on</span>: ubuntu-latest
+    <span class="f">steps</span>:
+      - <span class="f">uses</span>: actions/checkout@v7
+      - <span class="f">uses</span>: actions/setup-python@v7
+        <span class="f">with</span>:
+          <span class="f">python-version</span>: <span class="s">"</span><span class="s">3.12</span><span class="s">"</span>
+      - <span class="f">run</span>: pip install rugo
+      - <span class="f">name</span>: Validate every tracked .jsonl file
+        <span class="f">run</span>: git ls-files -z '*.jsonl' | xargs -r -0 python tools/check_jsonl.py contract.json</code></pre>
 
                 <p>
                     <code>git ls-files</code> means only committed files are
@@ -328,8 +328,8 @@ jobs:
                     exactly what the runner sees:
                 </p>
 
-                <pre><code class="language-bash">GITHUB_ACTIONS=true python tools/check_jsonl.py contract.json data/truncated.jsonl data/types.jsonl
-echo "exit code: $?"</code></pre>
+                <pre><code class="language-bash"><span class="n">GITHUB_ACTIONS</span>=<span class="f">true</span> python tools/check_jsonl.py contract.json data/truncated.jsonl data/types.jsonl
+<span class="f">echo</span> <span class="s">"</span><span class="s">exit code: </span><span class="n">$?</span><span class="s">"</span></code></pre>
 
                 <pre><code class="language-output">FAIL  data/truncated.jsonl: Malformed JSONL at line 3 (byte offset 205): '{"event_id": 3, "user": "ada", "acti'
 ::error file=data/truncated.jsonl,line=3::Malformed JSONL at line 3 (byte offset 205): '{"event_id": 3, "user": "ada", "acti'

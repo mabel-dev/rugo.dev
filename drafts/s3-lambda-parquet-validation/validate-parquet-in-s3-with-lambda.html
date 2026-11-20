@@ -114,14 +114,14 @@
                     launches:
                 </p>
 
-                <pre><code class="language-bash">pip install rugo</code></pre>
+                <pre><code class="language-bash"><span class="f">pip</span> install rugo</code></pre>
 
                 <p>Then fetch the files and take a look:</p>
 
-                <pre><code class="language-bash">curl -sO https://rugo.dev/data/space_missions.parquet
-curl -sO https://rugo.dev/data/space_missions.csv
+                <pre><code class="language-bash"><span class="f">curl</span> -sO https://rugo.dev/data/space_missions.parquet
+<span class="f">curl</span> -sO https://rugo.dev/data/space_missions.csv
 
-rugo info space_missions.parquet</code></pre>
+<span class="f">rugo</span> info space_missions.parquet</code></pre>
 
                 <pre><code class="language-output">path        : space_missions.parquet
 format      : parquet
@@ -136,9 +136,9 @@ num_columns : 8</code></pre>
                     timestamp as text:
                 </p>
 
-                <pre><code class="language-bash">head -c 50000 space_missions.parquet &gt; truncated.parquet
-echo "not parquet" &gt; notes.parquet
-rugo convert space_missions.csv drift.parquet</code></pre>
+                <pre><code class="language-bash"><span class="f">head</span> -c <span class="n">50000</span> space_missions.parquet &gt; truncated.parquet
+<span class="f">echo</span> <span class="s">"not parquet"</span> &gt; notes.parquet
+<span class="f">rugo</span> convert space_missions.csv drift.parquet</code></pre>
 
                 <p>
                     That last one is the sneaky kind. It is a perfectly valid
@@ -147,7 +147,7 @@ rugo convert space_missions.csv drift.parquet</code></pre>
                     <code>1</code> when the schemas differ:
                 </p>
 
-                <pre><code class="language-bash">rugo diff space_missions.parquet drift.parquet; echo "exit code: $?"</code></pre>
+                <pre><code class="language-bash"><span class="f">rugo</span> diff space_missions.parquet drift.parquet; <span class="f">echo</span> <span class="s">"</span><span class="s">exit code: </span><span class="n">$?</span><span class="s">"</span></code></pre>
 
                 <pre><code class="language-output">~ changed:
 name        left_type      right_type  left_nullable  right_nullable
@@ -165,76 +165,76 @@ exit code: 1</code></pre>
                     to test.
                 </p>
 
-                <pre><code data-save="lambda_function.py">import json
-import os
-import urllib.parse
+                <pre><code data-save="lambda_function.py"><span class="k">import</span> json
+<span class="k">import</span> os
+<span class="k">import</span> urllib.parse
 
-import boto3
-from rugo import parquet
+<span class="k">import</span> boto3
+<span class="k">from</span> rugo <span class="k">import</span> parquet
 
-s3 = boto3.client("s3")
+s3 = boto3.<span class="f">client</span>(<span class="s">"</span><span class="s">s3</span><span class="s">"</span>)
 
-# The contract: column name -&gt; the logical type rugo reports for it.
+<span class="c"># The contract: column name -&gt; the logical type rugo reports for it.</span>
 CONTRACT = {
-    "Company": "varchar",
-    "Location": "varchar",
-    "Price": "float64",
-    "Lauched_at": "timestamp[us]",
-    "Rocket": "varchar",
-    "Rocket_Status": "varchar",
-    "Mission": "varchar",
-    "Mission_Status": "varchar",
+    <span class="s">"</span><span class="s">Company</span><span class="s">"</span>: <span class="s">"</span><span class="s">varchar</span><span class="s">"</span>,
+    <span class="s">"</span><span class="s">Location</span><span class="s">"</span>: <span class="s">"</span><span class="s">varchar</span><span class="s">"</span>,
+    <span class="s">"</span><span class="s">Price</span><span class="s">"</span>: <span class="s">"</span><span class="s">float64</span><span class="s">"</span>,
+    <span class="s">"</span><span class="s">Lauched_at</span><span class="s">"</span>: <span class="s">"</span><span class="s">timestamp[us]</span><span class="s">"</span>,
+    <span class="s">"</span><span class="s">Rocket</span><span class="s">"</span>: <span class="s">"</span><span class="s">varchar</span><span class="s">"</span>,
+    <span class="s">"</span><span class="s">Rocket_Status</span><span class="s">"</span>: <span class="s">"</span><span class="s">varchar</span><span class="s">"</span>,
+    <span class="s">"</span><span class="s">Mission</span><span class="s">"</span>: <span class="s">"</span><span class="s">varchar</span><span class="s">"</span>,
+    <span class="s">"</span><span class="s">Mission_Status</span><span class="s">"</span>: <span class="s">"</span><span class="s">varchar</span><span class="s">"</span>,
 }
-NOT_NULL = ["Company", "Mission", "Mission_Status"]
+NOT_NULL = [<span class="s">"</span><span class="s">Company</span><span class="s">"</span>, <span class="s">"</span><span class="s">Mission</span><span class="s">"</span>, <span class="s">"</span><span class="s">Mission_Status</span><span class="s">"</span>]
 
 
-def validate(source):
-    """Return a list of problems. An empty list means the file passed.
+<span class="k">def</span> <span class="f">validate</span>(source):
+    <span class="s">"""Return a list of problems. An empty list means the file passed.
 
     `source` is a path or the bytes of the whole file.
-    """
-    # 1. Is it Parquet at all? The footer must parse.
-    try:
-        meta = parquet.read_metadata(source)
-    except Exception as exc:
-        return [f"not a readable Parquet file: {exc}"]
+    """</span>
+    <span class="c"># 1. Is it Parquet at all? The footer must parse.</span>
+    <span class="k">try</span>:
+        meta = parquet.<span class="f">read_metadata</span>(source)
+    <span class="k">except</span> Exception <span class="k">as</span> exc:
+        <span class="k">return</span> [<span class="s">f</span><span class="s">"</span><span class="s">not a readable Parquet file: </span><span class="s">{</span>exc<span class="s">}</span><span class="s">"</span>]
 
     problems = []
-    if meta.num_rows == 0:
-        problems.append("file has no rows")
+    <span class="k">if</span> meta.num_rows == <span class="n">0</span>:
+        problems.<span class="f">append</span>(<span class="s">"</span><span class="s">file has no rows</span><span class="s">"</span>)
 
-    # 2. Does the schema match the contract?
-    actual = {c.name: c.logical_type for c in meta.schema_columns}
-    for name in CONTRACT.keys() - actual.keys():
-        problems.append(f"missing column: {name}")
-    for name in actual.keys() - CONTRACT.keys():
-        problems.append(f"unexpected column: {name}")
-    for name in CONTRACT.keys() &amp; actual.keys():
-        if actual[name] != CONTRACT[name]:
-            problems.append(f"{name}: expected {CONTRACT[name]}, found {actual[name]}")
-    if problems:
-        return problems
+    <span class="c"># 2. Does the schema match the contract?</span>
+    actual = {c.name: c.logical_type <span class="k">for</span> c in meta.schema_columns}
+    <span class="k">for</span> name in CONTRACT.<span class="f">keys</span>() - actual.<span class="f">keys</span>():
+        problems.<span class="f">append</span>(<span class="s">f</span><span class="s">"</span><span class="s">missing column: </span><span class="s">{</span>name<span class="s">}</span><span class="s">"</span>)
+    <span class="k">for</span> name in actual.<span class="f">keys</span>() - CONTRACT.<span class="f">keys</span>():
+        problems.<span class="f">append</span>(<span class="s">f</span><span class="s">"</span><span class="s">unexpected column: </span><span class="s">{</span>name<span class="s">}</span><span class="s">"</span>)
+    <span class="k">for</span> name in CONTRACT.<span class="f">keys</span>() &amp; actual.<span class="f">keys</span>():
+        <span class="k">if</span> actual[name] != CONTRACT[name]:
+            problems.<span class="f">append</span>(<span class="s">f</span><span class="s">"</span><span class="s">{</span>name<span class="s">}</span><span class="s">: expected </span><span class="s">{</span>CONTRACT[name]<span class="s">}</span><span class="s">, found </span><span class="s">{</span>actual[name]<span class="s">}</span><span class="s">"</span>)
+    <span class="k">if</span> problems:
+        <span class="k">return</span> problems
 
-    # 3. Does every row group decode, and do the row counts agree with the footer?
-    try:
-        decoded = 0
-        with parquet.read_parquet(source) as reader:
-            for morsel in reader:
-                decoded += len(morsel)
-        if decoded != meta.num_rows:
-            problems.append(f"footer says {meta.num_rows} rows, decoded {decoded}")
+    <span class="c"># 3. Does every row group decode, and do the row counts agree with the footer?</span>
+    <span class="k">try</span>:
+        decoded = <span class="n">0</span>
+        <span class="k">with</span> parquet.<span class="f">read_parquet</span>(source) <span class="k">as</span> reader:
+            <span class="k">for</span> morsel in reader:
+                decoded += <span class="f">len</span>(morsel)
+        <span class="k">if</span> decoded != meta.num_rows:
+            problems.<span class="f">append</span>(<span class="s">f</span><span class="s">"</span><span class="s">footer says </span><span class="s">{</span>meta.num_rows<span class="s">}</span><span class="s"> rows, decoded </span><span class="s">{</span>decoded<span class="s">}</span><span class="s">"</span>)
 
-        # 4. Are the columns that must never be null actually non-null?
-        for name in NOT_NULL:
-            with parquet.read_parquet(
-                source, columns=[name], predicates=[(name, "is null", None)]
-            ) as reader:
-                nulls = sum(len(m) for m in reader)
-            if nulls:
-                problems.append(f"{name}: {nulls} null values")
-    except Exception as exc:
-        problems.append(f"decode failed: {exc}")
-    return problems</code></pre>
+        <span class="c"># 4. Are the columns that must never be null actually non-null?</span>
+        <span class="k">for</span> name in NOT_NULL:
+            <span class="k">with</span> parquet.<span class="f">read_parquet</span>(
+                source, columns=[name], predicates=[(name, <span class="s">"</span><span class="s">is null</span><span class="s">"</span>, <span class="n">None</span>)]
+            ) <span class="k">as</span> reader:
+                nulls = <span class="f">sum</span>(<span class="f">len</span>(m) <span class="k">for</span> m in reader)
+            <span class="k">if</span> nulls:
+                problems.<span class="f">append</span>(<span class="s">f</span><span class="s">"</span><span class="s">{</span>name<span class="s">}</span><span class="s">: </span><span class="s">{</span>nulls<span class="s">}</span><span class="s"> null values</span><span class="s">"</span>)
+    <span class="k">except</span> Exception <span class="k">as</span> exc:
+        problems.<span class="f">append</span>(<span class="s">f</span><span class="s">"</span><span class="s">decode failed: </span><span class="s">{</span>exc<span class="s">}</span><span class="s">"</span>)
+    <span class="k">return</span> problems</code></pre>
 
                 <p>
                     Two things worth noticing. The schema check reads only the
@@ -247,12 +247,12 @@ def validate(source):
 
                 <p>Run it over the files you just made:</p>
 
-                <pre><code class="language-bash">python3 - &lt;&lt;'EOF'
+                <pre><code class="language-bash"><span class="f">python3</span> - <span class="s">&lt;&lt;'EOF'
 import lambda_function as lf
 
 for f in ["space_missions", "truncated", "notes", "drift"]:
     print(f"{f}.parquet -&gt;", lf.validate(f"{f}.parquet") or "passed")
-EOF</code></pre>
+EOF</span></code></pre>
 
                 <pre><code class="language-output">space_missions.parquet -&gt; passed
 truncated.parquet -&gt; ['not a readable Parquet file: Not a parquet file']
@@ -270,50 +270,50 @@ drift.parquet -&gt; ['Lauched_at: expected timestamp[us], found varchar']</code>
                     hands rugo the path.
                 </p>
 
-                <pre><code data-append="lambda_function.py">def _tag(bucket, key, result):
-    s3.put_object_tagging(
+                <pre><code data-append="lambda_function.py"><span class="k">def</span> <span class="f">_tag</span>(bucket, key, result):
+    s3.<span class="f">put_object_tagging</span>(
         Bucket=bucket,
         Key=key,
-        Tagging={"TagSet": [{"Key": "validation", "Value": result}]},
+        Tagging={<span class="s">"</span><span class="s">TagSet</span><span class="s">"</span>: [{<span class="s">"</span><span class="s">Key</span><span class="s">"</span>: <span class="s">"</span><span class="s">validation</span><span class="s">"</span>, <span class="s">"</span><span class="s">Value</span><span class="s">"</span>: result}]},
     )
 
 
-def _move(bucket, key, dest):
-    s3.copy_object(
-        Bucket=bucket, Key=dest, CopySource={"Bucket": bucket, "Key": key}
+<span class="k">def</span> <span class="f">_move</span>(bucket, key, dest):
+    s3.<span class="f">copy_object</span>(
+        Bucket=bucket, Key=dest, CopySource={<span class="s">"</span><span class="s">Bucket</span><span class="s">"</span>: bucket, <span class="s">"</span><span class="s">Key</span><span class="s">"</span>: key}
     )
-    s3.delete_object(Bucket=bucket, Key=key)
+    s3.<span class="f">delete_object</span>(Bucket=bucket, Key=key)
 
 
-def handler(event, context):
+<span class="k">def</span> <span class="f">handler</span>(event, context):
     results = []
-    for record in event["Records"]:
-        bucket = record["s3"]["bucket"]["name"]
-        # S3 URL-encodes keys in event notifications ("a b" arrives as "a+b").
-        key = urllib.parse.unquote_plus(record["s3"]["object"]["key"])
-        name = key.split("/", 1)[1] if "/" in key else key
-        local = "/tmp/" + os.path.basename(key)
+    <span class="k">for</span> record in event[<span class="s">"</span><span class="s">Records</span><span class="s">"</span>]:
+        bucket = record[<span class="s">"</span><span class="s">s3</span><span class="s">"</span>][<span class="s">"</span><span class="s">bucket</span><span class="s">"</span>][<span class="s">"</span><span class="s">name</span><span class="s">"</span>]
+        <span class="c"># S3 URL-encodes keys in event notifications ("a b" arrives as "a+b").</span>
+        key = urllib.parse.<span class="f">unquote_plus</span>(record[<span class="s">"</span><span class="s">s3</span><span class="s">"</span>][<span class="s">"</span><span class="s">object</span><span class="s">"</span>][<span class="s">"</span><span class="s">key</span><span class="s">"</span>])
+        name = key.<span class="f">split</span>(<span class="s">"</span><span class="s">/</span><span class="s">"</span>, <span class="n">1</span>)[<span class="n">1</span>] <span class="k">if</span> <span class="s">"</span><span class="s">/</span><span class="s">"</span> in key <span class="k">else</span> key
+        local = <span class="s">"</span><span class="s">/tmp/</span><span class="s">"</span> + os.path.<span class="f">basename</span>(key)
 
-        s3.download_file(bucket, key, local)
-        try:
-            problems = validate(local)
-        finally:
-            os.remove(local)  # /tmp persists on warm starts; don't fill it
+        s3.<span class="f">download_file</span>(bucket, key, local)
+        <span class="k">try</span>:
+            problems = <span class="f">validate</span>(local)
+        <span class="k">finally</span>:
+            os.<span class="f">remove</span>(local)  <span class="c"># /tmp persists on warm starts; don't fill it</span>
 
-        if problems:
-            report = json.dumps({"key": key, "problems": problems}, indent=2)
-            s3.put_object(
+        <span class="k">if</span> problems:
+            report = json.<span class="f">dumps</span>({<span class="s">"</span><span class="s">key</span><span class="s">"</span>: key, <span class="s">"</span><span class="s">problems</span><span class="s">"</span>: problems}, indent=<span class="n">2</span>)
+            s3.<span class="f">put_object</span>(
                 Bucket=bucket,
-                Key=f"quarantine/{name}.report.json",
-                Body=report.encode(),
+                Key=<span class="s">f</span><span class="s">"</span><span class="s">quarantine/</span><span class="s">{</span>name<span class="s">}</span><span class="s">.report.json</span><span class="s">"</span>,
+                Body=report.<span class="f">encode</span>(),
             )
-            _tag(bucket, key, "failed")
-            _move(bucket, key, f"quarantine/{name}")
-        else:
-            _tag(bucket, key, "passed")
-            _move(bucket, key, f"validated/{name}")
-        results.append({"key": key, "passed": not problems, "problems": problems})
-    return results</code></pre>
+            <span class="f">_tag</span>(bucket, key, <span class="s">"</span><span class="s">failed</span><span class="s">"</span>)
+            <span class="f">_move</span>(bucket, key, <span class="s">f</span><span class="s">"</span><span class="s">quarantine/</span><span class="s">{</span>name<span class="s">}</span><span class="s">"</span>)
+        <span class="k">else</span>:
+            <span class="f">_tag</span>(bucket, key, <span class="s">"</span><span class="s">passed</span><span class="s">"</span>)
+            <span class="f">_move</span>(bucket, key, <span class="s">f</span><span class="s">"</span><span class="s">validated/</span><span class="s">{</span>name<span class="s">}</span><span class="s">"</span>)
+        results.<span class="f">append</span>({<span class="s">"</span><span class="s">key</span><span class="s">"</span>: key, <span class="s">"</span><span class="s">passed</span><span class="s">"</span>: not problems, <span class="s">"</span><span class="s">problems</span><span class="s">"</span>: problems})
+    <span class="k">return</span> results</code></pre>
 
                 <p>
                     Put <code>validate()</code>, its constants and this handler
@@ -346,9 +346,9 @@ def handler(event, context):
                     required column:
                 </p>
 
-                <pre><code class="language-bash">pip install boto3 'moto[s3]' pytest</code></pre>
+                <pre><code class="language-bash"><span class="f">pip</span> install boto3 <span class="s">'moto[s3]'</span> pytest</code></pre>
 
-                <pre><code class="language-bash">pytest -q test_handler.py</code></pre>
+                <pre><code class="language-bash"><span class="f">pytest</span> -q test_handler.py</code></pre>
 
                 <pre><code class="language-output">........                                                                 [100%]
 8 passed in 0.85s</code></pre>

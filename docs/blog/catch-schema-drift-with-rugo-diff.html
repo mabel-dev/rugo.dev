@@ -68,24 +68,24 @@
                     prefix, and there is a new <code>coupon</code> column.
                 </p>
 
-                <pre><code class="language-bash">pip install rugo</code></pre>
+                <pre><code class="language-bash"><span class="f">pip</span> install rugo</code></pre>
 
-                <pre><code class="language-bash">cat &gt; orders_v1.csv &lt;&lt;'EOF'
+                <pre><code class="language-bash"><span class="f">cat</span> &gt; orders_v1.csv <span class="s">&lt;&lt;'EOF'
 order_id,customer,amount,placed_at,note
 1001,ada,19.99,2026-11-01,gift
 1002,grace,5.00,2026-11-01,
 1003,linus,42.50,2026-11-02,rush
-EOF
+EOF</span>
 
-cat &gt; orders_v2.csv &lt;&lt;'EOF'
+<span class="f">cat</span> &gt; orders_v2.csv <span class="s">&lt;&lt;'EOF'
 order_id,customer_id,amount,placed_at,note,coupon
 A-1001,7,19.99,2026-11-01,gift,SAVE5
 A-1002,8,5.00,2026-11-01,,
 A-1003,9,42.50,2026-11-02,rush,
-EOF
+EOF</span>
 
-rugo convert orders_v1.csv orders_v1.parquet
-rugo convert orders_v2.csv orders_v2.parquet</code></pre>
+<span class="f">rugo</span> convert orders_v1.csv orders_v1.parquet
+<span class="f">rugo</span> convert orders_v2.csv orders_v2.parquet</code></pre>
 
                 <pre><code class="language-output">orders_v1.csv (csv, 3 rows) -&gt; orders_v1.parquet (parquet)
 orders_v2.csv (csv, 3 rows) -&gt; orders_v2.parquet (parquet)</code></pre>
@@ -97,7 +97,7 @@ orders_v2.csv (csv, 3 rows) -&gt; orders_v2.parquet (parquet)</code></pre>
                     candidate:
                 </p>
 
-                <pre><code class="language-bash">rugo diff orders_v1.parquet orders_v2.parquet; echo "exit code: $?"</code></pre>
+                <pre><code class="language-bash"><span class="f">rugo</span> diff orders_v1.parquet orders_v2.parquet; <span class="f">echo</span> <span class="s">"</span><span class="s">exit code: </span><span class="n">$?</span><span class="s">"</span></code></pre>
 
                 <pre><code class="language-output">+ added:   coupon, customer_id
 - removed: customer
@@ -123,7 +123,7 @@ exit code: 1</code></pre>
                     exit code <code>0</code>:
                 </p>
 
-                <pre><code class="language-bash">rugo diff orders_v1.parquet orders_v1.parquet; echo "exit code: $?"</code></pre>
+                <pre><code class="language-bash"><span class="f">rugo</span> diff orders_v1.parquet orders_v1.parquet; <span class="f">echo</span> <span class="s">"</span><span class="s">exit code: </span><span class="n">$?</span><span class="s">"</span></code></pre>
 
                 <pre><code class="language-output">schemas are identical
 exit code: 0</code></pre>
@@ -154,8 +154,8 @@ exit code: 0</code></pre>
                     it however you like:
                 </p>
 
-                <pre><code class="language-bash">rugo diff --json orders_v1.parquet orders_v2.parquet |
-  jq -c '{added: .columns_added, removed: .columns_removed, changed: [.columns_changed[].name]}'</code></pre>
+                <pre><code class="language-bash"><span class="f">rugo</span> diff --json orders_v1.parquet orders_v2.parquet |
+  <span class="f">jq</span> -c <span class="s">'{added: .columns_added, removed: .columns_removed, changed: [.columns_changed[].name]}'</span></code></pre>
 
                 <pre><code class="language-output">{"added":["coupon","customer_id"],"removed":["customer"],"changed":["order_id"]}</code></pre>
 
@@ -169,25 +169,25 @@ exit code: 0</code></pre>
                     Save it as <code>tools/check_drift.sh</code>:
                 </p>
 
-                <pre><code data-save="tools/check_drift.sh">#!/usr/bin/env bash
-# Usage: check_drift.sh BASELINE CANDIDATE
-# Fails on breaking drift (a column removed or retyped). New columns are fine.
-set -uo pipefail
+                <pre><code data-save="tools/check_drift.sh"><span class="c">#!/usr/bin/env bash
+</span><span class="c"># Usage: check_drift.sh BASELINE CANDIDATE
+</span><span class="c"># Fails on breaking drift (a column removed or retyped). New columns are fine.
+</span><span class="f">set</span> -uo pipefail
 
-report=$(rugo diff --json "$1" "$2") || true
-[ -n "$report" ] || { echo "rugo diff produced no report" &gt;&amp;2; exit 2; }
+<span class="n">report</span>=<span class="k">$(</span><span class="f">rugo</span> diff --json <span class="s">"</span><span class="n">$1</span><span class="s">"</span> <span class="s">"</span><span class="n">$2</span><span class="s">"</span><span class="k">)</span> || <span class="f">true</span>
+[ -n <span class="s">"</span><span class="n">$report</span><span class="s">"</span> ] || { <span class="f">echo</span> <span class="s">"rugo diff produced no report"</span> &gt;&amp;<span class="n">2</span>; <span class="f">exit</span> <span class="n">2</span>; }
 
-echo "$report" | jq -r '
+<span class="f">echo</span> <span class="s">"</span><span class="n">$report</span><span class="s">"</span> | <span class="f">jq</span> -r <span class="s">'
   (.columns_added[]   | "  + added    \(.)  (compatible)"),
   (.columns_removed[] | "  - removed  \(.)  (BREAKING)"),
-  (.columns_changed[] | "  ~ changed  \(.name): \(.left_type) -&gt; \(.right_type)  (BREAKING)")'
+  (.columns_changed[] | "  ~ changed  \(.name): \(.left_type) -&gt; \(.right_type)  (BREAKING)")'</span>
 
-breaking=$(echo "$report" | jq '(.columns_removed | length) + (.columns_changed | length)')
-if [ "$breaking" -gt 0 ]; then
-  echo "$breaking breaking change(s)"
-  exit 1
-fi
-echo "no breaking changes"</code></pre>
+<span class="n">breaking</span>=<span class="k">$(</span><span class="f">echo</span> <span class="s">"</span><span class="n">$report</span><span class="s">"</span> | <span class="f">jq</span> <span class="s">'(.columns_removed | length) + (.columns_changed | length)'</span><span class="k">)</span>
+<span class="k">if</span> [ <span class="s">"</span><span class="n">$breaking</span><span class="s">"</span> -gt <span class="n">0</span> ]; <span class="k">then</span>
+  <span class="f">echo</span> <span class="s">"</span><span class="n">$breaking</span><span class="s"> breaking change(s)</span><span class="s">"</span>
+  <span class="f">exit</span> <span class="n">1</span>
+<span class="k">fi</span>
+<span class="f">echo</span> <span class="s">"no breaking changes"</span></code></pre>
 
                 <p>
                     <code>rugo diff</code> exits <code>1</code> for any
@@ -198,8 +198,8 @@ echo "no breaking changes"</code></pre>
                     clean data. Run it on the nightly pair:
                 </p>
 
-                <pre><code class="language-bash">chmod +x tools/check_drift.sh
-tools/check_drift.sh orders_v1.parquet orders_v2.parquet; echo "exit code: $?"</code></pre>
+                <pre><code class="language-bash"><span class="f">chmod</span> +x tools/check_drift.sh
+<span class="f">tools/check_drift.sh</span> orders_v1.parquet orders_v2.parquet; <span class="f">echo</span> <span class="s">"</span><span class="s">exit code: </span><span class="n">$?</span><span class="s">"</span></code></pre>
 
                 <pre><code class="language-output">  + added    coupon  (compatible)
   + added    customer_id  (compatible)
@@ -214,15 +214,15 @@ exit code: 1</code></pre>
                     says why:
                 </p>
 
-                <pre><code class="language-bash">cat &gt; orders_v3.csv &lt;&lt;'EOF'
+                <pre><code class="language-bash"><span class="f">cat</span> &gt; orders_v3.csv <span class="s">&lt;&lt;'EOF'
 order_id,customer,amount,placed_at,note,coupon
 1001,ada,19.99,2026-11-01,gift,SAVE5
 1002,grace,5.00,2026-11-01,,
 1003,linus,42.50,2026-11-02,rush,
-EOF
-rugo convert orders_v3.csv orders_v3.parquet
+EOF</span>
+<span class="f">rugo</span> convert orders_v3.csv orders_v3.parquet
 
-tools/check_drift.sh orders_v1.parquet orders_v3.parquet; echo "exit code: $?"</code></pre>
+<span class="f">tools/check_drift.sh</span> orders_v1.parquet orders_v3.parquet; <span class="f">echo</span> <span class="s">"</span><span class="s">exit code: </span><span class="n">$?</span><span class="s">"</span></code></pre>
 
                 <pre><code class="language-output">orders_v3.csv (csv, 3 rows) -&gt; orders_v3.parquet (parquet)
   + added    coupon  (compatible)
@@ -239,28 +239,28 @@ exit code: 0</code></pre>
                     <code>.github/workflows/schema-drift.yml</code>:
                 </p>
 
-                <pre><code data-save=".github/workflows/schema-drift.yml">name: schema-drift
+                <pre><code data-save=".github/workflows/schema-drift.yml"><span class="f">name</span>: schema-drift
 
-on:
-  pull_request:
-    paths:
-      - "data/**.parquet"
+<span class="f">on</span>:
+  <span class="f">pull_request</span>:
+    <span class="f">paths</span>:
+      - <span class="s">"</span><span class="s">data/**.parquet</span><span class="s">"</span>
 
-jobs:
-  drift:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-      - run: pip install rugo
-      - name: Compare each changed Parquet file with its base version
-        env:
-          BASE: origin/${{ github.base_ref }}
-        run: |
+<span class="f">jobs</span>:
+  <span class="f">drift</span>:
+    <span class="f">runs-on</span>: ubuntu-latest
+    <span class="f">steps</span>:
+      - <span class="f">uses</span>: actions/checkout@v7
+        <span class="f">with</span>:
+          <span class="f">fetch-depth</span>: 0
+      - <span class="f">uses</span>: actions/setup-python@v7
+        <span class="f">with</span>:
+          <span class="f">python-version</span>: <span class="s">"</span><span class="s">3.12</span><span class="s">"</span>
+      - <span class="f">run</span>: pip install rugo
+      - <span class="f">name</span>: Compare each changed Parquet file with its base version
+        <span class="f">env</span>:
+          <span class="f">BASE</span>: origin/${{ github.base_ref }}
+        <span class="f">run</span>: |
           failed=0
           while IFS= read -r -d '' file; do
             echo "== $file"

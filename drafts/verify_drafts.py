@@ -47,7 +47,9 @@ def attr(attrs, name):
 
 
 def verify(post):
-    blocks = [(a, html.unescape(c)) for a, c in BLOCK.findall(post.read_text(encoding="utf-8"))]
+    # strip highlight spans (tools/highlight_code.py) before unescaping
+    blocks = [(a, html.unescape(re.sub(r"</?span[^>]*>", "", c)))
+              for a, c in BLOCK.findall(post.read_text(encoding="utf-8"))]
     failures, ran = [], 0
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
