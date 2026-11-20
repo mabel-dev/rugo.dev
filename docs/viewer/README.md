@@ -41,6 +41,15 @@ How big files are handled:
   progress; for a URL it waits for a click when the file is over 8 MB, because it reads the whole file.
   Block 0 previews immediately either way.
 
+## Standalone sites (avroviewer.com, orcviewer.com)
+
+The same viewer is also published on its own domains, each with a landing page written for its format.
+`node tools/build_sites.mjs` copies this folder and `docs/wasm/` into `build/sites/<domain>/` (git-ignored),
+one complete static site per domain; copy and FAQ live in `tools/sites/sites.mjs`. To host one, point a
+static host at its folder: build command `node tools/build_sites.mjs`, publish directory
+`build/sites/<domain>`. GitHub Pages allows one custom domain per repo, so rugo.dev keeps that and the
+standalone domains go on a host that can serve a folder per domain (Cloudflare Pages, Netlify).
+
 ## Reusing it in a VSCode webview
 
 ```js

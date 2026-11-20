@@ -6,6 +6,18 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8787", "--directory", "docs"],
       "port": 8787
+    },
+    {
+      "name": "avroviewer.com",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8788", "--directory", "build/sites/avroviewer.com"],
+      "port": 8788
+    },
+    {
+      "name": "orcviewer.com",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8789", "--directory", "build/sites/orcviewer.com"],
+      "port": 8789
     }
   ]
 }
