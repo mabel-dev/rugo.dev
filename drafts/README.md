@@ -7,7 +7,7 @@ See [BACKLOG.md](BACKLOG.md) for the ten ideas, their status and which ones can 
 |--------|------|--------|
 | `s3-lambda-parquet-validation/` | `validate-parquet-in-s3-with-lambda.html` | ready for review |
 | `jsonl-ci-validation/` | `fail-the-build-on-bad-jsonl.html` | draft |
-| `schema-drift-rugo-diff/` | `catch-schema-drift-with-rugo-diff.html` | draft |
+| `schema-drift-rugo-diff/` | `catch-schema-drift-with-rugo-diff.html` | **published** 20 Nov 2026 (now in `docs/blog/`; scripts stay here) |
 
 Each folder holds the post (named for its final URL slug) and the code the post links to.
 

@@ -16,7 +16,7 @@ benchmarks and stay posts.
 |---|---------------|--------|---------------|-------|
 | 0 | Validate Parquet files the moment they land in S3 | **Ready to publish** | Data engineer on AWS | partly |
 | 1 | Fail the build on bad JSONL | **Drafted** (1,453 words) | Dev with data files in a repo | yes |
-| 2 | Catch schema drift with rugo diff | **Drafted** (1,216 words) | Data engineer / analytics engineer | yes |
+| 2 | Catch schema drift with rugo diff | **Published** 20 Nov 2026 | Data engineer / analytics engineer | yes |
 | 3 | A data-quality report on every pull request | Idea | Maintainer of a data repo | yes |
 | 4 | Inspect a whole lake folder with one command | Blocked: glob/directory support | Platform / lake owner | yes |
 | 5 | The rugo browser viewer is here | Blocked: RUGO-2 | Analyst, anyone without a terminal | no |

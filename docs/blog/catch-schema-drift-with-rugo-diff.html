@@ -16,6 +16,7 @@
             <a class="nav-logo" href="../index.html">ru<span>go</span></a>
             <div class="nav-links">
                 <a href="../index.html">Home</a>
+                <a href="../guides/">Guides</a>
                 <a href="index.html">Blog</a>
                 <a href="https://github.com/mabel-dev/opteryx-core/tree/main/rugo"
                     >Docs</a
@@ -28,7 +29,7 @@
                 <header class="post-header">
                     <h1>Catch schema drift with rugo diff</h1>
                     <p class="post-meta">
-                        Justin Joyce <span class="sep">·</span> 18 November 2026
+                        Justin Joyce <span class="sep">·</span> 20 November 2026
                         <span class="sep">·</span> 6 min read
                     </p>
                     <div class="post-tags">
@@ -298,10 +299,11 @@ jobs:
                         them, which is what makes this check exact. A JSON
                         Lines file has no stored schema, so rugo infers one
                         from the start of the file. For JSONL, declare the types
-                        you expect and validate against them; see
-                        <a href="fail-the-build-on-bad-jsonl.html"
-                            >Fail the build on bad JSONL</a
-                        >.
+                        you expect and validate against them; the guide
+                        <a href="../guides/validating-jsonl-line-by-line/"
+                            >Validating JSONL line by line</a
+                        >
+                        is the place to start.
                     </li>
                     <li>
                         <strong>Stricter or looser.</strong> The policy lives in
@@ -314,10 +316,7 @@ jobs:
                         <strong>Catch it at the door.</strong> The same gate fits
                         anywhere two files meet: before promoting last night's
                         export, or inside a Lambda that checks files as they
-                        land in S3, as in
-                        <a href="validate-parquet-in-s3-with-lambda.html"
-                            >Validate Parquet files the moment they land in S3</a
-                        >.
+                        land in S3.
                     </li>
                 </ul>
 
