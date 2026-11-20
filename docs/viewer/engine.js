@@ -1,7 +1,7 @@
 // Engine adapter: the only module that talks to Rugo's WebAssembly build, which
 // the viewer uses for Parquet (Avro and ORC are read in plain JavaScript).
 //
-// The WASM build (rugo.dev/wasm) exposes readFooter and loadRugo. This adapter
+// The WASM build (rugo.dev/wasm) exposes readFooter, openParquet and loadRugo. This adapter
 // wraps it so the rest of the viewer sees one stable contract and
 // machine-readable errors, whatever the underlying build can do today:
 //
@@ -114,7 +114,7 @@ export async function loadEngine({ wasmBase } = {}) {
   const engine = {
     capabilities: {
       footer: true,
-      preview: typeof mod.readRowGroup === "function",
+      preview: typeof mod.openParquet === "function",
       minMax: false, // set true once the build returns min/max values per column chunk
     },
     readFooter: async (source) => {
@@ -126,11 +126,30 @@ export async function loadEngine({ wasmBase } = {}) {
     },
   };
   if (engine.capabilities.preview) {
-    engine.readRowGroup = async (source, footer, index, opts) => {
+    // openParquet keeps the parsed footer in the wasm heap, so each preview opens and closes
+    // its own handle; the footer read is one tail read (or none when the source prefetched it).
+    engine.readRowGroup = async (source, footer, index, { limit }) => {
+      let file;
       try {
-        return await mod.readRowGroup(source, footer, index, opts);
+        file = await mod.openParquet(source);
       } catch (err) {
         throw await classifyError(err, source);
+      }
+      try {
+        const batch = await file.readRowGroup(index);
+        const columns = Object.keys(batch.columns);
+        const n = Math.min(limit, batch.num_rows);
+        const rows = Array.from({ length: n }, (_, r) => columns.map((c) => batch.columns[c][r]));
+        return { columns, rows, totalRows: batch.num_rows };
+      } catch (err) {
+        // classifyError's catch-all for "rugo:" messages describes a bad footer; past open, it isn't one.
+        const msg = String(err && err.message ? err.message : err);
+        if (/^rugo:/i.test(msg) && !/codec|compress|unsupported/i.test(msg)) {
+          throw new ViewerError("UNKNOWN", `Rugo couldn't read row group ${index}: ${msg.replace(/^rugo:\s*/, "")}`, msg, "parquet");
+        }
+        throw await classifyError(err, source);
+      } finally {
+        file.close();
       }
     };
   }
