@@ -27,6 +27,29 @@ export function fmtTimestampMs(ms) {
   try { return new Date(Number(ms)).toISOString().replace("T", " ").replace("Z", ""); } catch (_) { return String(ms); }
 }
 
+// Display formatter for a Parquet temporal logical type ("timestamp[us,UTC]", "time[ns]",
+// "date32[day]"), or null for any other type. Stored ints in, UTC text out, with the
+// unit's full sub-second precision (BigInt, so ns timestamps don't lose digits).
+export function temporalFormatter(logicalType) {
+  if (logicalType === "date32[day]") return fmtDays;
+  const m = /^(timestamp|time)\[(ms|us|ns)/.exec(logicalType ?? "");
+  if (!m) return null;
+  const digits = { ms: 3, us: 6, ns: 9 }[m[2]];
+  const per = 10n ** BigInt(digits);
+  const pad2 = (n) => String(n).padStart(2, "0");
+  return (v) => {
+    const x = BigInt(v);
+    let sec = x / per;
+    if (x % per < 0n) sec -= 1n; // floor, so pre-1970 values get a positive fraction
+    const frac = (x - sec * per).toString().padStart(digits, "0");
+    if (m[1] === "time") {
+      const s = Number(sec);
+      return `${pad2(Math.floor(s / 3600))}:${pad2(Math.floor(s / 60) % 60)}:${pad2(s % 60)}.${frac}`;
+    }
+    try { return new Date(Number(sec) * 1000).toISOString().slice(0, 19).replace("T", " ") + "." + frac; } catch (_) { return String(v); }
+  };
+}
+
 // A cell value as text for the preview table. BigInt, bytes and nested values
 // are rendered; null / undefined stay null so the table can show them as null.
 export function displayValue(v) {

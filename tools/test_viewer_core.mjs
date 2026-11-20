@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   buildInfo, buildSchemaTree, describeColumns, validateFooter, validateFailure,
-  unsupportedCodecs, fmtBytes, leafColumns,
+  unsupportedCodecs, fmtBytes, leafColumns, temporalFormatter,
 } from "../docs/viewer/viewer-core.js";
 import { classifyError } from "../docs/viewer/engine.js";
 
@@ -129,4 +129,15 @@ test("classifyError maps WASM / fetch failures to codes", async () => {
   assert.equal(await code(new Error("u: server ignored Range (HTTP 200)")), "RANGE_UNSUPPORTED");
   assert.equal(await code(new Error("u: server ignored Range (HTTP 404)")), "HTTP");
   assert.equal(await code(new TypeError("Failed to fetch")), "NETWORK");
+});
+
+test("parquet temporal values render as UTC text at full precision", () => {
+  assert.equal(temporalFormatter("timestamp[us]")(-386310720000000n), "1957-10-04 19:28:00.000000");
+  assert.equal(temporalFormatter("timestamp[ns,UTC]")(1700000000123456789n), "2023-11-14 22:13:20.123456789");
+  assert.equal(temporalFormatter("timestamp[ms]")(-1n), "1969-12-31 23:59:59.999", "pre-1970 floors, fraction stays positive");
+  assert.equal(temporalFormatter("time[ms]")(45296789), "12:34:56.789");
+  assert.equal(temporalFormatter("time[us]")(45296000001n), "12:34:56.000001");
+  assert.equal(temporalFormatter("date32[day]")(19675), "2023-11-14");
+  assert.equal(temporalFormatter("int64"), null);
+  assert.equal(temporalFormatter(undefined), null);
 });

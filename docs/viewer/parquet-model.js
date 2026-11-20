@@ -2,7 +2,7 @@
 // UI renders, using the pure functions in viewer-core.js.
 import {
   fmtBytes, fmtInt, buildInfo, rowGroupTable, buildSchemaTree, describeColumns,
-  validateFooter, unsupportedCodecs,
+  validateFooter, unsupportedCodecs, temporalFormatter,
 } from "./viewer-core.js";
 
 export async function openParquet(source, engine) {
@@ -26,7 +26,13 @@ export async function openParquet(source, engine) {
       unitLabel: "Row group",
       count: () => groups.length,
       label: (i) => `Row group ${i} · ${fmtInt(groups[i].num_rows)} rows`,
-      read: (i, limit) => engine.readRowGroup(source, footer, i, { limit }),
+      // The engine returns stored ints for dates, times and timestamps; render them by the column's type.
+      read: async (i, limit) => {
+        const res = await engine.readRowGroup(source, footer, i, { limit });
+        const types = new Map(groups[i].columns.map((c) => [c.name, c.logical_type]));
+        const fmts = res.columns.map((c) => temporalFormatter(types.get(c)));
+        return { ...res, rows: res.rows.map((r) => r.map((v, j) => (v == null || !fmts[j] ? v : fmts[j](v)))) };
+      },
     };
   }
 
