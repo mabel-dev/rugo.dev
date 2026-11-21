@@ -1546,6 +1546,7 @@ path, _ = urllib.request.<span class="f">urlretrieve</span>(<span class="s">"htt
                         Python API
                     </button>
                     <button class="tab" onclick="showTab('cli')">CLI</button>
+                    <button class="tab" onclick="showTab('javascript')">JavaScript</button>
                 </div>
 
                 <!-- PYTHON API -->
@@ -1628,6 +1629,51 @@ data = avro.<span class="f">write_avro</span>(morsel, codec=<span class="s">"def
 
                     <pre style="margin-top: 1rem"><span class="c"># Every verb takes --json, so it composes with jq and shell pipelines</span>
 <span class="f">rugo</span> count --json events.parquet | jq .num_rows</pre>
+                </div>
+
+                <!-- JAVASCRIPT -->
+                <div id="tab-javascript" class="tab-pane">
+                    <p style="margin-bottom: 1rem">
+                        The Parquet, ORC and Avro readers are also on npm,
+                        compiled to WebAssembly from the same C++, for the
+                        browser and Node. Parquet is read by byte range, from a
+                        local file or over HTTP, so only the footer and the
+                        columns you ask for are fetched. It is a reader, and it
+                        is in alpha.
+                    </p>
+
+                    <div class="install-block" style="margin-bottom: 1.5rem">
+                        <code>npm install @opteryx/rugo@alpha</code>
+                    </div>
+
+                    <pre><span class="k">import</span> { httpSource, openParquet } <span class="k">from</span> <span class="s">"@opteryx/rugo"</span>;
+
+<span class="c">// Open: one request for the footer. For a local File, use blobSource(file)</span>
+<span class="k">const</span> pq = <span class="k">await</span> <span class="f">openParquet</span>(<span class="k">await</span> <span class="f">httpSource</span>(<span class="s">"https://rugo.dev/data/space_missions.parquet"</span>));
+console.<span class="f">log</span>(pq.footer.num_rows, pq.footer.schema.<span class="f">map</span>((c) =&gt; c.name));
+
+<span class="c">// Read: only the column chunks you name, one row group at a time</span>
+<span class="k">const</span> { num_rows, columns } = <span class="k">await</span> pq.<span class="f">readRowGroup</span>(<span class="n">0</span>, [<span class="s">"Company"</span>, <span class="s">"Price"</span>]);
+console.<span class="f">log</span>(columns.Company[<span class="n">0</span>], columns.Price[<span class="n">0</span>]);   <span class="c">// plain arrays, null for nulls</span>
+
+pq.<span class="f">close</span>();</pre>
+
+                    <pre style="margin-top: 1rem"><span class="k">import</span> { blobSource, openAvro, openOrc } <span class="k">from</span> <span class="s">"@opteryx/rugo"</span>;
+
+<span class="c">// Same shape: open, read a unit, close</span>
+<span class="k">const</span> avro = <span class="k">await</span> <span class="f">openAvro</span>(<span class="f">blobSource</span>(file));
+<span class="k">const</span> batch = <span class="k">await</span> avro.<span class="f">readBatch</span>(<span class="n">0</span>, [<span class="s">"Mission"</span>, <span class="s">"Rocket.Name"</span>]);   <span class="c">// dotted paths reach into records</span>
+avro.<span class="f">close</span>();
+
+<span class="k">const</span> orc = <span class="k">await</span> <span class="f">openOrc</span>(<span class="f">blobSource</span>(file));
+<span class="k">const</span> stripe = <span class="k">await</span> orc.<span class="f">readStripe</span>(<span class="n">0</span>);                              <span class="c">// omit the list for all columns</span>
+orc.<span class="f">close</span>();</pre>
+
+                    <p style="margin-top: 1rem">
+                        <a href="javascript/" style="font-weight: 600">Run these in your browser →</a>
+                        The JavaScript page has live examples that read a file
+                        from this site, or one from your disk.
+                    </p>
                 </div>
 
                 <p style="margin-top: 1.5rem">
@@ -2122,6 +2168,18 @@ values = vec.<span class="f">to_pylist</span>()  <span class="c"># ["Mercury", "
                             arm64. Python 3.11+.
                         </p>
                     </a>
+                    <div class="feature-card">
+                        <div class="feature-icon">🌐</div>
+                        <h3>JavaScript</h3>
+                        <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 0.75rem">
+                            The Parquet, ORC and Avro readers as WebAssembly,
+                            for the browser and Node 24+. Alpha.
+                        </p>
+                        <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
+                            <a href="javascript/" style="font-size:0.85rem;font-weight:600">Live examples →</a>
+                            <a href="https://www.npmjs.com/package/@opteryx/rugo" style="font-size:0.85rem;color:var(--muted)">npm</a>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
