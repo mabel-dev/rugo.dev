@@ -12,7 +12,7 @@ published: 2026-11-18
 # updated: 2026-12-01         # optional
 # reading_time: 4             # optional; minutes. Worked out from word count when omitted.
 verified_with: 0.5.12         # the rugo release you ran tools/verify_guides.py against
-viewer: false                 # true adds a browser-viewer link once VIEWER_URL is set (RUGO-2)
+viewer: false                 # true adds a link to the browser viewer (rugo.dev/viewer/) under "Try it"
 # description: ...            # optional; defaults to `summary`. Used for <meta name="description">.
 # draft: true                 # optional; keeps the guide out of the build
 

@@ -30,6 +30,7 @@
       .how div { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 1rem 1.1rem; }
       .how h2 { font-size: 1rem; margin: 0 0 .3rem; }
       .how p { margin: 0; color: var(--muted); font-size: .95rem; }
+      .also { margin: 2rem 0 0; color: var(--muted); font-size: .95rem; }
       noscript { display: block; border: 1px solid var(--border); padding: 1rem; border-radius: 8px; }
       @media (max-width: 640px) { .nav-links a:nth-child(n + 3) { display: none; } }
     </style>
@@ -62,6 +63,12 @@
         <div><h2>Avro and ORC, too</h2><p>Formats that usually mean installing a tool to inspect. See an Avro schema and records, or an ORC file's stripes and column min/max, with a drop. Parquet runs on rugo's own code compiled to WebAssembly.</p></div>
         <div><h2>Remote files too</h2><p>Paste a URL and the viewer reads it with HTTP range requests, still pulling only the bytes it needs. The server must allow CORS.</p></div>
       </section>
+
+      <p class="also">
+        The same viewer has its own page for each of the other formats:
+        <a href="https://avroviewer.com/">avroviewer.com</a> for Avro and
+        <a href="https://orcviewer.com/">orcviewer.com</a> for ORC.
+      </p>
     </main>
     <script type="module">
       import { mountViewer } from "./viewer.js";

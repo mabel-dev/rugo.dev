@@ -56,6 +56,7 @@
                     <pre><code class="language-bash">curl -LO https://rugo.dev/data/space_missions.parquet
 rugo info space_missions.parquet</code></pre>
                 </section>
+                <p class="viewer-link"><a href="/viewer/">Open a file in the browser viewer →</a></p>
                 <div class="guide-body">
 <p>A Parquet file ends with a <strong>footer</strong>: the schema, the row groups, and for every column the null count and min/max values. Everything you want to know before you read a file is already in there, in the last couple of kilobytes. <code>rugo info</code>, <code>schema</code>, <code>inspect</code> and <code>describe</code> read that footer and nothing else, so you can check a file without paying to read it.</p>
 <p>The examples use 4,630 orbital launches, from Sputnik onwards. Install rugo with <code>pip install rugo</code>, run the box above, and follow along.</p>
