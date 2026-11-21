@@ -1,0 +1,471 @@
+<!doctype html>
+<!-- After editing a code block: python3 tools/highlight_code.py docs/javascript/index.html
+     (it skips blocks that already contain spans, so strip a block's spans before re-running). -->
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Rugo in JavaScript: read Parquet, ORC and Avro in the browser and Node</title>
+        <meta name="description" content="Runnable examples for @opteryx/rugo: read a Parquet footer, decode chosen columns, open a file from your disk and read Avro, in the browser or Node. The examples run on this page." />
+        <link rel="canonical" href="https://rugo.dev/javascript/" />
+        <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
+        <meta property="og:site_name" content="Rugo" />
+        <meta property="og:type" content="article" />
+        <meta property="og:title" content="Rugo in JavaScript" />
+        <meta property="og:description" content="Runnable examples for @opteryx/rugo: read Parquet, ORC and Avro in the browser and Node." />
+        <meta property="og:url" content="https://rugo.dev/javascript/" />
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content="Rugo in JavaScript" />
+        <meta name="twitter:description" content="Runnable examples for @opteryx/rugo: read Parquet, ORC and Avro in the browser and Node." />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="stylesheet" href="/blog.css" />
+        <link rel="stylesheet" href="/guides.css" />
+        <style>
+            .example {
+                margin-bottom: 2rem;
+            }
+            .example pre {
+                margin-bottom: 0;
+            }
+            .example .run-bar {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 0.75rem;
+                padding: 0.6rem 0.75rem;
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-top: none;
+            }
+            .run-btn {
+                font: inherit;
+                font-size: 0.85rem;
+                font-weight: 600;
+                color: #fff;
+                background: var(--accent);
+                border: none;
+                border-radius: 6px;
+                padding: 0.35rem 0.9rem;
+                cursor: pointer;
+            }
+            .run-btn:hover {
+                filter: brightness(1.1);
+            }
+            .run-btn:disabled {
+                opacity: 0.45;
+                cursor: default;
+                filter: none;
+            }
+            .run-bar .status {
+                font-size: 0.8rem;
+                color: var(--muted);
+            }
+            .run-bar input[type="file"] {
+                font: inherit;
+                font-size: 0.85rem;
+                color: var(--muted);
+                max-width: 100%;
+            }
+            .example pre.output {
+                margin-top: 0;
+                margin-bottom: 0;
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
+            .example pre.output.failed {
+                color: var(--red);
+            }
+            .install {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.75rem;
+                margin-bottom: 1.25rem;
+            }
+            .install code {
+                font-size: 0.95rem;
+                padding: 0.5rem 0.9rem;
+            }
+        </style>
+    </head>
+    <body>
+        <nav>
+            <a class="nav-logo" href="/index.html">ru<span>go</span></a>
+            <div class="nav-links">
+                <a href="/index.html">Home</a>
+                <a href="/javascript/" aria-current="page">JavaScript</a>
+                <a href="/guides/">Guides</a>
+                <a href="/blog/index.html">Blog</a>
+                <a href="https://github.com/mabel-dev/opteryx-core/tree/main/rugo"
+                    >Docs</a
+                >
+            </div>
+        </nav>
+
+        <article class="guide">
+            <div class="container">
+                <header class="post-header">
+                    <h1>Rugo in JavaScript</h1>
+                    <p class="post-meta">
+                        <span class="tag">Parquet</span>
+                        <span class="tag">ORC</span>
+                        <span class="tag">Avro</span>
+                        <span class="sep">·</span> Browser and Node
+                        <span class="sep">·</span> Updated <time datetime="2026-11-21">21 November 2026</time>
+                    </p>
+                    <p class="post-notice">
+                        <strong>Alpha.</strong> <code>@opteryx/rugo</code> is published under npm's
+                        <code>alpha</code> tag. The API and the value mapping may change between
+                        releases, so pin the version you test with.
+                    </p>
+                </header>
+
+                <div class="guide-body">
+                    <p class="lede">
+                        Rugo's Parquet, ORC and Avro readers, compiled to WebAssembly from the same
+                        C++ as the Python package. <strong>The examples on this page run in your
+                        browser</strong>: press Run and watch them read a file from this site by
+                        byte range.
+                    </p>
+
+                    <div class="install">
+                        <code>npm install @opteryx/rugo@alpha</code>
+                    </div>
+
+                    <p>
+                        About 370 KB gzipped, no dependencies, ES modules only. It runs in current
+                        browsers and in Node 24 or later, on a single thread, so it needs no special
+                        server headers.
+                    </p>
+
+                    <h2 id="footer">Read a Parquet footer</h2>
+                    <p>
+                        A Parquet file keeps its schema and row-group metadata at the end.
+                        <code>readFooter</code> fetches that and nothing else: usually one request
+                        for the last 64 KB, however big the file is.
+                    </p>
+                    <div class="example" data-example>
+                        <pre><code class="language-js"><span class="k">import</span> { httpSource, readFooter } <span class="k">from</span> <span class="s">"@opteryx/rugo"</span>;
+
+<span class="k">const</span> src = <span class="k">await</span> <span class="f">httpSource</span>(<span class="s">"https://rugo.dev/data/space_missions.parquet"</span>);
+<span class="k">const</span> footer = <span class="k">await</span> <span class="f">readFooter</span>(src);
+
+console.<span class="f">log</span>(<span class="s">`</span><span class="s">${</span>footer.num_rows<span class="s">}</span><span class="s"> rows in </span><span class="s">${</span>footer.num_row_groups<span class="s">}</span><span class="s"> row group</span><span class="s">`</span>);
+<span class="k">for</span> (<span class="k">const</span> c <span class="k">of</span> footer.schema) {
+  console.<span class="f">log</span>(<span class="s">`</span>  <span class="s">${</span>c.name<span class="s">}</span><span class="s">: </span><span class="s">${</span>c.logical_type || c.physical_type<span class="s">}</span><span class="s">`</span>);
+}
+
+<span class="k">const</span> bytes = src.reads.<span class="f">reduce</span>((n, [, length]) =&gt; n + length, <span class="n">0</span>);
+console.<span class="f">log</span>(<span class="s">`</span><span class="s">${</span>src.reads.length<span class="s">}</span><span class="s"> request, </span><span class="s">${</span>bytes<span class="s">}</span><span class="s"> of </span><span class="s">${</span>src.size<span class="s">}</span><span class="s"> bytes</span><span class="s">`</span>);</code></pre>
+                        <div class="run-bar"><button class="run-btn" type="button">Run</button><span class="status" aria-live="polite"></span></div>
+                        <pre class="output">4630 rows in 1 row group
+  Company: varchar
+  Location: varchar
+  Price: float64
+  Lauched_at: timestamp[us]
+  Rocket: varchar
+  Rocket_Status: varchar
+  Mission: varchar
+  Mission_Status: varchar
+1 request, 65536 of 93169 bytes</pre>
+                    </div>
+                    <p>
+                        <code>footer.row_groups</code> has the per-column detail: codec, encodings,
+                        compressed and uncompressed sizes, null counts, and whether each chunk has
+                        statistics, a bloom filter or a page index.
+                    </p>
+
+                    <h2 id="columns">Read only the columns you need</h2>
+                    <p>
+                        <code>openParquet</code> keeps the file open so you can decode values.
+                        <code>readRowGroup</code> takes a row group and a list of columns and makes
+                        one request per column chunk. Each column comes back as a plain array, with
+                        <code>null</code> for nulls. This counts successful launches by company
+                        from two of the file's eight columns.
+                    </p>
+                    <div class="example" data-example>
+                        <pre><code class="language-js"><span class="k">import</span> { httpSource, openParquet } <span class="k">from</span> <span class="s">"@opteryx/rugo"</span>;
+
+<span class="k">const</span> src = <span class="k">await</span> <span class="f">httpSource</span>(<span class="s">"https://rugo.dev/data/space_missions.parquet"</span>);
+<span class="k">const</span> pq = <span class="k">await</span> <span class="f">openParquet</span>(src);
+<span class="k">try</span> {
+  <span class="k">const</span> { num_rows, columns } = <span class="k">await</span> pq.<span class="f">readRowGroup</span>(<span class="n">0</span>, [<span class="s">"Company"</span>, <span class="s">"Mission_Status"</span>]);
+
+  <span class="k">const</span> launches = new <span class="f">Map</span>();
+  <span class="k">for</span> (<span class="k">let</span> i = <span class="n">0</span>; i &lt; num_rows; i++) {
+    <span class="k">if</span> (columns.Mission_Status[i] !== <span class="s">"Success"</span>) <span class="k">continue</span>;
+    launches.<span class="f">set</span>(columns.Company[i], (launches.<span class="f">get</span>(columns.Company[i]) ?? <span class="n">0</span>) + <span class="n">1</span>);
+  }
+
+  <span class="k">const</span> top = [...launches].<span class="f">sort</span>((a, b) =&gt; b[<span class="n">1</span>] - a[<span class="n">1</span>]).<span class="f">slice</span>(<span class="n">0</span>, <span class="n">5</span>);
+  <span class="k">for</span> (<span class="k">const</span> [company, n] <span class="k">of</span> top) console.<span class="f">log</span>(<span class="s">`</span><span class="s">${</span><span class="f">String</span>(n).<span class="f">padStart</span>(<span class="n">5</span>)<span class="s">}</span>  <span class="s">${</span>company<span class="s">}</span><span class="s">`</span>);
+  console.<span class="f">log</span>(<span class="s">`</span><span class="s">${</span>src.reads.length<span class="s">}</span><span class="s"> requests</span><span class="s">`</span>);
+} <span class="k">finally</span> {
+  pq.<span class="f">close</span>();   <span class="c">// frees the file's state in the WebAssembly heap</span>
+}</code></pre>
+                        <div class="run-bar"><button class="run-btn" type="button">Run</button><span class="status" aria-live="polite"></span></div>
+                        <pre class="output"> 1614  RVSN USSR
+  318  CASC
+  282  Arianespace
+  203  General Dynamics
+  202  VKS RF
+3 requests</pre>
+                    </div>
+                    <p>
+                        For a file with many row groups, loop over
+                        <code>pq.footer.num_row_groups</code> and read one at a time, so only one
+                        row group's values are in memory at once. There is no predicate argument:
+                        filter in JavaScript, and use the footer to skip row groups you don't need.
+                    </p>
+
+                    <h2 id="your-file-example">Open a file from your disk</h2>
+                    <p>
+                        <code>blobSource</code> takes a <code>File</code> from a file picker or a
+                        drop and reads it with <code>Blob.slice()</code>. The file is read in this
+                        tab. <strong>Nothing is uploaded.</strong> Choose a Parquet file to run it.
+                    </p>
+                    <div class="example" data-example data-needs="#your-file">
+                        <pre><code class="language-js"><span class="k">import</span> { blobSource, openParquet } <span class="k">from</span> <span class="s">"@opteryx/rugo"</span>;
+
+<span class="k">const</span> file = <span class="f">document</span>.<span class="f">querySelector</span>(<span class="s">"#your-file"</span>).files[<span class="n">0</span>];
+<span class="k">const</span> pq = <span class="k">await</span> <span class="f">openParquet</span>(<span class="f">blobSource</span>(file));
+<span class="k">try</span> {
+  <span class="k">const</span> { num_rows, schema, row_groups } = pq.footer;
+  console.<span class="f">log</span>(<span class="s">`</span><span class="s">${</span>file.name<span class="s">}</span><span class="s">: </span><span class="s">${</span>num_rows<span class="s">}</span><span class="s"> rows, </span><span class="s">${</span>schema.length<span class="s">}</span><span class="s"> columns, </span><span class="s">${</span>row_groups.length<span class="s">}</span><span class="s"> row group(s)</span><span class="s">`</span>);
+
+  <span class="c">// The first three columns of the first five rows</span>
+  <span class="k">const</span> names = schema.<span class="f">slice</span>(<span class="n">0</span>, <span class="n">3</span>).<span class="f">map</span>((c) =&gt; c.name);
+  <span class="k">const</span> { columns } = <span class="k">await</span> pq.<span class="f">readRowGroup</span>(<span class="n">0</span>, names);
+  <span class="k">for</span> (<span class="k">let</span> i = <span class="n">0</span>; i &lt; <span class="f">Math</span>.<span class="f">min</span>(<span class="n">5</span>, row_groups[<span class="n">0</span>].num_rows); i++) {
+    console.<span class="f">log</span>(names.<span class="f">map</span>((name) =&gt; <span class="s">`</span><span class="s">${</span>name<span class="s">}</span><span class="s">=</span><span class="s">${</span>columns[name][i]<span class="s">}</span><span class="s">`</span>).<span class="f">join</span>(<span class="s">"  "</span>));
+  }
+} <span class="k">finally</span> {
+  pq.<span class="f">close</span>();
+}</code></pre>
+                        <div class="run-bar"><input type="file" id="your-file" accept=".parquet" aria-label="Choose a Parquet file" /><button class="run-btn" type="button">Run</button><span class="status" aria-live="polite"></span></div>
+                        <pre class="output"></pre>
+                    </div>
+                    <p>
+                        Want the whole picture of a file?
+                        The <a href="/viewer/">viewer</a> shows info, schema and per-column detail for
+                        Parquet, Avro and ORC, the same way.
+                    </p>
+
+                    <h2 id="avro">Read Avro and ORC</h2>
+                    <p>
+                        Avro and ORC have the same shape: open, read a unit, close. Avro is read a
+                        batch at a time (whole blocks, up to 65,536 rows) and ORC a stripe at a
+                        time. Avro column names can be dotted paths into a record.
+                    </p>
+                    <div class="example" data-example>
+                        <pre><code class="language-js"><span class="k">import</span> { httpSource, openAvro } <span class="k">from</span> <span class="s">"@opteryx/rugo"</span>;
+
+<span class="k">const</span> avro = <span class="k">await</span> <span class="f">openAvro</span>(<span class="k">await</span> <span class="f">httpSource</span>(<span class="s">"https://rugo.dev/data/space_missions.avro"</span>));
+<span class="k">try</span> {
+  <span class="k">const</span> { num_rows, codec, batches } = avro.meta;
+  console.<span class="f">log</span>(<span class="s">`</span><span class="s">${</span>num_rows<span class="s">}</span><span class="s"> rows, </span><span class="s">${</span>codec<span class="s">}</span><span class="s">, </span><span class="s">${</span>batches.length<span class="s">}</span><span class="s"> batch</span><span class="s">`</span>);
+
+  <span class="k">const</span> { columns } = <span class="k">await</span> avro.<span class="f">readBatch</span>(<span class="n">0</span>, [<span class="s">"Mission"</span>, <span class="s">"Rocket.Name"</span>, <span class="s">"Rocket.Status"</span>]);
+  <span class="k">for</span> (<span class="k">let</span> i = <span class="n">0</span>; i &lt; <span class="n">3</span>; i++) {
+    console.<span class="f">log</span>(<span class="s">`</span><span class="s">${</span>columns.Mission[i]<span class="s">}</span><span class="s">: </span><span class="s">${</span>columns[<span class="s">"Rocket.Name"</span>][i]<span class="s">}</span><span class="s"> (</span><span class="s">${</span>columns[<span class="s">"Rocket.Status"</span>][i]<span class="s">}</span><span class="s">)</span><span class="s">`</span>);
+  }
+} <span class="k">finally</span> {
+  avro.<span class="f">close</span>();
+}</code></pre>
+                        <div class="run-bar"><button class="run-btn" type="button">Run</button><span class="status" aria-live="polite"></span></div>
+                        <pre class="output">4630 rows, deflate, 1 batch
+Sputnik-1: Sputnik 8K71PS (Retired)
+Sputnik-2: Sputnik 8K71PS (Retired)
+Vanguard TV3: Vanguard (Retired)</pre>
+                    </div>
+                    <p>
+                        ORC is <code>openOrc(source)</code> and <code>readStripe(i, columns)</code>.
+                        <strong>Both of these formats read the whole file into memory</strong> when
+                        you open them, because neither can be read by byte range the way Parquet
+                        can. Files of 4 GB or more are refused, and about 2 GB is the practical
+                        limit.
+                    </p>
+
+                    <h2 id="node">In Node</h2>
+                    <p>
+                        The same module runs in Node 24 or later. <code>fs.openAsBlob</code> gives
+                        you a <code>Blob</code> that reads from disk lazily, so
+                        <code>blobSource</code> still reads only the ranges it needs.
+                    </p>
+                    <pre><code class="language-js"><span class="k">import</span> { openAsBlob } <span class="k">from</span> <span class="s">"node:fs"</span>;
+<span class="k">import</span> { blobSource, openParquet } <span class="k">from</span> <span class="s">"@opteryx/rugo"</span>;
+
+<span class="k">const</span> pq = <span class="k">await</span> <span class="f">openParquet</span>(<span class="f">blobSource</span>(<span class="k">await</span> <span class="f">openAsBlob</span>(<span class="s">"space_missions.parquet"</span>)));
+<span class="k">try</span> {
+  <span class="k">const</span> { columns } = <span class="k">await</span> pq.<span class="f">readRowGroup</span>(<span class="n">0</span>, [<span class="s">"Mission"</span>, <span class="s">"Lauched_at"</span>]);
+
+  <span class="c">// Timestamps are the stored integers, as bigint. The schema says this one is timestamp[us].</span>
+  <span class="k">const</span> micros = columns.Lauched_at[<span class="n">0</span>];
+  console.<span class="f">log</span>(columns.Mission[<span class="n">0</span>], new <span class="f">Date</span>(<span class="f">Number</span>(micros / <span class="n">1000n</span>)).<span class="f">toISOString</span>());
+} <span class="k">finally</span> {
+  pq.<span class="f">close</span>();
+}</code></pre>
+                    <pre class="output">Sputnik-1 1957-10-04T19:28:00.000Z</pre>
+
+                    <h2 id="no-build">Without a build step</h2>
+                    <p>
+                        The package is plain ES modules plus one <code>.wasm</code> file, so a page
+                        can import it straight from a CDN that serves npm packages.
+                    </p>
+                    <pre><code class="language-html">&lt;<span class="f">input</span> type=<span class="s">"file"</span> id=<span class="s">"file"</span> accept=<span class="s">".parquet"</span> /&gt;
+&lt;<span class="f">pre</span> id=<span class="s">"out"</span>&gt;&lt;/<span class="f">pre</span>&gt;
+
+&lt;<span class="f">script</span> type=<span class="s">"module"</span>&gt;
+  <span class="k">import</span> { blobSource, readFooter } <span class="k">from</span> <span class="s">"https://cdn.jsdelivr.net/npm/@opteryx/rugo@0.5.13/rugo_footer.mjs"</span>;
+
+  <span class="f">document</span>.<span class="f">getElementById</span>(<span class="s">"file"</span>).<span class="f">addEventListener</span>(<span class="s">"change"</span>, <span class="k">async</span> (event) =&gt; {
+    <span class="k">const</span> footer = <span class="k">await</span> <span class="f">readFooter</span>(<span class="f">blobSource</span>(event.target.files[<span class="n">0</span>]));
+    <span class="f">document</span>.<span class="f">getElementById</span>(<span class="s">"out"</span>).textContent = footer.schema
+      .<span class="f">map</span>((c) =&gt; <span class="s">`</span><span class="s">${</span>c.name<span class="s">}</span><span class="s">: </span><span class="s">${</span>c.logical_type || c.physical_type<span class="s">}</span><span class="s">`</span>)
+      .<span class="f">join</span>(<span class="s">"\n"</span>);
+  });
+&lt;/<span class="f">script</span>&gt;</code></pre>
+
+                    <h2 id="sources">Bring your own source</h2>
+                    <p>
+                        A source is anything with a <code>size</code> and a
+                        <code>read(offset, length)</code> that resolves to a
+                        <code>Uint8Array</code>. Wrap an object-store SDK, a cache or a file handle
+                        and every reader works with it.
+                    </p>
+                    <pre><code class="language-js"><span class="k">import</span> { open } <span class="k">from</span> <span class="s">"node:fs/promises"</span>;
+<span class="k">import</span> { readFooter } <span class="k">from</span> <span class="s">"@opteryx/rugo"</span>;
+
+<span class="k">const</span> fh = <span class="k">await</span> <span class="f">open</span>(<span class="s">"space_missions.parquet"</span>);
+<span class="k">const</span> source = {
+  size: (<span class="k">await</span> fh.<span class="f">stat</span>()).size,
+  <span class="k">async</span> <span class="f">read</span>(offset, length) {
+    <span class="k">const</span> buf = new <span class="f">Uint8Array</span>(length);
+    <span class="k">await</span> fh.<span class="f">read</span>(buf, <span class="n">0</span>, length, offset);
+    <span class="k">return</span> buf;
+  },
+};
+
+<span class="k">const</span> footer = <span class="k">await</span> <span class="f">readFooter</span>(source);
+<span class="k">await</span> fh.<span class="f">close</span>();</code></pre>
+
+                    <h2 id="values">What the values look like</h2>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr><th>Column type</th><th>JavaScript value</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>8, 16 and 32-bit integers, floats</td><td><code>number</code></td></tr>
+                                <tr><td>dates, 32-bit times</td><td><code>number</code> (the stored integer)</td></tr>
+                                <tr><td>64-bit integers, timestamps, 64-bit times</td><td><code>bigint</code> (the stored integer; the type gives the unit)</td></tr>
+                                <tr><td>boolean</td><td><code>boolean</code></td></tr>
+                                <tr><td>varchar / string, enum</td><td><code>string</code></td></tr>
+                                <tr><td>binary</td><td><code>Uint8Array</code></td></tr>
+                                <tr><td>decimal</td><td><code>string</code>, with the decimal point in place</td></tr>
+                                <tr><td>uuid</td><td>hyphenated hex <code>string</code></td></tr>
+                                <tr><td>interval</td><td><code>{ months: bigint, us: bigint }</code></td></tr>
+                                <tr><td>list / array</td><td>nested arrays, to any depth</td></tr>
+                                <tr><td>ORC struct and map, Avro record and map</td><td>JSON text <code>string</code></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p>A null is always <code>null</code>, at any level.</p>
+
+                    <h2 id="limits">Good to know</h2>
+                    <ul>
+                        <li>
+                            <strong>Remote files need <code>Range</code> support.</strong>
+                            <code>httpSource</code> rejects if the server sends the whole file
+                            instead. From a browser, reading a file on another origin also needs
+                            that server's CORS settings to allow the <code>Range</code> request
+                            header and expose <code>Content-Range</code>. If you can't change the
+                            server, fetch the file as a <code>Blob</code> and use
+                            <code>blobSource</code>.
+                        </li>
+                        <li>
+                            <strong>It's a reader.</strong> Writing files, CSV and JSONL, and
+                            predicate pushdown are in the <a href="/index.html#quickstart">Python package</a>,
+                            not this one.
+                        </li>
+                        <li>
+                            <strong>Everything rejects with an <code>Error</code></strong>: a
+                            malformed or wrong-format file, an unknown column, an out-of-range row
+                            group, a read after <code>close()</code>. Nothing returns a partial
+                            result.
+                        </li>
+                        <li>
+                            <strong>Versions match the Python package.</strong>
+                            <code>@opteryx/rugo@0.5.13</code> is built from the same source as
+                            <code>rugo==0.5.13</code>.
+                        </li>
+                    </ul>
+
+                    <h2 id="more">More</h2>
+                    <ul>
+                        <li><a href="https://docs.opteryx.app/docs/guides/rugo-javascript">Using Rugo from JavaScript</a>: the full guide, in the Opteryx docs</li>
+                        <li><a href="https://www.npmjs.com/package/@opteryx/rugo">@opteryx/rugo on npm</a></li>
+                        <li><a href="/viewer/">The Parquet, Avro and ORC viewer</a>, built on the same reader</li>
+                        <li><a href="https://github.com/mabel-dev/opteryx-core/tree/main/rugo/wasm">Source</a>, in <code>opteryx-core</code></li>
+                    </ul>
+
+                    <p class="verified">Examples checked against @opteryx/rugo 0.5.13.</p>
+                    <p class="back"><a href="/index.html">← Back to rugo.dev</a></p>
+                </div>
+            </div>
+        </article>
+
+        <script type="module">
+            // Runs each example's code as shown. The `import ... from "@opteryx/rugo"` line is
+            // dropped and its names are supplied from this site's own copy of the package;
+            // console.log is redirected into the example's output box.
+            import * as rugo from "../wasm/rugo_footer.mjs";
+
+            const AsyncFunction = (async () => {}).constructor;
+            const show = (v) =>
+                typeof v === "string" ? v : JSON.stringify(v, (_, x) => (typeof x === "bigint" ? `${x}n` : x));
+
+            for (const example of document.querySelectorAll("[data-example]")) {
+                const button = example.querySelector(".run-btn");
+                const status = example.querySelector(".status");
+                const output = example.querySelector("pre.output");
+                const expected = output.textContent;
+                const needs = example.dataset.needs && document.querySelector(example.dataset.needs);
+
+                async function run() {
+                    let code = example.querySelector("code").textContent.replace(/^import .*$/gm, "");
+                    // Off rugo.dev (a local preview), read the sample files from this server.
+                    if (location.hostname !== "rugo.dev") code = code.replaceAll("https://rugo.dev/", `${location.origin}/`);
+
+                    const lines = [];
+                    const log = (...args) => {
+                        lines.push(args.map(show).join(" "));
+                        output.textContent = lines.join("\n");
+                    };
+                    button.disabled = true;
+                    status.textContent = "Running…";
+                    output.classList.remove("failed");
+                    output.textContent = "";
+                    const started = performance.now();
+                    try {
+                        await new AsyncFunction(...Object.keys(rugo), "console", code)(...Object.values(rugo), { log });
+                        status.textContent = `Ran in your browser in ${Math.round(performance.now() - started)} ms`;
+                    } catch (err) {
+                        output.classList.add("failed");
+                        output.textContent = [...lines, String(err && err.message ? err.message : err)].join("\n");
+                        status.textContent = "Failed";
+                    }
+                    button.disabled = Boolean(needs && !needs.files.length);
+                }
+
+                button.addEventListener("click", run);
+                if (needs) {
+                    button.disabled = !needs.files.length;
+                    needs.addEventListener("change", () => (needs.files.length ? run() : (button.disabled = true)));
+                }
+                if (!expected) output.hidden = true;
+                button.addEventListener("click", () => (output.hidden = false), { once: true });
+                if (needs) needs.addEventListener("change", () => (output.hidden = false));
+            }
+        </script>
+    </body>
+</html>
