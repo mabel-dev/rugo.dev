@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "rugo.dev",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8787", "--directory", "docs"],
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tools/serve.mjs", "8787"],
       "port": 8787
     },
     {

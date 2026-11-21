@@ -5,7 +5,7 @@
 Finds `<pre><code ...>` blocks whose language is known and rewrites their contents with
 the token spans blog.css already styles (`pre .c` comment, `.k` keyword, `.s` string,
 `.f` function / command, `.n` number or constant). The language comes from
-`class="language-bash|python|yaml|json"` or, for `data-save="path"` blocks, the file
+`class="language-bash|python|yaml|json|js|html"` or, for `data-save="path"` blocks, the file
 extension. `language-output` blocks and blocks with no language are left alone, and a block
 that already contains spans is skipped, so running it twice changes nothing.
 
@@ -17,11 +17,14 @@ import sys
 from pathlib import Path
 
 from pygments import lex
-from pygments.lexers import BashLexer, JsonLexer, PythonLexer, YamlLexer
+from pygments.lexers import BashLexer, HtmlLexer, JavascriptLexer, JsonLexer, PythonLexer, YamlLexer
 from pygments.token import Comment, Keyword, Name, Number, String, Token
 
-LEXERS = {"bash": BashLexer, "python": PythonLexer, "yaml": YamlLexer, "json": JsonLexer}
-EXT = {".py": "python", ".sh": "bash", ".yml": "yaml", ".yaml": "yaml", ".json": "json"}
+LEXERS = {"bash": BashLexer, "python": PythonLexer, "yaml": YamlLexer, "json": JsonLexer,
+          "js": JavascriptLexer, "html": HtmlLexer}
+EXT = {".py": "python", ".sh": "bash", ".yml": "yaml", ".yaml": "yaml", ".json": "json",
+       ".js": "js", ".mjs": "js", ".html": "html"}
+CALLS = {"python", "js", "html"}  # languages where a name before "(" is coloured as a call
 BLOCK = re.compile(r"<pre><code([^>]*)>(.*?)</code></pre>", re.S)
 SEPARATORS = {"|", "||", "&&", ";", "&", "(", "$(", "{"}
 
@@ -47,7 +50,7 @@ def spans(code, lang):
     out, command_next = [], True
     for i, (ttype, value) in enumerate(tokens):
         cls = css_class(ttype)
-        if lang == "python" and cls is None and ttype in Name and i + 1 < len(tokens) and tokens[i + 1][1] == "(":
+        if lang in CALLS and cls is None and ttype in Name and i + 1 < len(tokens) and tokens[i + 1][1] == "(":
             cls = "f"  # a call, like the hand-highlighted posts do
         if lang == "bash":
             if value.strip() == "":
